@@ -310,7 +310,7 @@ def _render_calendar_impl(
     if select_key not in st.session_state:
         st.session_state[select_key] = date.today().isoformat()
 
-    view_mode = render_view_mode_toggle(select_key)
+    view_mode = render_view_mode_toggle(select_key, force_grid=copy_mode or delete_mode)
     if view_mode == "list":
         athlete_names = get_student_names()
         acwr_athlete = athlete_names[0] if show_acwr and athlete_names else None

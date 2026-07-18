@@ -1,4 +1,4 @@
-"""Compact 7-column month grid for mobile — small cells, dialog on tap."""
+"""Compact 7-column month grid — uniform square cells, dialog on tap."""
 from __future__ import annotations
 
 import calendar
@@ -7,41 +7,84 @@ from typing import Callable
 
 import streamlit as st
 
+# Target cell size (px); width follows 1/7 column — aspect-ratio keeps squares on mobile
+_CELL_MIN = 40
+_CELL_MAX = 56
+
 
 def inject_compact_calendar_css() -> None:
     st.markdown(
-        """
+        f"""
         <style>
-        .ka-compact-cal [data-testid="column"] {
+        /* Scope via marker div (.ka-ccell) inside each Streamlit column block */
+        div[data-testid="stHorizontalBlock"]:has(.ka-ccell-marker) {{
+            gap: 2px !important;
+        }}
+        div[data-testid="stHorizontalBlock"]:has(.ka-ccell-marker)
+        > div[data-testid="column"] {{
             padding-left: 1px !important;
             padding-right: 1px !important;
-        }
-        .ka-compact-cal [data-testid="column"] button {
+            min-width: 0 !important;
+        }}
+        div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stVerticalBlock"] {{
+            gap: 0 !important;
+        }}
+        div[data-testid="column"]:has(.ka-ccell-marker) .ka-ccell-strip {{
+            height: 4px;
+            min-height: 4px;
+            border-radius: 2px 2px 0 0;
+            margin: 0;
+        }}
+        div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stButton"] {{
+            margin-top: 0 !important;
+        }}
+        div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stButton"] button {{
             width: 100% !important;
-            min-height: 2.35rem !important;
-            max-height: 2.5rem !important;
-            padding: 0.1rem 0 !important;
-            font-size: 0.78rem !important;
+            aspect-ratio: 1 / 1 !important;
+            min-height: {_CELL_MIN}px !important;
+            max-height: {_CELL_MAX}px !important;
+            height: auto !important;
+            padding: 2px 1px !important;
+            margin: 0 !important;
+            font-size: 0.72rem !important;
             font-weight: 600 !important;
-            line-height: 1.1 !important;
-        }
-        .ka-compact-cal-hdr [data-testid="column"] p {
+            line-height: 1.05 !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 0 0 4px 4px !important;
+        }}
+        div[data-testid="column"]:has(.ka-ccell-empty) .ka-ccell-empty {{
+            aspect-ratio: 1 / 1;
+            width: 100%;
+            min-height: {_CELL_MIN}px;
+            max-height: {_CELL_MAX}px;
+            background: #f8fafc;
+            border-radius: 4px;
+            border: 1px solid #f1f5f9;
+            box-sizing: border-box;
+        }}
+        div[data-testid="column"]:has(.ka-ccell-hdr) p {{
             text-align: center !important;
             font-size: 0.68rem !important;
             margin: 0 !important;
             color: #64748b !important;
-        }
-        .ka-compact-cal-strip {
-            height: 3px;
-            border-radius: 2px;
-            margin-bottom: 2px;
-        }
-        @media (max-width: 768px) {
-            .ka-compact-cal [data-testid="column"] button {
-                min-height: 2.15rem !important;
-                font-size: 0.72rem !important;
-            }
-        }
+            font-weight: 600 !important;
+        }}
+        @media (max-width: 768px) {{
+            div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stButton"] button {{
+                min-height: 36px !important;
+                max-height: 48px !important;
+                font-size: 0.64rem !important;
+            }}
+            div[data-testid="column"]:has(.ka-ccell-empty) .ka-ccell-empty {{
+                min-height: 36px !important;
+                max-height: 48px !important;
+            }}
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -51,6 +94,14 @@ def inject_compact_calendar_css() -> None:
 def _open_dialog_state(dialog_key: str, select_key: str, ds: str) -> None:
     st.session_state[select_key] = ds
     st.session_state[dialog_key] = ds
+
+
+def _compact_label(raw: str, day: int, *, max_len: int = 8) -> str:
+    """Keep cell label short so every square stays one line."""
+    text = raw if raw else str(day)
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 1] + "…"
 
 
 def render_compact_month_grid(
@@ -64,18 +115,19 @@ def render_compact_month_grid(
     firstweekday: int = 6,
 ) -> None:
     """
-    Render minimal 7-column calendar. Each cell = color strip + day button.
-    day_style(ds, day) -> {bg, border, label, disabled}
-    Sets dialog_key in session_state on pick; caller opens st.dialog on rerun.
+    Render minimal 7-column calendar. Each cell = color strip + day button (fixed square).
+    day_style(ds, day) -> {bg, border, label, disabled, hint (ignored in grid)}
     """
     inject_compact_calendar_css()
-    st.markdown('<div class="ka-compact-cal">', unsafe_allow_html=True)
 
     weekdays = ["日", "一", "二", "三", "四", "五", "六"]
     hdr = st.columns(7)
     for i, w in enumerate(weekdays):
         with hdr[i]:
-            st.markdown(f"<p class='ka-compact-cal-hdr'>{w}</p>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div class='ka-ccell-hdr'><p>{w}</p></div>",
+                unsafe_allow_html=True,
+            )
 
     cal = calendar.Calendar(firstweekday=firstweekday)
     selected = st.session_state.get(select_key, "")
@@ -86,8 +138,7 @@ def render_compact_month_grid(
             with cols[i]:
                 if day == 0:
                     st.markdown(
-                        "<div style='min-height:2.5rem;background:#f8fafc;"
-                        "border-radius:4px;'></div>",
+                        "<div class='ka-ccell-marker ka-ccell-empty'></div>",
                         unsafe_allow_html=True,
                     )
                     continue
@@ -95,23 +146,17 @@ def render_compact_month_grid(
                 style = day_style(ds, day)
                 bg = style.get("bg", "#f8fafc")
                 border = style.get("border", "1px solid #e2e8f0")
-                label = style.get("label", str(day))
+                label = _compact_label(style.get("label", str(day)), day)
                 disabled = bool(style.get("disabled"))
-                hint = style.get("hint", "")
                 is_sel = selected == ds
 
                 st.markdown(
-                    f"<div class='ka-compact-cal-strip' style='background:{bg};"
-                    f"border:{border};'></div>",
+                    "<div class='ka-ccell-marker'>"
+                    f"<div class='ka-ccell-strip' style='background:{bg};"
+                    f"border:{border};border-bottom:none;'></div>"
+                    "</div>",
                     unsafe_allow_html=True,
                 )
-                if hint:
-                    st.markdown(
-                        f"<div style='font-size:0.58rem;text-align:center;color:#475569;"
-                        f"line-height:1.05;margin:-1px 0 1px;overflow:hidden;"
-                        f"white-space:nowrap;text-overflow:ellipsis;'>{hint}</div>",
-                        unsafe_allow_html=True,
-                    )
                 btn_type = "primary" if is_sel else "secondary"
                 st.button(
                     label,
@@ -122,8 +167,6 @@ def render_compact_month_grid(
                     on_click=on_pick if on_pick else _open_dialog_state,
                     args=(ds,) if on_pick else (dialog_key, select_key, ds),
                 )
-
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def open_dialog_if_requested(

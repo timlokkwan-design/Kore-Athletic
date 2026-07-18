@@ -21,16 +21,83 @@ def _toggle_list_pick(pick_key: str, ds: str) -> None:
     st.session_state[pick_key] = sorted(picks_list)
 
 
-def render_view_mode_toggle(key: str) -> str:
-    """Return 'grid' or 'list'."""
-    choice = st.radio(
-        "檢視方式",
-        ["📅 月曆", "📋 列表"],
-        horizontal=True,
-        key=f"{key}_view_mode",
-        label_visibility="collapsed",
+def _set_view_mode(mode_key: str, mode: str) -> None:
+    st.session_state[mode_key] = mode
+
+
+def _normalize_view_mode(mode_key: str) -> str:
+    """Migrate legacy radio labels and default to calendar grid."""
+    raw = st.session_state.get(mode_key)
+    if raw == "grid" or raw == "list":
+        return raw
+    if isinstance(raw, str) and raw.startswith("📋"):
+        st.session_state[mode_key] = "list"
+        return "list"
+    st.session_state[mode_key] = "grid"
+    return "grid"
+
+
+def _inject_view_toggle_css() -> None:
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) [data-testid="stHorizontalBlock"] button {
+            min-height: 2.6rem !important;
+            font-size: 0.92rem !important;
+            font-weight: 700 !important;
+        }
+        @media (max-width: 768px) {
+            div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) {
+                position: sticky;
+                top: 0;
+                z-index: 50;
+                background: var(--background-color, #ffffff);
+                padding-bottom: 0.35rem;
+                margin-bottom: 0.15rem;
+            }
+            div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) [data-testid="stHorizontalBlock"] button {
+                min-height: 2.85rem !important;
+                font-size: 0.95rem !important;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
     )
-    return "list" if choice.startswith("📋") else "grid"
+
+
+def render_view_mode_toggle(key: str, *, force_grid: bool = False) -> str:
+    """Return 'grid' or 'list'. Mobile-friendly pill buttons; default = calendar grid."""
+    mode_key = f"{key}_view_mode"
+    if force_grid:
+        st.session_state[mode_key] = "grid"
+        return "grid"
+
+    current = _normalize_view_mode(mode_key)
+    _inject_view_toggle_css()
+
+    st.caption("檢視方式")
+    st.markdown('<div class="ka-cal-view-marker"></div>', unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    with c1:
+        st.button(
+            "📅 月曆",
+            key=f"{key}_vm_grid",
+            use_container_width=True,
+            type="primary" if current == "grid" else "secondary",
+            on_click=_set_view_mode,
+            args=(mode_key, "grid"),
+        )
+    with c2:
+        st.button(
+            "📋 列表",
+            key=f"{key}_vm_list",
+            use_container_width=True,
+            type="primary" if current == "list" else "secondary",
+            on_click=_set_view_mode,
+            args=(mode_key, "list"),
+        )
+    return _normalize_view_mode(mode_key)
 
 
 def _render_list_day_row(

@@ -304,7 +304,7 @@ def render_schedule_calendar(
     if select_key not in st.session_state:
         st.session_state[select_key] = date.today().isoformat()
 
-    view_mode = render_view_mode_toggle(select_key)
+    view_mode = render_view_mode_toggle(select_key, force_grid=bool(pick_mode))
 
     def _describe(ds: str, prog: dict | None) -> tuple[str, str, str, str]:
         progs = day_map.get(ds, [])
