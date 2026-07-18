@@ -394,6 +394,7 @@ def render_coach_day_editor(selected: date) -> None:
         f"📊 近2週 · {group_display_label(edit_group)} 跑案參考",
         expanded=(day_status == "訓練"),
     ):
+        st.caption("7 格一列 · 點方格放大檢視")
         render_workout_history_compare(
             selected,
             highlight_group=edit_group,

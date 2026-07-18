@@ -3,14 +3,11 @@ from __future__ import annotations
 
 import calendar
 import html
+from dataclasses import dataclass
 from datetime import date
 from typing import Callable
 
 import streamlit as st
-
-# Target cell size (px); width follows 1/7 column — aspect-ratio keeps squares on mobile
-_CELL_MIN = 40
-_CELL_MAX = 56
 
 _TONE_STYLES = {
     "training": ("#dbeafe", "#1e40af", "#93c5fd"),
@@ -21,6 +18,19 @@ _TONE_STYLES = {
     "attended": ("#dcfce7", "#166534", "#86efac"),
     "disabled": ("#f8fafc", "#cbd5e1", "#f1f5f9"),
 }
+
+
+@dataclass(frozen=True)
+class SquareCell:
+    """One square in a 7-column grid."""
+
+    key_id: str
+    label: str
+    tone: str = "empty"
+    sync: str = ""
+    disabled: bool = False
+    selected: bool = False
+    empty: bool = False
 
 
 def inject_compact_calendar_css() -> None:
@@ -39,14 +49,24 @@ def inject_compact_calendar_css() -> None:
     st.markdown(
         f"""
         <style>
+        .ka-cal-7grid {{
+            width: 100%;
+            max-width: 100%;
+            overflow: hidden;
+        }}
         div[data-testid="stHorizontalBlock"]:has(.ka-ccell-marker) {{
             gap: 2px !important;
+            flex-wrap: nowrap !important;
+            width: 100% !important;
+            max-width: 100% !important;
         }}
         div[data-testid="stHorizontalBlock"]:has(.ka-ccell-marker)
         > div[data-testid="column"] {{
             padding-left: 1px !important;
             padding-right: 1px !important;
             min-width: 0 !important;
+            flex: 1 1 0 !important;
+            max-width: 14.2857% !important;
         }}
         div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stVerticalBlock"] {{
             gap: 0 !important;
@@ -57,9 +77,9 @@ def inject_compact_calendar_css() -> None:
         div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stButton"] button {{
             width: 100% !important;
             aspect-ratio: 1 / 1 !important;
-            min-height: {_CELL_MIN}px !important;
-            max-height: {_CELL_MAX}px !important;
             height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
             padding: 2px 1px !important;
             margin: 0 !important;
             font-size: 0.72rem !important;
@@ -92,8 +112,6 @@ def inject_compact_calendar_css() -> None:
         div[data-testid="column"]:has(.ka-ccell-empty) .ka-ccell-empty {{
             aspect-ratio: 1 / 1;
             width: 100%;
-            min-height: {_CELL_MIN}px;
-            max-height: {_CELL_MAX}px;
             background: #f8fafc;
             border-radius: 4px;
             border: 1px solid #f1f5f9;
@@ -107,14 +125,25 @@ def inject_compact_calendar_css() -> None:
             font-weight: 600 !important;
         }}
         @media (max-width: 768px) {{
-            div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stButton"] button {{
-                min-height: 36px !important;
-                max-height: 48px !important;
-                font-size: 0.64rem !important;
+            section.main .block-container {{
+                padding-left: 0.5rem !important;
+                padding-right: 0.5rem !important;
             }}
-            div[data-testid="column"]:has(.ka-ccell-empty) .ka-ccell-empty {{
-                min-height: 36px !important;
-                max-height: 48px !important;
+            div[data-testid="stHorizontalBlock"]:has(.ka-ccell-marker) {{
+                gap: 1px !important;
+            }}
+            div[data-testid="stHorizontalBlock"]:has(.ka-ccell-marker)
+            > div[data-testid="column"] {{
+                flex: 0 0 14.2857% !important;
+                width: 14.2857% !important;
+                max-width: 14.2857% !important;
+            }}
+            div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stButton"] button {{
+                font-size: clamp(0.52rem, 2.65vw, 0.68rem) !important;
+                padding: 1px !important;
+            }}
+            div[data-testid="column"]:has(.ka-ccell-hdr) p {{
+                font-size: clamp(0.5rem, 2.4vw, 0.65rem) !important;
             }}
         }}
         </style>
@@ -129,11 +158,63 @@ def _open_dialog_state(dialog_key: str, select_key: str, ds: str) -> None:
 
 
 def _compact_label(raw: str, day: int, *, max_len: int = 8) -> str:
-    """Keep cell label short so every square stays one line."""
     text = raw if raw else str(day)
     if len(text) <= max_len:
         return text
     return text[: max_len - 1] + "…"
+
+
+def _render_square_cell(
+    *,
+    cell: SquareCell,
+    button_key: str,
+    on_click: Callable | None = None,
+    click_args: tuple = (),
+) -> None:
+    if cell.empty:
+        st.markdown("<div class='ka-ccell-marker ka-ccell-empty'></div>", unsafe_allow_html=True)
+        return
+    st.markdown(
+        f'<div class="ka-ccell-marker" data-tone="{html.escape(cell.tone)}" '
+        f'data-selected="{"1" if cell.selected else "0"}" '
+        f'data-sync="{html.escape(cell.sync)}"></div>',
+        unsafe_allow_html=True,
+    )
+    st.button(
+        cell.label,
+        key=button_key,
+        use_container_width=True,
+        disabled=cell.disabled,
+        type="secondary",
+        on_click=on_click,
+        args=click_args,
+    )
+
+
+def render_seven_column_row(
+    cells: list[SquareCell],
+    *,
+    key_prefix: str,
+    row_idx: int,
+    on_click: Callable | None = None,
+    click_args_fn: Callable[[SquareCell], tuple] | None = None,
+) -> None:
+    """Render exactly 7 square cells in one row (pad with empty cells if needed)."""
+    padded = list(cells[:7])
+    while len(padded) < 7:
+        padded.append(
+            SquareCell(key_id=f"empty_{len(padded)}", label="", empty=True)
+        )
+    cols = st.columns(7)
+    for i, (col, cell) in enumerate(zip(cols, padded)):
+        with col:
+            args = click_args_fn(cell) if on_click and click_args_fn and not cell.empty else ()
+            _render_square_cell(
+                cell=cell,
+                button_key=f"{key_prefix}_r{row_idx}_c{i}_{cell.key_id}",
+                on_click=on_click if not cell.empty and not cell.disabled else None,
+                click_args=args,
+            )
 
 
 def render_compact_month_grid(
@@ -149,9 +230,9 @@ def render_compact_month_grid(
     """
     Render minimal 7-column calendar. Each cell = colored day button (fixed square).
     day_style(ds, day) -> {tone, border, label, disabled, bg (legacy)}
-    tone: training | competition | rest | empty | picked | attended | disabled
     """
     inject_compact_calendar_css()
+    st.markdown('<div class="ka-cal-7grid">', unsafe_allow_html=True)
 
     weekdays = ["日", "一", "二", "三", "四", "五", "六"]
     hdr = st.columns(7)
@@ -165,42 +246,41 @@ def render_compact_month_grid(
     cal = calendar.Calendar(firstweekday=firstweekday)
     selected = st.session_state.get(select_key, "")
 
-    for week in cal.monthdayscalendar(year, month):
-        cols = st.columns(7)
-        for i, day in enumerate(week):
-            with cols[i]:
-                if day == 0:
-                    st.markdown(
-                        "<div class='ka-ccell-marker ka-ccell-empty'></div>",
-                        unsafe_allow_html=True,
-                    )
-                    continue
-                ds = f"{year}-{month:02d}-{day:02d}"
-                style = day_style(ds, day)
-                tone = style.get("tone", "empty")
-                sync = style.get("sync", "")
-                border = style.get("border", "")
-                label = _compact_label(style.get("label", str(day)), day)
-                disabled = bool(style.get("disabled"))
-                is_sel = selected == ds
-                border_attr = html.escape(border) if border else ""
+    pick_fn = on_pick if on_pick else _open_dialog_state
+    if on_pick:
+        def _args(cell: SquareCell) -> tuple:
+            return (cell.key_id,)
+    else:
+        def _args(cell: SquareCell) -> tuple:
+            return (dialog_key, select_key, cell.key_id)
 
-                st.markdown(
-                    f'<div class="ka-ccell-marker" data-tone="{html.escape(tone)}" '
-                    f'data-selected="{"1" if is_sel else "0"}" '
-                    f'data-sync="{html.escape(sync)}" '
-                    f'data-border="{border_attr}"></div>',
-                    unsafe_allow_html=True,
+    for row_idx, week in enumerate(cal.monthdayscalendar(year, month)):
+        cells: list[SquareCell] = []
+        for day in week:
+            if day == 0:
+                cells.append(SquareCell(key_id=f"e{row_idx}_{len(cells)}", label="", empty=True))
+                continue
+            ds = f"{year}-{month:02d}-{day:02d}"
+            style = day_style(ds, day)
+            cells.append(
+                SquareCell(
+                    key_id=ds,
+                    label=_compact_label(style.get("label", str(day)), day),
+                    tone=style.get("tone", "empty"),
+                    sync=style.get("sync", ""),
+                    disabled=bool(style.get("disabled")),
+                    selected=(selected == ds),
                 )
-                st.button(
-                    label,
-                    key=f"compact_{select_key}_{ds}",
-                    use_container_width=True,
-                    disabled=disabled,
-                    type="secondary",
-                    on_click=on_pick if on_pick else _open_dialog_state,
-                    args=(ds,) if on_pick else (dialog_key, select_key, ds),
-                )
+            )
+        render_seven_column_row(
+            cells,
+            key_prefix=f"cal_{select_key}",
+            row_idx=row_idx,
+            on_click=pick_fn,
+            click_args_fn=_args,
+        )
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def open_dialog_if_requested(
