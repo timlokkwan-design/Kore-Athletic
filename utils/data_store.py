@@ -247,9 +247,31 @@ def save_program(prog: dict) -> None:
     from utils.permissions import enforce_coach_if_logged_in
     enforce_coach_if_logged_in()
     prog = dict(prog)
-    prog["load"] = calc_load(prog.get("type", "間歇跑"), float(prog.get("duration") or 60),
-                             float(prog.get("rpe") or 7), int(prog.get("sets") or 0),
-                             int(prog.get("reps") or 0), int(prog.get("dist") or 0))
+    train_type = prog.get("type", "間歇跑")
+    rpe = float(prog.get("rpe") or 7)
+    sets = int(prog.get("sets") or 0)
+    reps = int(prog.get("reps") or 0)
+    dist = int(prog.get("dist") or 0)
+    duration = float(prog.get("duration") or 0)
+    if sets > 0 and reps > 0 and dist > 0:
+        total_meters = 0
+    elif dist > 0 and safe_str(prog.get("rest")):
+        total_meters = dist
+    else:
+        total_meters = 0
+    if duration <= 0 and total_meters > 0:
+        from utils.acwr import estimate_workout_minutes
+        duration = estimate_workout_minutes(total_meters, str(train_type))
+        prog["duration"] = int(round(duration))
+    prog["load"] = calc_load(
+        train_type,
+        duration or 45,
+        rpe,
+        sets,
+        reps,
+        dist if sets > 0 else 0,
+        total_meters=total_meters,
+    )
     programs = load_programs()
     target = normalize_date_str(prog["date"])
     prog["date"] = target

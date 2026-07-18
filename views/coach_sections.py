@@ -5,7 +5,7 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-from utils.acwr import acwr_status, calc_acwr, calc_load, needs_rest
+from utils.acwr import acwr_status, calc_acwr, calc_load, estimate_workout_minutes, needs_rest
 from utils.config import (
     EVENTS,
     GROUP_OPTIONS,
@@ -81,6 +81,7 @@ from utils.helpers import (
     needs_wind,
     short_group_label,
     infer_train_type,
+    parse_workout_volume,
     workout_detail,
     weekly_summary_text,
     whatsapp_program_text,
@@ -381,15 +382,20 @@ def _render_coach_program_editor() -> None:
             key=f"ptips_{sk}_{edit_group}",
         )
         train_type = infer_train_type(workout_text, cur_type)
-        with st.expander("月曆顏色（預設依跑案自動判斷）", expanded=False):
-            cal_types = ["間歇跑", "節奏跑", "恢復跑", "肌力課", "技術課"]
-            train_type = normalize_train_type(
-                st.selectbox(
-                    "訓練類型",
-                    cal_types,
-                    index=_select_index(cal_types, train_type),
-                    key=f"pcaltype_{sk}_{edit_group}",
-                )
+        run_vol = parse_workout_volume(workout_text)
+        total_meters = run_vol["total_meters"]
+        total_reps = run_vol["total_reps"]
+        est_minutes = estimate_workout_minutes(total_meters, train_type)
+        if total_meters > 0:
+            st.info(
+                f"📊 依跑案自動判斷：**{train_type}** · "
+                f"總跑量 **{total_meters:,} m** · 總趟數 **{total_reps}** 趟 · "
+                f"估算 **{est_minutes:.0f}** 分鐘"
+            )
+        else:
+            st.caption(
+                f"📊 依跑案自動判斷：**{train_type}** · "
+                f"總跑量待計算（請用 **6×200m**、**800m** 等格式填寫）"
             )
         first_line = workout_text.split("\n")[0].strip() if workout_text else ""
         title = first_line[:60] if first_line else train_type
@@ -397,27 +403,40 @@ def _render_coach_program_editor() -> None:
     group = edit_group
     rest = workout_text
     duration = 0
+    run_vol = parse_workout_volume(workout_text) if day_status == "訓練" else {"total_meters": 0, "total_reps": 0}
+    total_meters = run_vol["total_meters"]
+    total_reps = run_vol["total_reps"]
 
-    load = calc_load(train_type, 45, rpe, 0, 0, 0)
+    load = calc_load(
+        train_type,
+        0,
+        rpe,
+        total_meters=total_meters,
+    )
     if train_type not in ("比賽", "休息"):
         athletes = get_student_names()
         acwr_v, _ = acwr_status(
             calc_acwr(get_all_logs(), athletes[0] if athletes else "", selected)
         )
-        st.markdown(f"**加權負荷：{load}** · **ACWR 預警：{acwr_v}**")
+        vol_note = f"{total_meters:,} m" if total_meters else "—"
+        st.markdown(
+            f"**加權負荷：{load}**（總跑量 {vol_note} · RPE {rpe} · {train_type}）· "
+            f"**ACWR 預警：{acwr_v}**"
+        )
 
     b1, b2, b3, b4 = st.columns(4)
     if b1.button("💾 儲存課表", type="primary", use_container_width=True, key=f"psave_{sk}_{edit_group}"):
+        save_vol = parse_workout_volume(rest) if day_status == "訓練" else {"total_meters": 0, "total_reps": 0}
         save_program({
             "date": sk,
             "type": train_type,
             "title": title,
             "group": group,
             "sets": 0,
-            "reps": 0,
-            "dist": 0,
+            "reps": save_vol["total_reps"],
+            "dist": save_vol["total_meters"],
             "rest": rest,
-            "duration": 0,
+            "duration": int(round(estimate_workout_minutes(save_vol["total_meters"], train_type))),
             "rpe": rpe,
             "tips": tips,
             "phase": "",
@@ -435,15 +454,16 @@ def _render_coach_program_editor() -> None:
         st.success(f"已儲存 {short_group_label(group)} 課表")
         st.rerun()
     if b2.button("📁 存範本", use_container_width=True, key=f"ptpl_{sk}_{edit_group}"):
+        tpl_vol = parse_workout_volume(rest) if day_status == "訓練" else {"total_meters": 0, "total_reps": 0}
         save_as_template({
             "type": train_type,
             "title": title,
             "group": group,
             "sets": 0,
-            "reps": 0,
-            "dist": 0,
+            "reps": tpl_vol["total_reps"],
+            "dist": tpl_vol["total_meters"],
             "rest": rest,
-            "duration": 0,
+            "duration": int(round(estimate_workout_minutes(tpl_vol["total_meters"], train_type))),
             "rpe": rpe,
             "tips": tips,
             "phase": "",

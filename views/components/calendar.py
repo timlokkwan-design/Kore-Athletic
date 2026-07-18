@@ -1,6 +1,5 @@
 """V6-style month calendar grid."""
 
-import calendar
 from datetime import date
 
 import streamlit as st
@@ -15,7 +14,16 @@ from utils.data_store import (
     get_student_names,
     row_to_program,
 )
-from utils.helpers import normalize_date_str, program_calendar_summary, safe_str, short_group_label
+from utils.helpers import (
+    format_timetable_date,
+    normalize_date_str,
+    program_calendar_summary,
+    resolve_venue,
+    safe_str,
+    short_group_label,
+    workout_detail,
+)
+from views.components.calendar_compact import open_dialog_if_requested, render_compact_month_grid
 from views.components.calendar_list import render_month_day_list, render_view_mode_toggle
 
 
@@ -56,10 +64,6 @@ def _toggle_delete_target(ds: str) -> None:
     st.session_state.delete_target_dates = sorted(targets)
 
 
-def _select_calendar_date(select_key: str, ds: str) -> None:
-    st.session_state[select_key] = ds
-
-
 def _calendar_prev_month(select_key: str, copy_mode: bool, delete_mode: bool) -> None:
     if st.session_state.cal_month == 1:
         st.session_state.cal_month, st.session_state.cal_year = 12, st.session_state.cal_year - 1
@@ -78,123 +82,140 @@ def _calendar_next_month(select_key: str, copy_mode: bool, delete_mode: bool) ->
         _sync_selection_to_month(select_key, st.session_state.cal_year, st.session_state.cal_month)
 
 
-def _render_calendar_grid(
-    select_key: str,
-    year: int,
-    month: int,
+def _programs_on_day(prog_map: dict[str, dict], ds: str) -> list[dict]:
+    prog = ensure_program_dict(prog_map.get(ds))
+    if not prog:
+        return []
+    multi = prog.get("_programs")
+    if isinstance(multi, list) and multi:
+        return [ensure_program_dict(p) for p in multi]
+    return [prog]
+
+
+def _render_coach_program_dialog(ds: str, prog_map: dict[str, dict]) -> None:
+    st.markdown(f"### {format_timetable_date(ds)}")
+    progs = _programs_on_day(prog_map, ds)
+    if not progs:
+        st.info("此日無課表（休息）")
+        return
+    for p in progs:
+        tp = safe_str(p.get("type"))
+        st.markdown(f"**{short_group_label(p.get('group'))}** · {tp}")
+        detail = workout_detail(p)
+        if detail:
+            st.markdown(detail)
+        start, end = safe_str(p.get("start_time")), safe_str(p.get("end_time"))
+        time_text = f"{start} – {end}" if start and end else (start or end or "時間待設定")
+        st.caption(f"🕐 {time_text} · 📍 {resolve_venue(p)}")
+        tips = safe_str(p.get("tips"))
+        if tips:
+            st.caption(f"備註：{tips}")
+        st.markdown("---")
+
+
+def _coach_compact_day_style(
+    ds: str,
+    day: int,
+    *,
     prog_map: dict[str, dict],
-    show_acwr: bool,
+    select_key: str,
     copy_mode: bool,
     delete_mode: bool,
     copy_source: str,
     copy_targets: set,
     delete_targets: set,
-) -> date:
-    weekdays = ["日", "一", "二", "三", "四", "五", "六"]
-    hdr = st.columns(7)
-    for i, w in enumerate(weekdays):
-        hdr[i].markdown(f"**{w}**")
+) -> dict:
+    today_str = date.today().isoformat()
+    prog = ensure_program_dict(prog_map.get(ds))
+    tp = safe_str(prog.get("type"))
+    cat = TRAIN_TYPES.get(tp, {}).get("category", "rest")
+    bg = TYPE_CATEGORY_COLORS.get(cat, "#f1f5f9")
+    border = "1px solid #e2e8f0"
+    label = f"●{day}" if ds == today_str else str(day)
+    disabled = False
 
-    cal = calendar.Calendar(firstweekday=6)
-    weeks = cal.monthdayscalendar(year, month)
-    acwr_athlete = None
-    logs = None
-    if show_acwr and not copy_mode and not delete_mode:
-        logs = get_all_logs()
-        athlete_names = get_student_names()
-        acwr_athlete = athlete_names[0] if athlete_names else None
+    if copy_mode and ds == copy_source:
+        border = "3px solid #f59e0b"
+    elif copy_mode and ds in copy_targets:
+        border = "3px solid #16a34a"
+        bg = "#dcfce7"
+        label = f"✓{day}"
+    elif copy_mode and ds != copy_source:
+        label = f"+{day}"
+    elif delete_mode and ds in delete_targets:
+        border = "3px solid #dc2626"
+        bg = "#fee2e2"
+        label = f"✓{day}"
+    elif delete_mode and ds not in prog_map:
+        bg = "#f8fafc"
+        disabled = True
+    elif delete_mode:
+        border = "2px dashed #fca5a5"
+    elif st.session_state.get(select_key) == ds:
+        border = "2px solid #1d4ed8"
 
-    for week in weeks:
-        cols = st.columns(7)
-        for i, day in enumerate(week):
-            if day == 0:
-                cols[i].markdown(
-                    "<div style='min-height:72px;background:#f8fafc;border-radius:4px;'></div>",
-                    unsafe_allow_html=True,
-                )
-                continue
-            ds = f"{year}-{month:02d}-{day:02d}"
-            prog = ensure_program_dict(prog_map.get(ds))
-            tp = safe_str(prog.get("type"))
-            cat = TRAIN_TYPES.get(tp, {}).get("category", "rest")
-            bg = TYPE_CATEGORY_COLORS.get(cat, "#f1f5f9")
-            active = (not copy_mode and not delete_mode) and st.session_state[select_key] == ds
-            if copy_mode and ds == copy_source:
-                border = "3px solid #f59e0b"
-                weight = "bold"
-            elif copy_mode and ds in copy_targets:
-                border = "3px solid #16a34a"
-                bg = "#dcfce7"
-                weight = "bold"
-            elif copy_mode:
-                border = "2px dashed #86efac"
-                weight = "normal"
-            elif delete_mode and ds in delete_targets:
-                border = "3px solid #dc2626"
-                bg = "#fee2e2"
-                weight = "bold"
-            elif delete_mode and ds in prog_map:
-                border = "2px dashed #fca5a5"
-                weight = "normal"
-            elif delete_mode:
-                border = "1px solid #f1f5f9"
-                weight = "normal"
-                bg = "#f8fafc"
-            elif active:
-                border = "3px solid #1d4ed8"
-                weight = "bold"
-            else:
-                border = "1px solid #e2e8f0"
-                weight = "normal"
-            title_line, spec_line = program_calendar_summary(prog) if prog else ("", "")
-            acwr_html = ""
-            if show_acwr and acwr_athlete and not copy_mode and not delete_mode:
-                v, _ = acwr_status(calc_acwr(logs, acwr_athlete, date.fromisoformat(ds)))
-                acwr_html = f"<br><small style='color:#64748b;'>ACWR {v}</small>"
-            btn_label = f"{day}"
-            if tp and not copy_mode and not delete_mode:
-                btn_label = f"{day} · {tp[:2]}"
-            if copy_mode and ds != copy_source:
-                cols[i].button(
-                    f"✓ {day}" if ds in copy_targets else f"+ {day}",
-                    key=f"{select_key}_{ds}",
-                    use_container_width=True,
-                    on_click=_toggle_copy_target,
-                    args=(ds, copy_source),
-                )
-            elif delete_mode and ds in prog_map:
-                cols[i].button(
-                    f"✓ {day}" if ds in delete_targets else f"🗑 {day}",
-                    key=f"{select_key}_{ds}",
-                    use_container_width=True,
-                    on_click=_toggle_delete_target,
-                    args=(ds,),
-                )
-            elif delete_mode:
-                cols[i].button(
-                    f"— {day}",
-                    key=f"{select_key}_{ds}",
-                    use_container_width=True,
-                    disabled=True,
-                )
-            else:
-                cols[i].button(
-                    btn_label,
-                    key=f"{select_key}_{ds}",
-                    use_container_width=True,
-                    on_click=_select_calendar_date,
-                    args=(select_key, ds),
-                )
-            spec_html = f"<br><span style='color:#475569;'>{spec_line}</span>" if spec_line else ""
-            cols[i].markdown(
-                f"<div style='background:{bg};border:{border};border-radius:4px;padding:3px 4px;"
-                f"min-height:44px;font-size:10px;line-height:1.25;margin-top:-6px;font-weight:{weight};'>"
-                f"<span style='color:#1e3a8a;font-weight:600;'>{title_line or '—'}</span>"
-                f"{spec_html}{acwr_html}</div>",
-                unsafe_allow_html=True,
-            )
+    return {"bg": bg, "border": border, "label": label, "disabled": disabled}
 
-    return date.fromisoformat(st.session_state[select_key])
+
+def _render_coach_compact_grid(
+    select_key: str,
+    year: int,
+    month: int,
+    prog_map: dict[str, dict],
+    copy_mode: bool,
+    delete_mode: bool,
+    copy_source: str,
+    copy_targets: set,
+    delete_targets: set,
+) -> None:
+    dialog_key = f"{select_key}_dialog"
+
+    def _style(ds: str, day: int) -> dict:
+        return _coach_compact_day_style(
+            ds,
+            day,
+            prog_map=prog_map,
+            select_key=select_key,
+            copy_mode=copy_mode,
+            delete_mode=delete_mode,
+            copy_source=copy_source,
+            copy_targets=copy_targets,
+            delete_targets=delete_targets,
+        )
+
+    if copy_mode:
+        src = copy_source
+
+        def _on_copy_pick(ds: str) -> None:
+            _toggle_copy_target(ds, src)
+
+        on_pick = _on_copy_pick
+    elif delete_mode:
+        valid = set(prog_map.keys())
+
+        def _on_delete_pick(ds: str) -> None:
+            if ds in valid:
+                _toggle_delete_target(ds)
+
+        on_pick = _on_delete_pick
+    else:
+        on_pick = None
+
+    render_compact_month_grid(
+        year=year,
+        month=month,
+        select_key=select_key,
+        dialog_key=dialog_key,
+        day_style=_style,
+        on_pick=on_pick,
+    )
+
+    if not copy_mode and not delete_mode:
+        open_dialog_if_requested(
+            dialog_key,
+            lambda ds: _render_coach_program_dialog(ds, prog_map),
+            title="課表詳情",
+        )
 
 
 def render_calendar(
@@ -240,7 +261,7 @@ def _render_calendar_impl(
     elif delete_mode:
         st.caption("🟥 紅色=已選刪除 · 虛線=有課表可選 · 灰底=無課表 · 可跨月多選")
     else:
-        st.caption("🟥速度 🟦耐力 🟪技術 🟧肌力 🟩比賽 ⬜休息 · 手機請用「列表」檢視")
+        st.caption("🟥速度 🟦耐力 🟪技術 🟧肌力 🟩比賽 ⬜休息 · 點日期方格查看課表")
 
     year, month = st.session_state.cal_year, st.session_state.cal_month
     if not copy_mode and not delete_mode:
@@ -282,10 +303,11 @@ def _render_calendar_impl(
             can_pick=(lambda ds, _p: ds in prog_map) if delete_mode else None,
         )
     else:
-        selected = _render_calendar_grid(
-            select_key, year, month, prog_map, show_acwr,
+        _render_coach_compact_grid(
+            select_key, year, month, prog_map,
             copy_mode, delete_mode, copy_source, copy_targets, delete_targets,
         )
+        selected = date.fromisoformat(st.session_state[select_key])
 
     if copy_mode:
         src_payload = st.session_state.get("copy_source_payload")
@@ -310,5 +332,5 @@ def _render_calendar_impl(
             f"已選 **{len(targets)}** 日：{target_text}"
         )
     else:
-        st.info(f"已選日期：**{st.session_state[select_key]}**")
+        st.caption(f"已選日期：**{st.session_state[select_key]}** · 點方格可彈出課表詳情")
     return selected

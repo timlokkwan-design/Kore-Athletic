@@ -143,6 +143,55 @@ def needs_wind(item: str) -> bool:
     return item in WIND_EVENTS
 
 
+def parse_workout_volume(text: str) -> dict[str, int]:
+    """Parse free-text workout plan → total meters and rep count (e.g. 6×200m + 800m)."""
+    import re
+
+    blob = safe_str(text)
+    total_meters = 0
+    total_reps = 0
+    if not blob:
+        return {"total_meters": 0, "total_reps": 0}
+
+    consumed: list[tuple[int, int]] = []
+    mult_pat = re.compile(r"(\d+)\s*[×xX*]\s*(\d+)\s*(?:m|米)\b", re.I)
+    for match in mult_pat.finditer(blob):
+        reps, dist = int(match.group(1)), int(match.group(2))
+        total_reps += reps
+        total_meters += reps * dist
+        consumed.append(match.span())
+
+    def _inside_consumed(index: int) -> bool:
+        return any(start <= index < end for start, end in consumed)
+
+    single_pat = re.compile(r"\b(\d{2,5})\s*(?:m|米)\b", re.I)
+    for match in single_pat.finditer(blob):
+        if _inside_consumed(match.start(1)):
+            continue
+        dist = int(match.group(1))
+        total_reps += 1
+        total_meters += dist
+
+    return {"total_meters": total_meters, "total_reps": total_reps}
+
+
+def workout_volume_from_program(prog: dict) -> dict[str, int]:
+    """Volume from free-text plan, or legacy sets/reps/dist columns."""
+    detail = workout_detail(prog)
+    vol = parse_workout_volume(detail)
+    if vol["total_meters"] > 0:
+        return vol
+    sets, reps, dist = safe_int(prog.get("sets")), safe_int(prog.get("reps")), safe_int(prog.get("dist"))
+    if sets and reps and dist:
+        total_reps = sets * reps
+        return {"total_meters": total_reps * dist, "total_reps": total_reps}
+    if reps and dist:
+        return {"total_meters": reps * dist, "total_reps": reps}
+    if dist:
+        return {"total_meters": dist, "total_reps": 1}
+    return vol
+
+
 def infer_train_type(text: str, fallback: str = "間歇跑") -> str:
     """Guess calendar category from free-text workout plan."""
     from utils.config import TRAIN_TYPE_OPTIONS, normalize_train_type

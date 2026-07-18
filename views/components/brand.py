@@ -101,9 +101,7 @@ def render_auth_brand() -> None:
         border:1px solid #334155;border-radius:12px;padding:1.25rem;text-align:center;
         color:#f8fafc;margin-bottom:1rem;">
         <h2 style="margin:0.25rem 0;font-weight:800;letter-spacing:0.08em;">{APP_NAME}</h2>
-        <p style="margin:0;font-size:0.9rem;color:#94a3b8;">{APP_SUBTITLE}</p>
-        <p style="margin:0.75rem 0 0;font-size:0.8rem;color:#64748b;">
-        關添樂教練田徑隊 · 內部學員、家長與教練使用</p></div>""",
+        <p style="margin:0;font-size:0.9rem;color:#94a3b8;">{APP_SUBTITLE}</p></div>""",
         unsafe_allow_html=True,
     )
 

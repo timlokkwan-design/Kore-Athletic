@@ -9,11 +9,35 @@ import pandas as pd
 from utils.config import TRAIN_TYPES
 
 
-def calc_load(train_type: str, duration: float, rpe: float, sets: int = 0, reps: int = 0, dist: int = 0) -> int:
-    """Foster load with type weight and optional volume bonus."""
+def calc_load(
+    train_type: str,
+    duration: float,
+    rpe: float,
+    sets: int = 0,
+    reps: int = 0,
+    dist: int = 0,
+    *,
+    total_meters: int = 0,
+) -> int:
+    """Foster load with type weight; volume from total_meters or sets×reps×dist."""
     weight = TRAIN_TYPES.get(train_type, {}).get("weight", 1.0)
-    volume = (sets or 0) * (reps or 0) * (dist or 0)
-    return int(round(duration * rpe * weight + volume * 0.01))
+    volume = total_meters if total_meters > 0 else (sets or 0) * (reps or 0) * (dist or 0)
+    dur = duration if duration > 0 else estimate_workout_minutes(volume, train_type)
+    return int(round(dur * rpe * weight + volume * 0.01))
+
+
+def estimate_workout_minutes(total_meters: int, train_type: str) -> float:
+    """Estimate session minutes from parsed run volume when duration is not set."""
+    if train_type in ("休息", "比賽"):
+        return 0.0
+    if train_type in ("肌力課", "技術課"):
+        return 45.0
+    if total_meters <= 0:
+        return 45.0
+    minutes = total_meters / 90.0 + 15.0
+    if train_type == "恢復跑":
+        minutes *= 1.15
+    return max(25.0, min(120.0, minutes))
 
 
 def _loads_for_day(logs: pd.DataFrame, athlete: str, day: date) -> float:

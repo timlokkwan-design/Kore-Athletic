@@ -25,7 +25,7 @@ def render_view_mode_toggle(key: str) -> str:
     """Return 'grid' or 'list'."""
     choice = st.radio(
         "檢視方式",
-        ["📅 月曆", "📋 列表（手機推薦）"],
+        ["📅 月曆", "📋 列表"],
         horizontal=True,
         key=f"{key}_view_mode",
         label_visibility="collapsed",
