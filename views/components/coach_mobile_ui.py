@@ -6,7 +6,7 @@ import streamlit as st
 
 
 def inject_coach_mobile_css() -> None:
-    """Fix iOS scroll traps and polish coach calendar on small screens."""
+    """Fix iOS scroll traps on coach program screens."""
     st.markdown(
         """
         <style>
@@ -21,46 +21,6 @@ def inject_coach_mobile_css() -> None:
                 min-height: 2.85rem !important;
                 font-weight: 700 !important;
             }
-            div[data-testid="stVerticalBlock"]:has(.ka-cal-legend-marker) .ka-cal-legend {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 6px;
-                margin: 0.25rem 0 0.65rem;
-            }
-            div[data-testid="stVerticalBlock"]:has(.ka-cal-legend-marker) .ka-cal-legend span {
-                font-size: 0.72rem;
-                font-weight: 600;
-                padding: 4px 10px;
-                border-radius: 999px;
-                border: 1px solid transparent;
-            }
-            div[data-testid="stVerticalBlock"]:has(.ka-cal-legend-marker) .ka-leg-training {
-                background: #dbeafe;
-                color: #1e40af;
-                border-color: #93c5fd;
-            }
-            div[data-testid="stVerticalBlock"]:has(.ka-cal-legend-marker) .ka-leg-competition {
-                background: #fee2e2;
-                color: #991b1b;
-                border-color: #fca5a5;
-            }
-            div[data-testid="stVerticalBlock"]:has(.ka-cal-legend-marker) .ka-leg-rest {
-                background: #f1f5f9;
-                color: #64748b;
-                border-color: #e2e8f0;
-            }
-            div[data-testid="stVerticalBlock"]:has(.ka-cal-list-row) [data-testid="stButton"] button {
-                min-height: 3.1rem !important;
-                text-align: left !important;
-                justify-content: flex-start !important;
-                padding: 0.65rem 0.85rem !important;
-                border-radius: 12px !important;
-                font-weight: 600 !important;
-            }
-            div[data-testid="stVerticalBlock"]:has(.ka-cal-list-row) [data-testid="stCaptionContainer"] {
-                margin-top: -0.35rem;
-                padding-left: 0.15rem;
-            }
         }
         </style>
         """,
@@ -73,9 +33,9 @@ def render_calendar_legend() -> None:
         """
         <div class="ka-cal-legend-marker"></div>
         <div class="ka-cal-legend">
-            <span class="ka-leg-training">🔵 訓練色條</span>
-            <span class="ka-leg-competition">🔴 比賽色條</span>
-            <span class="ka-leg-rest">⚪ 休息</span>
+            <span class="ka-leg-training">訓練</span>
+            <span class="ka-leg-competition">比賽</span>
+            <span class="ka-leg-rest">休息</span>
         </div>
         """,
         unsafe_allow_html=True,

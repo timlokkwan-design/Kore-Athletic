@@ -6,7 +6,7 @@ from utils.grades import U18_GRADES, WIND_EVENTS
 
 APP_NAME = "KORE ATHLETIC"
 APP_SUBTITLE = "關添樂教練田徑訓練與成績管理系統"
-APP_VERSION = "2026.07.19-84"
+APP_VERSION = "2026.07.19-85"
 COACH_NAME = "關添樂"
 EMAIL_DOMAIN = "@kore-athletic.app"
 
@@ -39,11 +39,11 @@ TYPE_CATEGORY_COLORS = {
     "pending": "#fef3c7",
 }
 
-# Month calendar cell backgrounds (all calendars)
-CALENDAR_BG_TRAINING = "#dbeafe"
-CALENDAR_BG_COMPETITION = "#fee2e2"
-CALENDAR_BG_REST = "#f1f5f9"
-CALENDAR_BG_EMPTY = "#f8fafc"
+# Month calendar cell backgrounds — synced with views/components/calendar_theme.py
+CALENDAR_BG_TRAINING = "#B8D4F8"
+CALENDAR_BG_COMPETITION = "#FFCACA"
+CALENDAR_BG_REST = "#D5DCE5"
+CALENDAR_BG_EMPTY = "#E8EDF3"
 
 GROUP_OPTIONS = ["短跑組", "中長跑組", "跨欄組", "全體組員"]
 

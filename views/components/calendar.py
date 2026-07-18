@@ -33,6 +33,7 @@ from utils.helpers import (
 from views.components.calendar_compact import open_dialog_if_requested
 from views.components.calendar_timetree import render_timetree_month_grid
 from views.components.calendar_list import render_month_day_list, render_view_mode_toggle
+from views.components.calendar_theme import inject_calendar_theme
 from views.components.coach_mobile_ui import render_calendar_legend
 
 
@@ -256,6 +257,8 @@ def _render_calendar_impl(
     if "cal_year" not in st.session_state:
         t = date.today()
         st.session_state.cal_year, st.session_state.cal_month = t.year, t.month
+
+    inject_calendar_theme()
 
     copy_source = st.session_state.get("copy_source_date", "") if copy_mode else ""
     copy_targets = set(st.session_state.get("copy_target_dates", [])) if copy_mode else set()

@@ -9,15 +9,9 @@ from typing import Callable
 
 import streamlit as st
 
-_TONE_STYLES = {
-    "training": ("#dbeafe", "#1e40af", "#93c5fd"),
-    "competition": ("#fee2e2", "#991b1b", "#fca5a5"),
-    "rest": ("#f1f5f9", "#64748b", "#e2e8f0"),
-    "empty": ("#f8fafc", "#64748b", "#e2e8f0"),
-    "picked": ("#dcfce7", "#166534", "#86efac"),
-    "attended": ("#dcfce7", "#166534", "#86efac"),
-    "disabled": ("#f8fafc", "#cbd5e1", "#f1f5f9"),
-}
+from views.components.calendar_theme import compact_tone_styles
+
+_TONE_STYLES = compact_tone_styles()
 
 
 @dataclass(frozen=True)
