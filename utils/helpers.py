@@ -274,6 +274,100 @@ def resolve_venue(prog: dict) -> str:
     return venue or "（待設定）"
 
 
+def has_time_venue(prog: dict) -> bool:
+    start = safe_str(prog.get("start_time"))
+    end = safe_str(prog.get("end_time"))
+    if start or end:
+        return True
+    venue = safe_str(prog.get("venue"))
+    if venue and venue != "其他":
+        return True
+    if venue == "其他" and safe_str(prog.get("venue_other")):
+        return True
+    return False
+
+
+def has_workout_plan(prog: dict) -> bool:
+    from utils.config import normalize_train_type
+
+    tp = normalize_train_type(safe_str(prog.get("type")))
+    if tp in ("休息", "比賽"):
+        return True
+    if tp == "待排課":
+        return False
+    return bool(workout_detail(prog).strip())
+
+
+def program_sync_status(prog: dict) -> str:
+    """complete | need_workout | need_schedule | need_both | rest | empty"""
+    from utils.config import normalize_train_type
+
+    if not prog:
+        return "empty"
+    tp = normalize_train_type(safe_str(prog.get("type")))
+    if tp == "休息":
+        return "rest"
+    tv = has_time_venue(prog)
+    wp = has_workout_plan(prog)
+    if wp and tv:
+        return "complete"
+    if tv and not wp:
+        return "need_workout"
+    if wp and not tv:
+        return "need_schedule"
+    return "need_both"
+
+
+def day_sync_status(prog: dict | None) -> str:
+    """Aggregate sync status for one calendar day (may merge multi-group)."""
+    if not prog:
+        return "empty"
+    progs = prog.get("_programs") or [prog]
+    statuses = [
+        program_sync_status(p)
+        for p in progs
+        if program_sync_status(p) not in ("empty", "rest")
+    ]
+    if not statuses:
+        return "rest" if prog else "empty"
+    if any(s == "need_workout" for s in statuses):
+        return "need_workout"
+    if any(s == "need_schedule" for s in statuses):
+        return "need_schedule"
+    if any(s == "need_both" for s in statuses):
+        return "need_both"
+    return "complete"
+
+
+def sync_status_label(status: str) -> str:
+    return {
+        "need_workout": "⚠️ 時間已定，待寫跑案",
+        "need_schedule": "⚠️ 跑案已寫，待填時間地點",
+        "need_both": "⚠️ 待寫跑案及時間地點",
+        "complete": "✅ 課表完整",
+    }.get(status, "")
+
+
+def sync_status_priority(status: str) -> int:
+    return {
+        "need_workout": 0,
+        "need_schedule": 1,
+        "need_both": 2,
+        "complete": 3,
+        "rest": 4,
+        "empty": 5,
+    }.get(status, 9)
+
+
+def format_time_venue_line(prog: dict) -> str:
+    start = safe_str(prog.get("start_time"))
+    end = safe_str(prog.get("end_time"))
+    time_text = f"{start} – {end}" if start and end else (start or end or "")
+    venue = resolve_venue(prog)
+    parts = [p for p in (time_text, venue) if p and p not in ("（待設定）", "（待通知）")]
+    return " · ".join(parts)
+
+
 def format_train_duration(minutes: int) -> str:
     """Format minutes as e.g. 1小時30分 / 45分鐘."""
     m = max(0, int(minutes or 0))
@@ -337,6 +431,9 @@ def program_calendar_summary(prog: dict) -> tuple[str, str]:
         return "比賽", ""
     if tp == "休息":
         return "休息", ""
+    if tp == "待排課":
+        tv = format_time_venue_line(prog)
+        return "待寫跑案", tv or "時間已定"
     meters = program_total_meters(prog)
     vol = format_meters_short(meters)
     detail = workout_detail(prog)

@@ -12,11 +12,23 @@ from utils.data_store import (
     ensure_program_dict,
     get_program,
     get_programs_for_date,
+    get_programs_for_month,
+    has_schedule_slot,
     is_training_day,
     load_periodization,
     save_program_time_venue,
+    build_coach_prog_map,
 )
-from utils.helpers import format_timetable_date, safe_str, short_group_label
+from utils.helpers import (
+    day_sync_status,
+    format_timetable_date,
+    format_time_venue_line,
+    safe_str,
+    short_group_label,
+    sync_status_label,
+    workout_detail,
+)
+from views.components.coach_sync import render_month_sync_alerts
 from views.components.schedule import render_program_timetable
 from views.components.schedule_calendar import render_schedule_calendar
 
@@ -133,8 +145,8 @@ def _render_sched_editor_ui() -> None:
     b1, b2 = st.columns(2)
     with b1:
         if st.button("📋 複製時間地點到其他日期", key="sched_copy_btn", use_container_width=True):
-            if not is_training_day(sk):
-                st.session_state["sched_flash"] = ("error", "請先選有訓練課表的日期作為來源")
+            if not has_schedule_slot(sk):
+                st.session_state["sched_flash"] = ("error", "請先為來源日期儲存時間地點")
                 st.rerun()
             st.session_state.sched_pick_mode = "copy"
             st.session_state.sched_copy_source = sk
@@ -149,48 +161,64 @@ def _render_sched_editor_ui() -> None:
 
     st.markdown("#### 編輯當日時間與地點")
     day_programs = get_programs_for_date(selected)
-    prog = ensure_program_dict(get_program(selected))
+    prog = ensure_program_dict(day_programs[0] if day_programs else get_program(selected))
     tp = normalize_train_type(safe_str(prog.get("type")))
-    if not is_training_day(sk):
-        st.info(f"**{format_timetable_date(sk)}** — 休息日，無需設定時間地點。")
-    else:
-        if len(day_programs) > 1:
-            groups = "、".join(short_group_label(p.get("group")) for p in day_programs)
-            st.caption(f"當日 **{len(day_programs)}** 組（{groups}）· 儲存後套用至全部組別")
+    sync = day_sync_status(prog if day_programs else None)
+    hint = sync_status_label(sync)
+    if hint and sync not in ("rest", "empty", "complete"):
+        st.caption(hint)
+
+    wdetail = workout_detail(prog) if day_programs else ""
+    if wdetail:
+        st.markdown("**週期化課表跑案（預覽）**")
+        st.markdown(wdetail)
+    elif sync in ("need_workout", "need_both") or not day_programs:
+        st.warning("此日尚未在「週期化課表」填寫跑案，可先預排時間地點，稍後再補跑案。")
+
+    if tp == "休息" and day_programs:
+        st.info(f"**{format_timetable_date(sk)}** — 休息日。儲存時間後將建立待排課項目。")
+
+    if len(day_programs) > 1:
+        groups = "、".join(short_group_label(p.get("group")) for p in day_programs)
+        st.caption(f"當日 **{len(day_programs)}** 組（{groups}）· 儲存後套用至全部組別")
+    elif day_programs:
         st.markdown(
             f"**{format_timetable_date(sk)}** · {tp} · 👥 {safe_str(prog.get('group'))}"
         )
-        rk = sk.replace("-", "")
-        venue_val = safe_str(prog.get("venue"))
-        venue_idx = _select_index(VENUE_OPTIONS, venue_val)
-        if venue_val and venue_val not in VENUE_OPTIONS:
-            venue_idx = VENUE_OPTIONS.index("其他")
+    else:
+        st.markdown(f"**{format_timetable_date(sk)}** · 預排時間地點")
 
-        c1, c2, c3, c4 = st.columns([1, 1, 1.5, 1.5])
-        start_time = c1.text_input(
-            "開始時間", safe_str(prog.get("start_time")), placeholder="17:00", key=f"sched_st_{rk}",
+    rk = sk.replace("-", "")
+    venue_val = safe_str(prog.get("venue"))
+    venue_idx = _select_index(VENUE_OPTIONS, venue_val)
+    if venue_val and venue_val not in VENUE_OPTIONS:
+        venue_idx = VENUE_OPTIONS.index("其他")
+
+    c1, c2, c3, c4 = st.columns([1, 1, 1.5, 1.5])
+    start_time = c1.text_input(
+        "開始時間", safe_str(prog.get("start_time")), placeholder="17:00", key=f"sched_st_{rk}",
+    )
+    end_time = c2.text_input(
+        "結束時間", safe_str(prog.get("end_time")), placeholder="19:00", key=f"sched_et_{rk}",
+    )
+    venue = c3.selectbox("地點", VENUE_OPTIONS, index=venue_idx, key=f"sched_vn_{rk}")
+    venue_other = ""
+    if venue == "其他":
+        venue_other = c4.text_input(
+            "其他地點", safe_str(prog.get("venue_other")),
+            placeholder="請填寫詳細地點", key=f"sched_vo_{rk}",
         )
-        end_time = c2.text_input(
-            "結束時間", safe_str(prog.get("end_time")), placeholder="19:00", key=f"sched_et_{rk}",
-        )
-        venue = c3.selectbox("地點", VENUE_OPTIONS, index=venue_idx, key=f"sched_vn_{rk}")
-        venue_other = ""
-        if venue == "其他":
-            venue_other = c4.text_input(
-                "其他地點", safe_str(prog.get("venue_other")),
-                placeholder="請填寫詳細地點", key=f"sched_vo_{rk}",
-            )
-        if st.button("💾 儲存時間與地點", type="primary", key=f"sched_save_{rk}"):
-            save_program_time_venue(sk, start_time, end_time, venue, venue_other)
-            st.session_state["sched_flash"] = ("success", f"已儲存 {format_timetable_date(sk)}")
-            st.rerun()
+    if st.button("💾 儲存時間與地點", type="primary", key=f"sched_save_{rk}"):
+        save_program_time_venue(sk, start_time, end_time, venue, venue_other)
+        st.session_state["sched_flash"] = ("success", f"已儲存 {format_timetable_date(sk)}")
+        st.rerun()
 
 
 def render_coach_schedule() -> None:
     st.subheader("📆 訓練時間表")
     st.caption(
-        "月曆顯示**週期化課表**已有訓練；無課表日期顯示**休息**。"
-        "此頁只需設定**時間與地點**。"
+        "可**預先**為任意日期排定時間與地點；週期化課表填寫跑案後，學員即可看到完整訓練。"
+        "若只填一邊，兩頁都會互相提示。"
     )
 
     pick_mode = st.session_state.get("sched_pick_mode")
@@ -209,8 +237,12 @@ def render_coach_schedule() -> None:
     if not pick_mode:
         st.caption(
             "💡 **複製**：選日期 →「複製時間地點」→ 多選目標 → 確認 · "
-            "**多選套用**：「多選套用時間地點」→ 多選日期 → 填寫 → 確認"
+            "**多選套用**：「多選套用時間地點」→ 多選任意日期 → 填寫 → 確認"
         )
+        year = st.session_state.get("sched_cal_year", date.today().year)
+        month = st.session_state.get("sched_cal_month", date.today().month)
+        sched_map = build_coach_prog_map(get_programs_for_month(year, month))
+        render_month_sync_alerts(sched_map, page="sched")
 
     if pick_mode:
         _render_sched_pick_ui(pick_mode)

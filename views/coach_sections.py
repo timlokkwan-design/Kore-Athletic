@@ -38,7 +38,8 @@ from utils.data_store import (
     delete_programs,
     days_until_competition,
     ensure_program_dict,
-    filter_logs,
+    build_coach_prog_map,
+    filter_programs_by_group,
     get_all_logs,
     get_attendance_today,
     get_pending_users,
@@ -75,6 +76,8 @@ from utils.data_store import (
     save_program_time_venue,
 )
 from utils.helpers import (
+    day_sync_status,
+    format_time_venue_line,
     format_timetable_date,
     normalize_date_str,
     program_specs,
@@ -84,11 +87,13 @@ from utils.helpers import (
     needs_wind,
     short_group_label,
     parse_workout_volume,
+    sync_status_label,
     workout_detail,
     weekly_summary_text,
     whatsapp_program_text,
 )
 from views.components.calendar import render_calendar
+from views.components.coach_sync import render_month_sync_alerts
 from views.components.avatar import athlete_card_html, render_person
 
 
@@ -270,6 +275,13 @@ def _render_coach_program_editor() -> None:
     )
     cal_group = filter_map[cal_group_label]
 
+    cal_year = st.session_state.get("cal_year", date.today().year)
+    cal_month = st.session_state.get("cal_month", date.today().month)
+    alert_map = build_coach_prog_map(
+        filter_programs_by_group(get_programs_for_month(cal_year, cal_month), cal_group)
+    )
+    render_month_sync_alerts(alert_map, page="prog")
+
     selected = render_calendar(
         "coach_cal",
         show_acwr=True,
@@ -350,6 +362,14 @@ def _render_coach_program_editor() -> None:
     else:
         st.caption(f"👥 組別：**{group_display_label(edit_group)}**")
 
+    sync = day_sync_status(prog if day_programs else None)
+    tv_line = format_time_venue_line(prog) if day_programs else ""
+    if tv_line:
+        st.info(f"🕐 **訓練時間表已設定：** {tv_line}")
+    hint = sync_status_label(sync)
+    if hint and sync in ("need_workout", "need_schedule", "need_both"):
+        (st.warning if sync == "need_workout" else st.info)(hint)
+
     cur_type = normalize_train_type(prog["type"])
     status_options = ["訓練", "休息", "比賽"]
     default_status = (
@@ -406,7 +426,7 @@ def _render_coach_program_editor() -> None:
             key=f"ptips_{sk}_{edit_group}",
         )
         train_type = normalize_train_type(cur_type)
-        if train_type in ("休息", "比賽"):
+        if train_type in ("休息", "比賽", "待排課"):
             train_type = "間歇跑"
         run_vol = parse_workout_volume(workout_text)
         total_meters = run_vol["total_meters"]

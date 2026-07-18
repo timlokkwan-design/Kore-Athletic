@@ -32,6 +32,7 @@ from utils.config import (
     default_program,
     normalize_group,
     normalize_train_type,
+    schedule_placeholder_program,
 )
 from utils.helpers import format_birth_display, get_grade, is_missing, is_wind_valid, normalize_date_str, safe_float, safe_int, safe_str
 
@@ -569,6 +570,8 @@ def save_program_time_venue(
     end_time: str,
     venue: str,
     venue_other: str = "",
+    *,
+    group: str = "",
 ) -> None:
     target = normalize_date_str(date_str)
     updates = {
@@ -579,13 +582,17 @@ def save_program_time_venue(
     }
     day_programs = get_programs_for_date(target)
     if not day_programs:
-        prog = default_program(target)
+        prog = schedule_placeholder_program(target, group=group or "短跑組")
         prog.update(updates)
         save_program(prog)
         return
     for prog in day_programs:
-        prog.update(updates)
-        save_program(prog)
+        merged = dict(prog)
+        merged.update(updates)
+        if normalize_train_type(safe_str(merged.get("type"))) == "休息":
+            merged["type"] = "待排課"
+            merged["title"] = "時間已定"
+        save_program(merged)
 
 
 def _program_exists_on_date(date_str: str) -> bool:
@@ -597,12 +604,24 @@ def _program_exists_on_date(date_str: str) -> bool:
 
 
 def is_training_day(date_str: str) -> bool:
-    """True if date has a non-rest program in the calendar."""
+    """True if date has a non-rest, non-placeholder program in the calendar."""
     target = normalize_date_str(date_str)
     if not _program_exists_on_date(target):
         return False
     for prog in get_programs_for_date(target):
-        if normalize_train_type(safe_str(prog.get("type"))) != "休息":
+        tp = normalize_train_type(safe_str(prog.get("type")))
+        if tp not in ("休息", "待排課"):
+            return True
+    return False
+
+
+def has_schedule_slot(date_str: str) -> bool:
+    """True if any program on this date has time or venue set."""
+    from utils.helpers import has_time_venue
+
+    target = normalize_date_str(date_str)
+    for prog in get_programs_for_date(target):
+        if has_time_venue(prog):
             return True
     return False
 
@@ -623,7 +642,7 @@ def copy_time_venue_to_dates(source_date: str, target_dates: list[str]) -> int:
     count = 0
     for tgt in target_dates:
         t = normalize_date_str(tgt)
-        if not t or t == src or not is_training_day(t):
+        if not t or t == src:
             continue
         save_program_time_venue(t, **payload)
         count += 1
@@ -642,7 +661,7 @@ def apply_time_venue_to_dates(
     count = 0
     for tgt in target_dates:
         t = normalize_date_str(tgt)
-        if not t or not is_training_day(t):
+        if not t:
             continue
         save_program_time_venue(t, start_time, end_time, venue, venue_other)
         count += 1
@@ -681,6 +700,10 @@ def get_timetable_entries(
             continue
         if not include_rest and prog.get("type") == "休息":
             continue
+        if not include_rest and normalize_train_type(safe_str(prog.get("type"))) == "待排課":
+            from utils.helpers import has_time_venue
+            if not has_time_venue(prog):
+                continue
         entries.append(prog)
     return entries
 

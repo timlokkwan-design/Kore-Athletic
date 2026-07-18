@@ -16,14 +16,18 @@ from utils.data_store import (
     row_to_program,
 )
 from utils.helpers import (
+    day_sync_status,
     format_meters_short,
     format_timetable_date,
+    format_time_venue_line,
     normalize_date_str,
     program_calendar_summary,
     program_total_meters,
     resolve_venue,
     safe_str,
     short_group_label,
+    sync_status_label,
+    sync_status_priority,
     workout_detail,
 )
 from views.components.calendar_compact import open_dialog_if_requested, render_compact_month_grid
@@ -157,6 +161,15 @@ def _coach_compact_day_style(
     elif st.session_state.get(select_key) == ds:
         border = "2px solid #1d4ed8"
 
+    sync = day_sync_status(prog_map.get(ds)) if not copy_mode and not delete_mode else ""
+    if sync == "need_workout":
+        bg = "#fef3c7"
+        border = "2px solid #f59e0b"
+    elif sync == "need_schedule":
+        border = "2px solid #ea580c"
+    elif sync in ("need_both",):
+        bg = "#ffedd5"
+
     if not copy_mode and not delete_mode:
         if tp == "比賽":
             vol_label = "賽"
@@ -279,7 +292,9 @@ def _render_calendar_impl(
     elif delete_mode:
         st.caption("🟥 紅色=已選刪除 · 虛線=有課表可選 · 灰底=無課表 · 可跨月多選")
     else:
-        st.caption("點方格查看課表 · 方格顯示總跑量 · 列表預設顯示今日起")
+        st.caption(
+            "🟨 黃色=時間已定待寫跑案 · 🟧 框線=跑案已寫待填時間 · 方格顯示總跑量"
+        )
 
     year, month = st.session_state.cal_year, st.session_state.cal_month
     if not copy_mode and not delete_mode:
@@ -300,10 +315,16 @@ def _render_calendar_impl(
         def _describe(ds: str, prog: dict | None) -> tuple[str, str, str, str]:
             prog = ensure_program_dict(prog)
             tp = safe_str(prog.get("type"))
+            sync = day_sync_status(prog_map.get(ds))
             cat = TRAIN_TYPES.get(tp, {}).get("category", "rest")
             bg = TYPE_CATEGORY_COLORS.get(cat, "#f1f5f9")
+            if sync == "need_workout":
+                bg = "#fef3c7"
             title_line, spec_line = program_calendar_summary(prog) if prog else ("", "")
             detail = spec_line or ""
+            hint = sync_status_label(sync)
+            if hint and sync in ("need_workout", "need_schedule", "need_both"):
+                detail = f"{hint} · {detail}".strip(" · ")
             if show_acwr and acwr_athlete and logs is not None:
                 v, _ = acwr_status(calc_acwr(logs, acwr_athlete, date.fromisoformat(ds)))
                 detail = f"{detail} · ACWR {v}".strip(" · ")
@@ -321,6 +342,7 @@ def _render_calendar_impl(
             empty_label="休息",
             can_pick=(lambda ds, _p: ds in prog_map) if delete_mode else None,
             hide_past_days=not copy_mode and not delete_mode,
+            day_priority=lambda ds, p: sync_status_priority(day_sync_status(prog_map.get(ds))),
         )
     else:
         _render_coach_compact_grid(

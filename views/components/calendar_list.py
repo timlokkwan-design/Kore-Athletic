@@ -133,6 +133,7 @@ def render_month_day_list(
     empty_label: str = "休息",
     can_pick: Callable[[str, dict | None], bool] | None = None,
     hide_past_days: bool = False,
+    day_priority: Callable[[str, dict | None], int] | None = None,
 ) -> date:
     """
     Vertical list of days in month.
@@ -176,10 +177,17 @@ def render_month_day_list(
     use_hide = hide_past_days and not pick_mode and year == today.year and month == today.month
     if use_hide:
         past = [e for e in entries if e[2] < today]
-        upcoming = sorted(
-            [e for e in entries if e[2] >= today],
-            key=lambda e: (0 if e[2] == today else 1, e[2]),
-        )
+        upcoming = [e for e in entries if e[2] >= today]
+        if day_priority:
+            upcoming.sort(
+                key=lambda e: (
+                    day_priority(e[0], prog_map.get(e[0])),
+                    0 if e[2] == today else 1,
+                    e[2],
+                )
+            )
+        else:
+            upcoming.sort(key=lambda e: (0 if e[2] == today else 1, e[2]))
         for ds, day, d in upcoming:
             _row(ds, day, d)
         if past:
@@ -187,6 +195,8 @@ def render_month_day_list(
                 for ds, day, d in past:
                     _row(ds, day, d)
     else:
+        if day_priority:
+            entries.sort(key=lambda e: (day_priority(e[0], prog_map.get(e[0])), e[2]))
         for ds, day, d in entries:
             _row(ds, day, d)
 

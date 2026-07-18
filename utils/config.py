@@ -6,7 +6,7 @@ from utils.grades import U18_GRADES, WIND_EVENTS
 
 APP_NAME = "KORE ATHLETIC"
 APP_SUBTITLE = "關添樂教練田徑訓練與成績管理系統"
-APP_VERSION = "2026.07.18-70"
+APP_VERSION = "2026.07.18-71"
 COACH_NAME = "關添樂"
 EMAIL_DOMAIN = "@kore-athletic.app"
 
@@ -18,6 +18,7 @@ TRAIN_TYPES = {
     "肌力課": {"weight": 0.8, "category": "strength"},
     "比賽": {"weight": 0.7, "category": "field"},
     "休息": {"weight": 0.0, "category": "rest"},
+    "待排課": {"weight": 0.0, "category": "pending"},
 }
 
 TRAIN_TYPE_OPTIONS = list(TRAIN_TYPES.keys())
@@ -34,6 +35,7 @@ def normalize_train_type(train_type: str) -> str:
 TYPE_CATEGORY_COLORS = {
     "speed": "#fee2e2", "endurance": "#dbeafe", "technique": "#f3e8ff",
     "strength": "#ffedd5", "field": "#dcfce7", "rest": "#f1f5f9",
+    "pending": "#fef3c7",
 }
 
 GROUP_OPTIONS = ["短跑組", "中長跑組", "跨欄組", "全體組員"]
@@ -150,6 +152,36 @@ def default_program(for_date: str | None = None) -> dict:
         "target_seconds": 65.0, "load": 630,
         "exercises": "", "tech_focus": "", "field_event": "跳遠", "attempts": 10,
         "start_time": "", "end_time": "", "venue": "", "venue_other": "",
+    }
+
+
+def schedule_placeholder_program(for_date: str, *, group: str = "短跑組") -> dict:
+    """Empty program row for pre-setting time/venue before workout is written."""
+    d = for_date or date.today().isoformat()
+    return {
+        "date": d,
+        "type": "待排課",
+        "title": "時間已定",
+        "group": normalize_group(group),
+        "sets": 0,
+        "reps": 0,
+        "dist": 0,
+        "rest": "",
+        "duration": 0,
+        "rpe": 7,
+        "tips": "",
+        "phase": "",
+        "week_theme": "",
+        "target_seconds": 0,
+        "load": 0,
+        "exercises": "",
+        "tech_focus": "",
+        "field_event": "",
+        "attempts": 0,
+        "start_time": "",
+        "end_time": "",
+        "venue": "",
+        "venue_other": "",
     }
 
 

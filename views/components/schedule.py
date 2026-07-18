@@ -33,6 +33,8 @@ def _time_venue_text(prog: dict) -> tuple[str, str]:
 
 
 def _student_prog_for_day(prog_map: dict[str, dict], ds: str, specialty: str) -> dict | None:
+    from utils.helpers import has_time_venue, has_workout_plan
+
     prog = prog_map.get(ds)
     if not prog:
         return None
@@ -41,7 +43,11 @@ def _student_prog_for_day(prog_map: dict[str, dict], ds: str, specialty: str) ->
     tp = normalize_train_type(safe_str(prog.get("type")))
     if tp == "休息":
         return None
-    return prog
+    if tp == "待排課":
+        return prog if has_time_venue(prog) else None
+    if has_workout_plan(prog) or has_time_venue(prog):
+        return prog
+    return None
 
 
 def _render_time_venue_block(prog: dict, date_label: str, *, bg: str) -> None:
