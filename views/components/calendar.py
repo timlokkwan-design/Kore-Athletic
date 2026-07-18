@@ -16,16 +16,13 @@ from utils.data_store import (
 )
 from utils.helpers import (
     day_sync_status,
-    format_meters_short,
     format_timetable_date,
     format_time_venue_line,
     calendar_cell_bg,
     calendar_cell_tone,
-    calendar_day_has_training,
+    calendar_day_event_chips,
     normalize_date_str,
-    merge_programs_calendar_summary,
     program_calendar_summary,
-    program_total_meters,
     resolve_venue,
     safe_str,
     short_group_label,
@@ -33,7 +30,8 @@ from utils.helpers import (
     sync_status_priority,
     workout_detail,
 )
-from views.components.calendar_compact import open_dialog_if_requested, render_compact_month_grid
+from views.components.calendar_compact import open_dialog_if_requested
+from views.components.calendar_timetree import render_timetree_month_grid
 from views.components.calendar_list import render_month_day_list, render_view_mode_toggle
 from views.components.coach_mobile_ui import render_calendar_legend
 
@@ -136,63 +134,44 @@ def _coach_compact_day_style(
     copy_targets: set,
     delete_targets: set,
 ) -> dict:
-    today_str = date.today().isoformat()
     entry = prog_map.get(ds)
     tone = calendar_cell_tone(entry)
-    border = "1px solid #e2e8f0"
     sync_outline = ""
-    label = f"●{day}" if ds == today_str else str(day)
     disabled = False
+    pick_label = ""
+    chips, extra = calendar_day_event_chips(entry, max_chips=2)
 
     if copy_mode and ds == copy_source:
         sync_outline = "copy-source"
+        pick_label = "源"
     elif copy_mode and ds in copy_targets:
         tone = "picked"
-        label = f"✓{day}"
-    elif copy_mode and ds != copy_source:
-        label = f"+{day}"
+        pick_label = "✓"
     elif delete_mode and ds in delete_targets:
         tone = "picked"
-        label = f"✓{day}"
+        pick_label = "✓"
     elif delete_mode and ds not in prog_map:
         tone = "disabled"
         disabled = True
-    elif delete_mode:
-        border = "2px dashed #fca5a5"
-
-    sync = day_sync_status(entry) if not copy_mode and not delete_mode else ""
-    if sync == "need_workout":
-        sync_outline = "workout"
-    elif sync == "need_schedule":
-        sync_outline = "schedule"
-    elif sync == "need_both":
-        sync_outline = "both"
+        chips, extra = [], 0
 
     if not copy_mode and not delete_mode:
-        if entry and calendar_day_has_training(entry):
-            prog = ensure_program_dict(entry)
-            tp = safe_str(prog.get("type"))
-            if tp == "比賽":
-                vol_label = "賽"
-            elif prog.get("_multi") and prog.get("_programs"):
-                vol_label = merge_programs_calendar_summary(prog["_programs"])[0][:12]
-            else:
-                vol = format_meters_short(program_total_meters(prog))
-                gl = short_group_label(prog.get("group"))
-                vol_label = f"{gl}{vol}" if vol and gl else (vol or gl)
-            if vol_label:
-                if label.startswith("●"):
-                    label = f"●{day}·{vol_label}"
-                else:
-                    label = f"{day}·{vol_label}"
+        sync = day_sync_status(entry)
+        if sync == "need_workout":
+            sync_outline = "workout"
+        elif sync == "need_schedule":
+            sync_outline = "schedule"
+        elif sync == "need_both":
+            sync_outline = "both"
 
     return {
         "tone": tone,
         "bg": calendar_cell_bg(entry),
-        "border": border,
         "sync": sync_outline,
-        "label": label,
+        "chips": chips,
+        "extra_count": extra,
         "disabled": disabled,
+        "pick_label": pick_label,
     }
 
 
@@ -240,7 +219,7 @@ def _render_coach_compact_grid(
     else:
         on_pick = None
 
-    render_compact_month_grid(
+    render_timetree_month_grid(
         year=year,
         month=month,
         select_key=select_key,
@@ -314,7 +293,7 @@ def _render_calendar_impl(
     if select_key not in st.session_state:
         st.session_state[select_key] = date.today().isoformat()
 
-    default_mode = "list" if select_key == "coach_cal" else "grid"
+    default_mode = "grid"
     view_mode = render_view_mode_toggle(
         select_key,
         force_grid=copy_mode or delete_mode,
@@ -384,5 +363,5 @@ def _render_calendar_impl(
             f"已選 **{len(targets)}** 日：{target_text}"
         )
     else:
-        st.caption(f"已選日期：**{st.session_state[select_key]}** · 點方格可彈出課表詳情")
+        st.caption(f"已選日期：**{st.session_state[select_key]}** · 格內色條=課表摘要 · 點格查看詳情")
     return selected

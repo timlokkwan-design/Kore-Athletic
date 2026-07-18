@@ -460,6 +460,52 @@ def calendar_day_has_training(prog: dict | None = None, *, progs: list[dict] | N
     return calendar_cell_tone(prog, progs=progs) in ("training", "competition")
 
 
+def calendar_day_event_chips(
+    prog: dict | None = None,
+    *,
+    progs: list[dict] | None = None,
+    max_chips: int = 2,
+) -> tuple[list[dict], int]:
+    """
+    TimeTree-style chips for one calendar day.
+    Each chip: {label, tone} where tone is training | competition | rest | empty.
+    Returns (visible_chips, hidden_count).
+    """
+    from utils.config import normalize_train_type
+
+    items = _calendar_items(prog, progs=progs)
+    if not items:
+        return [], 0
+
+    chips: list[dict] = []
+    for p in items:
+        tone = _program_calendar_tone(p)
+        tp = normalize_train_type(safe_str(p.get("type")))
+        title, detail = program_calendar_summary(p)
+        if tp == "休息":
+            label = "休息"
+        elif tp == "比賽":
+            label = title or short_group_label(p.get("group")) or "比賽"
+        elif tone == "empty":
+            label = title or short_group_label(p.get("group")) or "待排"
+        else:
+            bit = detail.split("·")[0].strip() if detail else ""
+            label = title or "訓練"
+            if bit and bit not in label:
+                label = f"{label} {bit}"
+        label = label.replace("\n", " ").strip()[:14]
+        chips.append({"label": label, "tone": tone})
+
+    if not chips:
+        return [], 0
+    if all(c["tone"] == "rest" for c in chips) and len(chips) == 1:
+        return chips[:max_chips], 0
+    active = [c for c in chips if c["tone"] != "rest"]
+    display = active if active else chips
+    extra = max(0, len(display) - max_chips)
+    return display[:max_chips], extra
+
+
 def merge_programs_calendar_summary(progs: list[dict]) -> tuple[str, str]:
     """Multi-group day: per-group volume labels (not summed)."""
     from utils.config import normalize_train_type

@@ -7,6 +7,9 @@ from typing import Callable
 
 import streamlit as st
 
+from utils.helpers import calendar_day_event_chips
+from views.components.calendar_timetree import inject_timetree_list_css, render_timetree_list_card
+
 
 def _select_list_date(select_key: str, ds: str) -> None:
     st.session_state[select_key] = ds
@@ -97,15 +100,6 @@ def render_view_mode_toggle(
     return _normalize_view_mode(mode_key, default_mode)
 
 
-def _tone_dot(type_label: str) -> str:
-    t = (type_label or "").strip()
-    if t == "比賽":
-        return "🔴"
-    if t in ("休息", "待排課", ""):
-        return "⚪"
-    return "🔵"
-
-
 def _render_list_day_row(
     *,
     ds: str,
@@ -127,7 +121,6 @@ def _render_list_day_row(
     title, detail, type_label, bg = describe_day(ds, prog)
     d = date.fromisoformat(ds)
     is_today = ds == today.isoformat()
-    dot = _tone_dot(type_label)
 
     active = (not pick_mode) and st.session_state.get(select_key) == ds
     border = "2px solid #1d4ed8" if active else "1px solid #e2e8f0"
@@ -143,9 +136,7 @@ def _render_list_day_row(
     elif is_today:
         border = "2px solid #1d4ed8"
 
-    today_tag = " · 今日" if is_today else ""
     main_title = title or empty_label
-    btn_label = f"{dot} {month}/{day:02d}（{wd_cn}）{today_tag} — {main_title}"
 
     if pick_mode:
         label_col, btn_col = st.columns([5, 1])
@@ -192,17 +183,25 @@ def _render_list_day_row(
             )
         return
 
-    st.markdown('<div class="ka-cal-list-row"></div>', unsafe_allow_html=True)
+    chips, extra = calendar_day_event_chips(prog, max_chips=3)
+    card = render_timetree_list_card(
+        day=day,
+        month=month,
+        wd_cn=wd_cn,
+        chips=chips,
+        extra_count=extra,
+        is_today=is_today,
+        is_active=active,
+        detail=detail,
+    )
+    st.markdown(f'<div class="ka-tt-list-wrap"></div>{card}', unsafe_allow_html=True)
     st.button(
-        btn_label,
+        " ",
         key=f"list_sel_{select_key}_{ds}",
         use_container_width=True,
-        type="primary" if active else "secondary",
         on_click=_select_list_date,
         args=(select_key, ds),
     )
-    if detail:
-        st.caption(detail)
 
 
 def render_month_day_list(
@@ -224,6 +223,7 @@ def render_month_day_list(
     Vertical list of days in month.
     describe_day(ds, prog) -> (title, detail, type_label, bg_color)
     """
+    inject_timetree_list_css()
     picks = set(st.session_state.get(pick_key, []))
     if select_key not in st.session_state:
         st.session_state[select_key] = date.today().isoformat()

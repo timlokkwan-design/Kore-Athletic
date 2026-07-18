@@ -73,8 +73,8 @@ def render_calendar_legend() -> None:
         """
         <div class="ka-cal-legend-marker"></div>
         <div class="ka-cal-legend">
-            <span class="ka-leg-training">🔵 訓練</span>
-            <span class="ka-leg-competition">🔴 比賽</span>
+            <span class="ka-leg-training">🔵 訓練色條</span>
+            <span class="ka-leg-competition">🔴 比賽色條</span>
             <span class="ka-leg-rest">⚪ 休息</span>
         </div>
         """,

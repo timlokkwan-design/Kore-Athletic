@@ -485,10 +485,10 @@ def get_group_training_history(
     group: str,
     *,
     days_back: int = 14,
-    limit: int = 8,
+    limit: int = 0,
 ) -> list[dict]:
     """Training sessions for one group in the days before for_date (newest first)."""
-    from utils.helpers import has_workout_plan, workout_detail
+    from utils.helpers import has_time_venue, workout_detail
 
     if isinstance(for_date, date):
         anchor = for_date
@@ -516,13 +516,14 @@ def get_group_training_history(
         tp = normalize_train_type(safe_str(prog.get("type")))
         if tp == "休息":
             continue
-        if tp == "待排課" and not workout_detail(prog).strip():
+        if tp == "比賽":
+            found.append(prog)
             continue
-        if tp not in ("比賽",) and not has_workout_plan(prog) and not workout_detail(prog).strip():
-            continue
-        found.append(prog)
+        from utils.helpers import has_time_venue, workout_detail as _workout_detail
+        if has_time_venue(prog) or _workout_detail(prog).strip():
+            found.append(prog)
     found.sort(key=lambda p: p.get("date", ""), reverse=True)
-    return found[:limit]
+    return found if limit <= 0 else found[:limit]
 
 
 def apply_recovery_template(start_date: date) -> None:
