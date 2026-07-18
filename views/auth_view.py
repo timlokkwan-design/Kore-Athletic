@@ -5,6 +5,7 @@ import streamlit as st
 from utils.auth import login
 from views.components.brand import render_auth_brand
 
+
 def render_auth_view() -> None:
     render_auth_brand()
 

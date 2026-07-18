@@ -60,6 +60,9 @@ def render_month_day_list(
             cell_bg = bg
             if pick_mode == "copy" and ds == copy_source:
                 border = "3px solid #f59e0b"
+            elif pick_mode == "delete" and ds in picks:
+                border = "3px solid #dc2626"
+                cell_bg = "#fee2e2"
             elif pick_mode and ds in picks:
                 border = "3px solid #16a34a"
                 cell_bg = "#dcfce7"
@@ -95,12 +98,14 @@ def render_month_day_list(
                     else:
                         picked = ds in picks
                         if st.button(
-                            "✓" if picked else "＋",
+                            "✓" if picked else ("🗑" if pick_mode == "delete" else "＋"),
                             key=f"list_{select_key}_{ds}",
                             use_container_width=True,
                         ):
                             if pick_mode == "copy" and ds == copy_source:
                                 st.session_state["sched_flash"] = ("error", "來源日期不能選為目標")
+                            elif pick_mode == "delete" and can_pick is not None and not can_pick(ds, prog):
+                                st.session_state["sched_flash"] = ("error", f"{ds} 沒有已儲存的課表")
                             else:
                                 picks_list = list(st.session_state.get(pick_key, []))
                                 if ds in picks_list:

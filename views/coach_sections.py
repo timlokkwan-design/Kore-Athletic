@@ -32,6 +32,7 @@ from utils.data_store import (
     attendance_rate,
     copy_program_to_dates,
     delete_program,
+    delete_programs,
     days_until_competition,
     ensure_program_dict,
     filter_logs,
@@ -58,6 +59,8 @@ from utils.data_store import (
     log_completion_rate,
     mark_leave,
     program_exists,
+    purge_test_student_records,
+    TEST_STUDENT_NAMES,
     remove_student,
     reject_specialty_change,
     reset_student_password,
@@ -135,20 +138,57 @@ def render_coach_program() -> None:
         st.rerun()
 
     copy_mode = st.session_state.get("copy_mode", False)
-    flash = st.session_state.pop("copy_flash", None)
+    delete_mode = st.session_state.get("delete_mode", False)
+    flash = st.session_state.pop("copy_flash", None) or st.session_state.pop("sched_flash", None)
     if flash:
         kind, msg = flash
         (st.success if kind == "success" else st.error)(msg)
 
-    if not copy_mode:
+    if not copy_mode and not delete_mode:
         st.caption(
             "💡 複製課表：先點選來源日期 → 按「複製課表到其他日期」→ "
-            "在月曆**多選**目標日期 → 確認複製"
+            "在月曆**多選**目標日期 → 確認複製 · "
+            "刪除課表：按「多選刪除課表」可一次刪除多個日期"
         )
 
-    selected = render_calendar("coach_cal", show_acwr=True, copy_mode=copy_mode)
+    selected = render_calendar(
+        "coach_cal",
+        show_acwr=True,
+        copy_mode=copy_mode,
+        delete_mode=delete_mode,
+    )
 
-    if copy_mode:
+    if delete_mode:
+        targets = st.session_state.get("delete_target_dates", [])
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            if st.button(
+                f"🗑 確認刪除 {len(targets)} 個課表",
+                key="prog_delete_confirm",
+                type="primary",
+                disabled=len(targets) == 0,
+                use_container_width=True,
+            ):
+                n = delete_programs(targets)
+                st.session_state.delete_mode = False
+                st.session_state.pop("delete_target_dates", None)
+                st.session_state["sched_flash"] = ("success", f"已刪除 {n} 個日期的課表")
+                st.rerun()
+        with c2:
+            if st.button(
+                "↺ 清除已選",
+                key="prog_delete_clear",
+                disabled=len(targets) == 0,
+                use_container_width=True,
+            ):
+                st.session_state.delete_target_dates = []
+                st.rerun()
+        with c3:
+            if st.button("✖ 取消刪除", key="prog_delete_cancel", use_container_width=True):
+                st.session_state.delete_mode = False
+                st.session_state.pop("delete_target_dates", None)
+                st.rerun()
+    elif copy_mode:
         targets = st.session_state.get("copy_target_dates", [])
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -192,13 +232,22 @@ def render_coach_program() -> None:
                 st.session_state.pop("copy_target_dates", None)
                 st.rerun()
     else:
-        if st.button("📋 複製課表到其他日期", key="prog_copy_btn", use_container_width=True):
-            src = st.session_state.get("coach_cal", selected.isoformat())
-            st.session_state.copy_mode = True
-            st.session_state.copy_source_date = src
-            st.session_state.copy_source_payload = ensure_program_dict(get_program(selected))
-            st.session_state.copy_target_dates = []
-            st.rerun()
+        b_copy, b_delete = st.columns(2)
+        with b_copy:
+            if st.button("📋 複製課表到其他日期", key="prog_copy_btn", use_container_width=True):
+                src = st.session_state.get("coach_cal", selected.isoformat())
+                st.session_state.copy_mode = True
+                st.session_state.delete_mode = False
+                st.session_state.copy_source_date = src
+                st.session_state.copy_source_payload = ensure_program_dict(get_program(selected))
+                st.session_state.copy_target_dates = []
+                st.rerun()
+        with b_delete:
+            if st.button("🗑 多選刪除課表", key="prog_delete_btn", use_container_width=True):
+                st.session_state.delete_mode = True
+                st.session_state.copy_mode = False
+                st.session_state.delete_target_dates = []
+                st.rerun()
 
     st.caption(f"今日完成率：**{log_completion_rate()}%**")
 
@@ -383,10 +432,24 @@ def render_coach_program() -> None:
                     st.rerun()
 
     st.markdown("#### 訓練日誌篩選")
-    f1, f2 = st.columns(2)
+    test_logs = filter_logs(exclude_test=False)
+    test_count = int(test_logs["student_name"].astype(str).isin(TEST_STUDENT_NAMES).sum()) if not test_logs.empty else 0
+    if test_count:
+        if st.button(f"🧹 清除測試學員日誌（{test_count} 筆：陳大文、林明美等）", key="purge_test_logs"):
+            stats = purge_test_student_records(clear_programs=False)
+            st.success(f"已清除 {stats.get('logs_removed', 0)} 筆測試日誌")
+            st.rerun()
+    f1, f2, f3 = st.columns(3)
     fd = f1.date_input("日期", value=None, key="log_filter_date")
-    fr = f2.selectbox("RPE", ["", "1-4", "5-7", "8-10"], key="log_filter_rpe")
-    logs = filter_logs(fd.isoformat() if fd else None, fr or None)
+    athletes = [n for n in get_student_names() if n not in TEST_STUDENT_NAMES]
+    fs = f2.selectbox("學員", [""] + athletes, key="log_filter_student")
+    fr = f3.selectbox("RPE", ["", "1-4", "5-7", "8-10"], key="log_filter_rpe")
+    logs = filter_logs(
+        fd.isoformat() if fd else None,
+        fr or None,
+        fs or None,
+        exclude_test=True,
+    )
     for _, log in logs.head(30).iterrows():
         remark = safe_str(log.get("laps_text")) or safe_str(log.get("remark"))
         render_person(
