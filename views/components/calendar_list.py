@@ -25,16 +25,16 @@ def _set_view_mode(mode_key: str, mode: str) -> None:
     st.session_state[mode_key] = mode
 
 
-def _normalize_view_mode(mode_key: str) -> str:
-    """Migrate legacy radio labels and default to calendar grid."""
+def _normalize_view_mode(mode_key: str, default_mode: str = "grid") -> str:
+    """Migrate legacy radio labels; default_mode is 'grid' or 'list'."""
     raw = st.session_state.get(mode_key)
     if raw == "grid" or raw == "list":
         return raw
     if isinstance(raw, str) and raw.startswith("📋"):
         st.session_state[mode_key] = "list"
         return "list"
-    st.session_state[mode_key] = "grid"
-    return "grid"
+    st.session_state[mode_key] = default_mode
+    return default_mode
 
 
 def _inject_view_toggle_css() -> None:
@@ -47,14 +47,6 @@ def _inject_view_toggle_css() -> None:
             font-weight: 700 !important;
         }
         @media (max-width: 768px) {
-            div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) {
-                position: sticky;
-                top: 0;
-                z-index: 50;
-                background: var(--background-color, #ffffff);
-                padding-bottom: 0.35rem;
-                margin-bottom: 0.15rem;
-            }
             div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) [data-testid="stHorizontalBlock"] button {
                 min-height: 2.85rem !important;
                 font-size: 0.95rem !important;
@@ -66,14 +58,19 @@ def _inject_view_toggle_css() -> None:
     )
 
 
-def render_view_mode_toggle(key: str, *, force_grid: bool = False) -> str:
-    """Return 'grid' or 'list'. Mobile-friendly pill buttons; default = calendar grid."""
+def render_view_mode_toggle(
+    key: str,
+    *,
+    force_grid: bool = False,
+    default_mode: str = "grid",
+) -> str:
+    """Return 'grid' or 'list'. Mobile-friendly pill buttons."""
     mode_key = f"{key}_view_mode"
     if force_grid:
         st.session_state[mode_key] = "grid"
         return "grid"
 
-    current = _normalize_view_mode(mode_key)
+    current = _normalize_view_mode(mode_key, default_mode)
     _inject_view_toggle_css()
 
     st.caption("檢視方式")
@@ -97,7 +94,16 @@ def render_view_mode_toggle(key: str, *, force_grid: bool = False) -> str:
             on_click=_set_view_mode,
             args=(mode_key, "list"),
         )
-    return _normalize_view_mode(mode_key)
+    return _normalize_view_mode(mode_key, default_mode)
+
+
+def _tone_dot(type_label: str) -> str:
+    t = (type_label or "").strip()
+    if t == "比賽":
+        return "🔴"
+    if t in ("休息", "待排課", ""):
+        return "⚪"
+    return "🔵"
 
 
 def _render_list_day_row(
@@ -121,6 +127,7 @@ def _render_list_day_row(
     title, detail, type_label, bg = describe_day(ds, prog)
     d = date.fromisoformat(ds)
     is_today = ds == today.isoformat()
+    dot = _tone_dot(type_label)
 
     active = (not pick_mode) and st.session_state.get(select_key) == ds
     border = "2px solid #1d4ed8" if active else "1px solid #e2e8f0"
@@ -136,35 +143,33 @@ def _render_list_day_row(
     elif is_today:
         border = "2px solid #1d4ed8"
 
-    today_badge = (
-        "<span style='background:#dbeafe;color:#1d4ed8;padding:2px 8px;"
-        "border-radius:999px;font-size:11px;margin-left:6px;'>今日</span>"
-        if is_today else ""
-    )
-    type_badge = (
-        f"<span style='background:#e2e8f0;color:#334155;padding:2px 8px;"
-        f"border-radius:999px;font-size:12px;margin-left:8px;'>{type_label}</span>"
-        if type_label else ""
-    )
-    detail_html = (
-        f"<div style='font-size:13px;color:#64748b;margin-top:4px;'>{detail}</div>"
-        if detail else ""
-    )
+    today_tag = " · 今日" if is_today else ""
+    main_title = title or empty_label
+    btn_label = f"{dot} {month}/{day:02d}（{wd_cn}）{today_tag} — {main_title}"
 
-    label_col, btn_col = st.columns([5, 1])
-    with label_col:
-        st.markdown(
-            f"<div style='background:{cell_bg};border:{border};border-radius:10px;"
-            f"padding:12px 14px;margin-bottom:6px;'>"
-            f"<div style='font-size:15px;font-weight:700;color:#1e3a8a;'>"
-            f"{month}/{day:02d}（{wd_cn}）{today_badge}{type_badge}</div>"
-            f"<div style='font-size:14px;font-weight:600;margin-top:4px;'>"
-            f"{title or empty_label}</div>"
-            f"{detail_html}</div>",
-            unsafe_allow_html=True,
-        )
-    with btn_col:
-        if pick_mode:
+    if pick_mode:
+        label_col, btn_col = st.columns([5, 1])
+        with label_col:
+            type_badge = (
+                f"<span style='background:#e2e8f0;color:#334155;padding:2px 8px;"
+                f"border-radius:999px;font-size:12px;margin-left:8px;'>{type_label}</span>"
+                if type_label else ""
+            )
+            detail_html = (
+                f"<div style='font-size:13px;color:#64748b;margin-top:4px;'>{detail}</div>"
+                if detail else ""
+            )
+            st.markdown(
+                f"<div style='background:{cell_bg};border:{border};border-radius:12px;"
+                f"padding:12px 14px;margin-bottom:6px;'>"
+                f"<div style='font-size:15px;font-weight:700;color:#1e3a8a;'>"
+                f"{month}/{day:02d}（{wd_cn}）{type_badge}</div>"
+                f"<div style='font-size:14px;font-weight:600;margin-top:4px;'>"
+                f"{main_title}</div>"
+                f"{detail_html}</div>",
+                unsafe_allow_html=True,
+            )
+        with btn_col:
             if pick_mode == "copy" and ds == copy_source:
                 st.caption("來源")
             elif can_pick is not None and not can_pick(ds, prog):
@@ -178,13 +183,26 @@ def _render_list_day_row(
                     on_click=_toggle_list_pick,
                     args=(pick_key, ds),
                 )
-        st.button(
-            "選",
-            key=f"list_sel_{select_key}_{ds}",
-            use_container_width=True,
-            on_click=_select_list_date,
-            args=(select_key, ds),
-        )
+            st.button(
+                "選",
+                key=f"list_sel_{select_key}_{ds}",
+                use_container_width=True,
+                on_click=_select_list_date,
+                args=(select_key, ds),
+            )
+        return
+
+    st.markdown('<div class="ka-cal-list-row"></div>', unsafe_allow_html=True)
+    st.button(
+        btn_label,
+        key=f"list_sel_{select_key}_{ds}",
+        use_container_width=True,
+        type="primary" if active else "secondary",
+        on_click=_select_list_date,
+        args=(select_key, ds),
+    )
+    if detail:
+        st.caption(detail)
 
 
 def render_month_day_list(

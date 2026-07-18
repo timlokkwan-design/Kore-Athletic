@@ -1,15 +1,15 @@
-"""Coach — recent same-group workout history as 7-column square grid."""
+"""Coach — recent same-group workout history for side-by-side comparison."""
 
 from __future__ import annotations
 
+import html
 from datetime import date, timedelta
 
 import streamlit as st
 
-from utils.config import GROUP_OPTIONS, group_display_label, normalize_group, normalize_train_type
-from utils.data_store import get_programs_for_date
+from utils.config import GROUP_OPTIONS, WEEKDAY_SHORT, group_display_label, normalize_group, normalize_train_type
+from utils.data_store import get_group_training_history
 from utils.helpers import (
-    calendar_cell_tone,
     format_meters_short,
     format_time_venue_line,
     format_timetable_date,
@@ -17,14 +17,18 @@ from utils.helpers import (
     workout_detail,
     workout_volume_from_program,
 )
-from views.components.calendar_compact import (
-    SquareCell,
-    inject_compact_calendar_css,
-    render_seven_column_row,
-)
 
 _COMPARE_GROUPS = [g for g in GROUP_OPTIONS if g != "全體組員"]
 _DIALOG_KEY = "coach_hist_dialog_pick"
+
+
+def _date_heading(prog: dict) -> str:
+    ds = safe_str(prog.get("date"))
+    try:
+        d = date.fromisoformat(ds)
+        return f"{d.month}/{d.day}（{WEEKDAY_SHORT[d.weekday()]}）"
+    except ValueError:
+        return ds
 
 
 def _vol_label(prog: dict) -> str:
@@ -72,73 +76,58 @@ def _pick_history_entry(prog: dict, group: str) -> None:
     st.session_state[_DIALOG_KEY] = {"prog": dict(prog), "group": group}
 
 
-def _prog_for_group_on_date(d: date, group: str) -> dict | None:
-    target = normalize_group(group)
-    for p in get_programs_for_date(d):
-        if normalize_group(safe_str(p.get("group"))) == target:
-            tp = normalize_train_type(safe_str(p.get("type")))
-            if tp == "休息":
-                return None
-            return p
-    return None
-
-
-def _past_days(anchor: date, days_back: int) -> list[date]:
-    return [anchor - timedelta(days=i) for i in range(days_back, 0, -1)]
-
-
-def _render_history_grid(
-    selected: date,
+def _render_history_entry(
+    prog: dict,
     group: str,
     *,
-    days_back: int = 14,
-    key_prefix: str,
+    key_suffix: str,
 ) -> None:
-    """Two rows × 7 cols = past 14 days; tap square to enlarge."""
-    days = _past_days(selected, days_back)
-    inject_compact_calendar_css()
-    st.markdown('<div class="ka-cal-7grid ka-hist-grid">', unsafe_allow_html=True)
+    ds = safe_str(prog.get("date"))
+    heading = _date_heading(prog)
+    vol = _vol_label(prog)
+    tp = normalize_train_type(safe_str(prog.get("type")))
+    detail = workout_detail(prog) or "（無跑案內容）"
+    vol_text = f" · {vol}" if vol else ""
+    type_text = f" · {tp}" if tp == "比賽" else ""
 
-    grp_key = normalize_group(group).replace(" ", "")
+    st.markdown(
+        f"<div style='background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;"
+        f"padding:8px 10px 4px;margin-bottom:4px;'>"
+        f"<div style='font-size:12px;font-weight:700;color:#1e3a8a;'>"
+        f"{html.escape(heading)}{html.escape(vol_text)}{html.escape(type_text)}</div></div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f"<pre style='white-space:pre-wrap;word-break:break-word;font-family:inherit;"
+        f"font-size:12px;line-height:1.45;color:#334155;background:#f8fafc;"
+        f"border:1px solid #cbd5e1;border-top:none;border-radius:0 0 8px 8px;"
+        f"padding:8px 10px;margin:0 0 6px;max-height:180px;overflow-y:auto;'>"
+        f"{html.escape(detail)}</pre>",
+        unsafe_allow_html=True,
+    )
+    st.button(
+        "🔍 放大檢視",
+        key=f"hist_zoom_{key_suffix}_{ds}",
+        use_container_width=True,
+        on_click=_pick_history_entry,
+        args=(prog, group),
+    )
 
-    for row_idx in range(2):
-        chunk = days[row_idx * 7 : (row_idx + 1) * 7]
-        cells: list[SquareCell] = []
-        for d in chunk:
-            ds = d.isoformat()
-            prog = _prog_for_group_on_date(d, group)
-            tone = calendar_cell_tone(prog) if prog else "empty"
-            if tone == "rest":
-                tone = "empty"
-            label = str(d.day)
-            if prog:
-                vol = _vol_label(prog)
-                tp = normalize_train_type(safe_str(prog.get("type")))
-                if tp == "比賽":
-                    label = f"{d.day}賽"
-                elif vol:
-                    label = f"{d.day}·{vol[:3]}"
-            cells.append(
-                SquareCell(
-                    key_id=ds,
-                    label=label,
-                    tone=tone,
-                    disabled=prog is None,
-                )
-            )
-        render_seven_column_row(
-            cells,
-            key_prefix=f"{key_prefix}_{grp_key}",
-            row_idx=row_idx,
-            on_click=_pick_history_entry,
-            click_args_fn=lambda cell, g=group: (
-                _prog_for_group_on_date(date.fromisoformat(cell.key_id), g) or {"date": cell.key_id},
-                g,
-            ),
+
+def _range_caption(selected: date, group: str, days_back: int, count: int) -> str:
+    start = selected - timedelta(days=days_back)
+    end = selected - timedelta(days=1)
+    gl = group_display_label(group)
+    sel = format_timetable_date(selected.isoformat())
+    if count == 0:
+        return (
+            f"選定日 **{sel}** · **{gl}** 在 {start.month}/{start.day}–"
+            f"{end.month}/{end.day}（不含選定日）無訓練紀錄"
         )
-
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.caption("點藍/紅方格放大檢視跑案 · 灰格為該日無此組訓練")
+    return (
+        f"選定日 **{sel}** · 顯示 **{gl}** 在 {start.month}/{start.day}–"
+        f"{end.month}/{end.day}（不含選定日）共 **{count}** 次訓練 · 按 **放大檢視** 全屏閱讀"
+    )
 
 
 def render_workout_history_compare(
@@ -149,32 +138,36 @@ def render_workout_history_compare(
     days_back: int = 14,
     show_heading: bool = True,
 ) -> None:
-    """Past training plans as 7-column square grids; tap to open full detail."""
+    """
+    List training days for the editing group only — dates in (selected - 14d, selected).
+    """
     show_groups = groups or _COMPARE_GROUPS
     if highlight_group:
         hg = normalize_group(highlight_group)
-        if groups is None:
-            ordered = [hg] + [g for g in show_groups if normalize_group(g) != hg]
-            show_groups = ordered
-        else:
-            show_groups = [g for g in show_groups if normalize_group(g) == hg] or [hg]
+        show_groups = [g for g in show_groups if normalize_group(g) == hg] or [hg]
 
-    if show_heading:
-        if len(show_groups) == 1:
-            gl = group_display_label(show_groups[0])
-            st.markdown(f"#### 📊 近2週 · {gl} 跑案參考")
-        else:
-            st.markdown("#### 📊 近2週同組別跑案參考")
-        st.caption(f"選定日 **{selected.month}/{selected.day}** · 7 格一列 · 點方格放大")
+    for col_idx, grp in enumerate(show_groups):
+        history = get_group_training_history(selected, grp, days_back=days_back)
+        gl = group_display_label(grp)
 
-    for gi, grp in enumerate(show_groups):
+        if show_heading:
+            st.markdown(f"**📊 近2週 · {gl} 跑案參考**")
+            st.caption(_range_caption(selected, grp, days_back, len(history)))
+
         if len(show_groups) > 1:
-            st.markdown(f"**{group_display_label(grp)}**")
-        _render_history_grid(
-            selected,
-            grp,
-            days_back=days_back,
-            key_prefix=f"hist_{gi}",
-        )
+            st.markdown(f"**{gl}**")
+
+        if not history:
+            if not show_heading:
+                st.caption(_range_caption(selected, grp, days_back, 0))
+            continue
+
+        grp_key = normalize_group(grp).replace(" ", "")
+        for i, prog in enumerate(history):
+            _render_history_entry(
+                prog,
+                grp,
+                key_suffix=f"g{col_idx}_{grp_key}_{i}_{selected.isoformat()}",
+            )
 
     _open_history_dialog()

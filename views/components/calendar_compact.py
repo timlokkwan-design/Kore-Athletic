@@ -22,8 +22,6 @@ _TONE_STYLES = {
 
 @dataclass(frozen=True)
 class SquareCell:
-    """One square in a 7-column grid."""
-
     key_id: str
     label: str
     tone: str = "empty"
@@ -49,49 +47,78 @@ def inject_compact_calendar_css() -> None:
     st.markdown(
         f"""
         <style>
-        .ka-cal-7grid {{
-            width: 100%;
-            max-width: 100%;
-            overflow: hidden;
-        }}
-        div[data-testid="stHorizontalBlock"]:has(.ka-ccell-marker) {{
+        div[data-testid="stHorizontalBlock"]:has(.ka-ccell-marker),
+        div[data-testid="stHorizontalBlock"]:has(.ka-ccell-hdr) {{
+            display: grid !important;
+            grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
             gap: 2px !important;
             flex-wrap: nowrap !important;
             width: 100% !important;
             max-width: 100% !important;
         }}
         div[data-testid="stHorizontalBlock"]:has(.ka-ccell-marker)
+        > div[data-testid="column"],
+        div[data-testid="stHorizontalBlock"]:has(.ka-ccell-hdr)
         > div[data-testid="column"] {{
-            padding-left: 1px !important;
-            padding-right: 1px !important;
+            padding: 0 !important;
+            margin: 0 !important;
             min-width: 0 !important;
-            flex: 1 1 0 !important;
-            max-width: 14.2857% !important;
+            width: auto !important;
+            max-width: none !important;
+            flex: unset !important;
+        }}
+        div[data-testid="column"]:has(.ka-ccell-marker) {{
+            aspect-ratio: 1 / 1 !important;
+            overflow: hidden !important;
         }}
         div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stVerticalBlock"] {{
             gap: 0 !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            justify-content: stretch !important;
+        }}
+        div[data-testid="column"]:has(.ka-ccell-marker) .ka-ccell-marker {{
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+            clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important;
+            border: 0 !important;
         }}
         div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stButton"] {{
-            margin-top: 0 !important;
+            position: absolute !important;
+            inset: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }}
+        div[data-testid="column"]:has(.ka-ccell-marker) {{
+            position: relative !important;
         }}
         div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stButton"] button {{
+            position: absolute !important;
+            inset: 0 !important;
             width: 100% !important;
-            aspect-ratio: 1 / 1 !important;
-            height: auto !important;
+            height: 100% !important;
             min-height: 0 !important;
             max-height: none !important;
-            padding: 2px 1px !important;
+            padding: 0 !important;
             margin: 0 !important;
-            font-size: 0.72rem !important;
+            font-size: 0.68rem !important;
             font-weight: 600 !important;
-            line-height: 1.05 !important;
+            line-height: 1 !important;
             overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            white-space: nowrap !important;
+            -webkit-appearance: none !important;
+            appearance: none !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            border-radius: 4px !important;
+            border-radius: 8px !important;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
         }}
         div[data-testid="column"]:has(.ka-ccell-marker[data-selected="1"]) [data-testid="stButton"] button {{
             box-shadow: inset 0 0 0 2px #1d4ed8 !important;
@@ -109,41 +136,37 @@ def inject_compact_calendar_css() -> None:
             box-shadow: inset 0 0 0 3px #f59e0b !important;
         }}
         {tone_css}
+        div[data-testid="column"]:has(.ka-ccell-empty) {{
+            aspect-ratio: 1 / 1 !important;
+        }}
         div[data-testid="column"]:has(.ka-ccell-empty) .ka-ccell-empty {{
-            aspect-ratio: 1 / 1;
-            width: 100%;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 100% !important;
             background: #f8fafc;
-            border-radius: 4px;
+            border-radius: 8px;
             border: 1px solid #f1f5f9;
             box-sizing: border-box;
         }}
         div[data-testid="column"]:has(.ka-ccell-hdr) p {{
             text-align: center !important;
-            font-size: 0.68rem !important;
+            font-size: 0.62rem !important;
             margin: 0 !important;
+            padding: 2px 0 !important;
             color: #64748b !important;
             font-weight: 600 !important;
         }}
         @media (max-width: 768px) {{
             section.main .block-container {{
-                padding-left: 0.5rem !important;
-                padding-right: 0.5rem !important;
+                padding-left: 0.35rem !important;
+                padding-right: 0.35rem !important;
             }}
-            div[data-testid="stHorizontalBlock"]:has(.ka-ccell-marker) {{
+            div[data-testid="stHorizontalBlock"]:has(.ka-ccell-marker),
+            div[data-testid="stHorizontalBlock"]:has(.ka-ccell-hdr) {{
                 gap: 1px !important;
             }}
-            div[data-testid="stHorizontalBlock"]:has(.ka-ccell-marker)
-            > div[data-testid="column"] {{
-                flex: 0 0 14.2857% !important;
-                width: 14.2857% !important;
-                max-width: 14.2857% !important;
-            }}
             div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stButton"] button {{
-                font-size: clamp(0.52rem, 2.65vw, 0.68rem) !important;
-                padding: 1px !important;
-            }}
-            div[data-testid="column"]:has(.ka-ccell-hdr) p {{
-                font-size: clamp(0.5rem, 2.4vw, 0.65rem) !important;
+                font-size: clamp(0.48rem, 2.4vw, 0.62rem) !important;
             }}
         }}
         </style>
@@ -155,13 +178,6 @@ def inject_compact_calendar_css() -> None:
 def _open_dialog_state(dialog_key: str, select_key: str, ds: str) -> None:
     st.session_state[select_key] = ds
     st.session_state[dialog_key] = ds
-
-
-def _compact_label(raw: str, day: int, *, max_len: int = 8) -> str:
-    text = raw if raw else str(day)
-    if len(text) <= max_len:
-        return text
-    return text[: max_len - 1] + "…"
 
 
 def _render_square_cell(
@@ -199,12 +215,9 @@ def render_seven_column_row(
     on_click: Callable | None = None,
     click_args_fn: Callable[[SquareCell], tuple] | None = None,
 ) -> None:
-    """Render exactly 7 square cells in one row (pad with empty cells if needed)."""
     padded = list(cells[:7])
     while len(padded) < 7:
-        padded.append(
-            SquareCell(key_id=f"empty_{len(padded)}", label="", empty=True)
-        )
+        padded.append(SquareCell(key_id=f"empty_{len(padded)}", label="", empty=True))
     cols = st.columns(7)
     for i, (col, cell) in enumerate(zip(cols, padded)):
         with col:
@@ -227,21 +240,13 @@ def render_compact_month_grid(
     on_pick: Callable[[str], None] | None = None,
     firstweekday: int = 6,
 ) -> None:
-    """
-    Render minimal 7-column calendar. Each cell = colored day button (fixed square).
-    day_style(ds, day) -> {tone, border, label, disabled, bg (legacy)}
-    """
     inject_compact_calendar_css()
-    st.markdown('<div class="ka-cal-7grid">', unsafe_allow_html=True)
 
     weekdays = ["日", "一", "二", "三", "四", "五", "六"]
     hdr = st.columns(7)
     for i, w in enumerate(weekdays):
         with hdr[i]:
-            st.markdown(
-                f"<div class='ka-ccell-hdr'><p>{w}</p></div>",
-                unsafe_allow_html=True,
-            )
+            st.markdown(f"<div class='ka-ccell-hdr'><p>{w}</p></div>", unsafe_allow_html=True)
 
     cal = calendar.Calendar(firstweekday=firstweekday)
     selected = st.session_state.get(select_key, "")
@@ -262,10 +267,14 @@ def render_compact_month_grid(
                 continue
             ds = f"{year}-{month:02d}-{day:02d}"
             style = day_style(ds, day)
+            raw_label = style.get("label", str(day))
+            label = str(day)
+            if raw_label.startswith("●"):
+                label = f"●{day}"
             cells.append(
                 SquareCell(
                     key_id=ds,
-                    label=_compact_label(style.get("label", str(day)), day),
+                    label=label,
                     tone=style.get("tone", "empty"),
                     sync=style.get("sync", ""),
                     disabled=bool(style.get("disabled")),
@@ -280,8 +289,6 @@ def render_compact_month_grid(
             click_args_fn=_args,
         )
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
 
 def open_dialog_if_requested(
     dialog_key: str,
@@ -289,7 +296,6 @@ def open_dialog_if_requested(
     *,
     title: str = "訓練詳情",
 ) -> None:
-    """Call render_content(ds) inside st.dialog when dialog_key was set by grid tap."""
     ds = st.session_state.get(dialog_key)
     if not ds:
         return

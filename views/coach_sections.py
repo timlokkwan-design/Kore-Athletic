@@ -93,6 +93,7 @@ from utils.helpers import (
     weekly_summary_text,
     whatsapp_program_text,
 )
+from views.components.coach_mobile_ui import render_coach_screen_switcher
 from views.components.coach_program_editor import render_coach_day_editor
 from views.components.calendar import render_calendar
 from views.components.coach_sync import render_month_sync_alerts
@@ -218,31 +219,32 @@ def render_coach_program() -> None:
         comp_date = date.fromisoformat(str(per["comp_target_date"]))
     except ValueError:
         comp_date = date.today()
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        gp = st.selectbox(
-            "全局訓練階段",
-            PHASE_OPTIONS,
-            index=_select_index(PHASE_OPTIONS, per["global_phase"]),
-            key="prog_global_phase",
-        )
-    with c2:
-        gw = st.selectbox(
-            "本週主題",
-            WEEK_THEME_OPTIONS,
-            index=_select_index(WEEK_THEME_OPTIONS, per["global_week_theme"]),
-            key="prog_global_week",
-        )
-    with c3:
-        cd = st.date_input("校際賽倒數目標日", value=comp_date, key="prog_comp_date")
-    if st.button("儲存週期化設定", key="prog_save_period"):
-        save_periodization({
-            "global_phase": gp,
-            "global_week_theme": gw,
-            "comp_target_date": cd.isoformat(),
-        })
-        st.success("已儲存")
-        st.rerun()
+    with st.expander("⚙️ 週期化設定（階段 / 本週主題 / 賽事倒數）", expanded=False):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            gp = st.selectbox(
+                "全局訓練階段",
+                PHASE_OPTIONS,
+                index=_select_index(PHASE_OPTIONS, per["global_phase"]),
+                key="prog_global_phase",
+            )
+        with c2:
+            gw = st.selectbox(
+                "本週主題",
+                WEEK_THEME_OPTIONS,
+                index=_select_index(WEEK_THEME_OPTIONS, per["global_week_theme"]),
+                key="prog_global_week",
+            )
+        with c3:
+            cd = st.date_input("校際賽倒數目標日", value=comp_date, key="prog_comp_date")
+        if st.button("儲存週期化設定", key="prog_save_period"):
+            save_periodization({
+                "global_phase": gp,
+                "global_week_theme": gw,
+                "comp_target_date": cd.isoformat(),
+            })
+            st.success("已儲存")
+            st.rerun()
 
     copy_mode = st.session_state.get("copy_mode", False)
     delete_mode = st.session_state.get("delete_mode", False)
@@ -253,10 +255,7 @@ def render_coach_program() -> None:
 
     if not copy_mode and not delete_mode:
         st.caption(
-            "💡 同一日可為**不同組別**設定不同訓練；學員只會看到屬於自己專項的課表 · "
-            "複製課表：先點選來源日期 → 按「複製課表到其他日期」→ "
-            "在月曆**多選**目標日期 → 確認複製（會複製當日全部組別） · "
-            "刪除課表：按「多選刪除課表」可一次刪除多個日期"
+            "同一日可為不同組別設定課表 · 列表模式點選日期 · 再按「編輯此日課表」"
         )
 
     if copy_mode or delete_mode:
@@ -266,7 +265,34 @@ def render_coach_program() -> None:
     _render_coach_program_editor()
 
 
-@st.fragment
+def _render_coach_log_filter() -> None:
+    test_logs = get_all_logs()
+    test_count = int(test_logs["student_name"].astype(str).isin(TEST_STUDENT_NAMES).sum()) if not test_logs.empty else 0
+    if test_count:
+        if st.button(f"🧹 清除測試學員日誌（{test_count} 筆：陳大文、林明美等）", key="purge_test_logs"):
+            stats = purge_test_student_records(clear_programs=False)
+            st.success(f"已清除 {stats.get('logs_removed', 0)} 筆測試日誌")
+            st.rerun()
+    f1, f2, f3 = st.columns(3)
+    fd = f1.date_input("日期", value=None, key="log_filter_date")
+    athletes = [n for n in get_student_names() if n not in TEST_STUDENT_NAMES]
+    fs = f2.selectbox("學員", [""] + athletes, key="log_filter_student")
+    fr = f3.selectbox("RPE", ["", "1-4", "5-7", "8-10"], key="log_filter_rpe")
+    logs = filter_logs(
+        fd.isoformat() if fd else None,
+        fr or None,
+        fs or None,
+        exclude_test=True,
+    )
+    for _, log in logs.head(30).iterrows():
+        remark = safe_str(log.get("laps_text")) or safe_str(log.get("remark"))
+        render_person(
+            str(log["student_name"]),
+            subtitle=f"`{log['date']}` — {remark} · RPE{log['rpe']} · Load{log.get('load', '')}",
+            size=32,
+        )
+
+
 def _render_coach_program_editor() -> None:
     filter_labels = [label for label, _ in CALENDAR_GROUP_FILTERS]
     filter_map = {label: value for label, value in CALENDAR_GROUP_FILTERS}
@@ -283,9 +309,10 @@ def _render_coach_program_editor() -> None:
         filter_programs_by_group(get_programs_for_month(cal_year, cal_month), cal_group)
     )
 
-    tab_cal, tab_edit = st.tabs(["📅 月曆", "✏️ 編輯課表"])
+    screen = st.session_state.get("coach_prog_screen", "cal")
+    render_coach_screen_switcher(current=screen)
 
-    with tab_cal:
+    if screen == "cal":
         render_month_sync_alerts(alert_map, page="prog")
         selected = render_calendar(
             "coach_cal",
@@ -312,44 +339,21 @@ def _render_coach_program_editor() -> None:
                 st.rerun()
         st.caption(f"今日完成率：**{log_completion_rate()}%**")
         sk = st.session_state.get("coach_cal", date.today().isoformat())
-        st.info(f"已選日期 **{format_timetable_date(sk)}** → 切換至「✏️ 編輯課表」分頁編輯")
-
-    with tab_edit:
+        st.info(f"已選 **{format_timetable_date(sk)}**")
+        if st.button("✏️ 編輯此日課表", type="primary", use_container_width=True, key="coach_goto_edit"):
+            st.session_state.coach_prog_screen = "edit"
+            st.rerun()
+    else:
         sk = st.session_state.get("coach_cal", date.today().isoformat())
         try:
             edit_date = date.fromisoformat(str(sk))
         except ValueError:
             edit_date = date.today()
+        st.caption(f"編輯 **{format_timetable_date(sk)}** · 組別篩選：{cal_group_label}")
         render_coach_day_editor(edit_date)
 
-    st.markdown("---")
-    st.markdown("#### 訓練日誌篩選")
-
-    test_logs = get_all_logs()
-    test_count = int(test_logs["student_name"].astype(str).isin(TEST_STUDENT_NAMES).sum()) if not test_logs.empty else 0
-    if test_count:
-        if st.button(f"🧹 清除測試學員日誌（{test_count} 筆：陳大文、林明美等）", key="purge_test_logs"):
-            stats = purge_test_student_records(clear_programs=False)
-            st.success(f"已清除 {stats.get('logs_removed', 0)} 筆測試日誌")
-            st.rerun()
-    f1, f2, f3 = st.columns(3)
-    fd = f1.date_input("日期", value=None, key="log_filter_date")
-    athletes = [n for n in get_student_names() if n not in TEST_STUDENT_NAMES]
-    fs = f2.selectbox("學員", [""] + athletes, key="log_filter_student")
-    fr = f3.selectbox("RPE", ["", "1-4", "5-7", "8-10"], key="log_filter_rpe")
-    logs = filter_logs(
-        fd.isoformat() if fd else None,
-        fr or None,
-        fs or None,
-        exclude_test=True,
-    )
-    for _, log in logs.head(30).iterrows():
-        remark = safe_str(log.get("laps_text")) or safe_str(log.get("remark"))
-        render_person(
-            str(log["student_name"]),
-            subtitle=f"`{log['date']}` — {remark} · RPE{log['rpe']} · Load{log.get('load', '')}",
-            size=32,
-        )
+    with st.expander("📊 訓練日誌篩選", expanded=False):
+        _render_coach_log_filter()
 
 
 def render_coach_wellness() -> None:

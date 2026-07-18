@@ -52,24 +52,8 @@ def inject_coach_editor_css() -> None:
             font-weight: 800 !important;
         }
         @media (max-width: 768px) {
-            div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) {
-                padding-bottom: 4.5rem;
-            }
-            div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-save-marker) {
-                position: fixed;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                z-index: 999;
-                background: var(--background-color, #ffffff);
-                border-top: 1px solid #e2e8f0;
-                padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
-                margin: 0 !important;
-                box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.08);
-            }
-            div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-save-marker) [data-testid="column"] {
-                padding-left: 0.25rem !important;
-                padding-right: 0.25rem !important;
+            div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-save-marker) button {
+                min-height: 2.85rem !important;
             }
             div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-more-marker) [data-testid="column"] {
                 flex: 1 1 48% !important;
@@ -264,7 +248,7 @@ def render_coach_day_editor(selected: date) -> None:
     day_status = _render_day_status_picker(sk, edit_group, prog)
 
     workout_text = ""
-    tips = safe_str(prog.get("tips"))
+    tips = ""
     rpe = max(1, safe_int(prog.get("rpe"), 7))
     train_type = "休息"
     title = "休息"
@@ -276,6 +260,15 @@ def render_coach_day_editor(selected: date) -> None:
         st.info("休息日 — 無訓練安排")
         train_type = title = "休息"
     else:
+        train_type = "訓練"
+        title = group_display_label(edit_group)
+
+    if day_status == "訓練":
+        render_workout_history_compare(
+            selected,
+            highlight_group=edit_group,
+            groups=[edit_group],
+        )
         workout_text = st.text_area(
             "跑案詳情",
             value=workout_detail(prog),
@@ -296,12 +289,11 @@ def render_coach_day_editor(selected: date) -> None:
         )
         tips = st.text_area(
             "教練備註",
-            tips,
+            value=safe_str(prog.get("tips")) if day_programs else "",
             height=80,
+            placeholder="選填",
             key=f"ptips_{sk}_{edit_group}",
         )
-        train_type = "訓練"
-        title = group_display_label(edit_group)
         run_vol = parse_workout_volume(workout_text)
         if run_vol["total_meters"] > 0:
             est = estimate_workout_minutes(run_vol["total_meters"], train_type)
@@ -389,18 +381,6 @@ def render_coach_day_editor(selected: date) -> None:
                 st.rerun()
             else:
                 st.info("此日沒有已儲存的課表")
-
-    with st.expander(
-        f"📊 近2週 · {group_display_label(edit_group)} 跑案參考",
-        expanded=(day_status == "訓練"),
-    ):
-        st.caption("7 格一列 · 點方格放大檢視")
-        render_workout_history_compare(
-            selected,
-            highlight_group=edit_group,
-            groups=[edit_group],
-            show_heading=False,
-        )
 
     with st.expander("📱 WhatsApp 課表文案"):
         per = load_periodization()

@@ -35,6 +35,7 @@ from utils.helpers import (
 )
 from views.components.calendar_compact import open_dialog_if_requested, render_compact_month_grid
 from views.components.calendar_list import render_month_day_list, render_view_mode_toggle
+from views.components.coach_mobile_ui import render_calendar_legend
 
 
 def _sync_selection_to_month(select_key: str, year: int, month: int) -> None:
@@ -301,9 +302,7 @@ def _render_calendar_impl(
     elif delete_mode:
         st.caption("🟥 紅色=已選刪除 · 虛線=有課表可選 · 灰底=無課表 · 可跨月多選")
     else:
-        st.caption(
-            "🔵 藍色=訓練 · 🔴 紅色=比賽 · 方格顯示總跑量 · 框線=課表待同步"
-        )
+        render_calendar_legend()
 
     year, month = st.session_state.cal_year, st.session_state.cal_month
     if not copy_mode and not delete_mode:
@@ -315,7 +314,12 @@ def _render_calendar_impl(
     if select_key not in st.session_state:
         st.session_state[select_key] = date.today().isoformat()
 
-    view_mode = render_view_mode_toggle(select_key, force_grid=copy_mode or delete_mode)
+    default_mode = "list" if select_key == "coach_cal" else "grid"
+    view_mode = render_view_mode_toggle(
+        select_key,
+        force_grid=copy_mode or delete_mode,
+        default_mode=default_mode,
+    )
     if view_mode == "list":
         athlete_names = get_student_names()
         acwr_athlete = athlete_names[0] if show_acwr and athlete_names else None
