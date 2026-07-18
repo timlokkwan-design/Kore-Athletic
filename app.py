@@ -1,4 +1,15 @@
 """KORE ATHLETIC — V6 full navigation."""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+# Streamlit Cloud: if repo has kore-athletic/ subfolder, use it for imports
+_app_dir = Path(__file__).resolve().parent
+if not (_app_dir / "utils").is_dir():
+    _nested = _app_dir / "kore-athletic"
+    if (_nested / "utils").is_dir():
+        sys.path.insert(0, str(_nested))
 
 import streamlit as st
 
