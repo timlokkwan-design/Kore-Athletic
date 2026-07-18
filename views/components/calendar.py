@@ -8,13 +8,14 @@ import streamlit as st
 from utils.acwr import acwr_status, calc_acwr
 from utils.config import TRAIN_TYPES, TYPE_CATEGORY_COLORS
 from utils.data_store import (
+    build_coach_prog_map,
     ensure_program_dict,
     get_all_logs,
     get_programs_for_month,
     get_student_names,
     row_to_program,
 )
-from utils.helpers import normalize_date_str, program_calendar_summary, safe_str
+from utils.helpers import normalize_date_str, program_calendar_summary, safe_str, short_group_label
 from views.components.calendar_list import render_month_day_list, render_view_mode_toggle
 
 
@@ -245,12 +246,7 @@ def _render_calendar_impl(
     if not copy_mode and not delete_mode:
         _sync_selection_to_month(select_key, year, month)
     programs = get_programs_for_month(year, month)
-    prog_map: dict[str, dict] = {}
-    if not programs.empty:
-        for _, row in programs.iterrows():
-            ds = normalize_date_str(row.get("date"))
-            if ds:
-                prog_map[ds] = row_to_program(row)
+    prog_map = build_coach_prog_map(programs)
 
     if select_key not in st.session_state:
         st.session_state[select_key] = date.today().isoformat()
@@ -292,8 +288,13 @@ def _render_calendar_impl(
         )
 
     if copy_mode:
-        src_prog = ensure_program_dict(st.session_state.get("copy_source_payload"))
-        src_title, src_spec = program_calendar_summary(src_prog) if src_prog else ("", "")
+        src_payload = st.session_state.get("copy_source_payload")
+        if isinstance(src_payload, list) and src_payload:
+            src_title = f"{len(src_payload)} 組課表"
+            src_spec = "、".join(short_group_label(p.get("group")) for p in src_payload[:4])
+        else:
+            src_prog = ensure_program_dict(src_payload)
+            src_title, src_spec = program_calendar_summary(src_prog) if src_prog else ("", "")
         targets = st.session_state.get("copy_target_dates", [])
         target_text = "、".join(targets) if targets else "（尚未選擇）"
         st.warning(

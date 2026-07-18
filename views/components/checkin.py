@@ -22,8 +22,8 @@ def _duration_from_times(prog: dict) -> int:
         return 0
 
 
-def _default_duration_minutes() -> int:
-    prog = get_program()
+def _default_duration_minutes(specialty: str = "") -> int:
+    prog = get_program(specialty=specialty or None)
     dur = safe_int(prog.get("duration"), 0)
     if dur < 15:
         dur = _duration_from_times(prog)
@@ -32,7 +32,7 @@ def _default_duration_minutes() -> int:
     return min(dur, 300)
 
 
-def render_student_checkin_bar(name: str, *, compact_when_done: bool = True) -> None:
+def render_student_checkin_bar(name: str, *, specialty: str = "", compact_when_done: bool = True) -> None:
     today = date.today().isoformat()
     rec = get_attendance_record(name, today)
 
@@ -54,7 +54,7 @@ def render_student_checkin_bar(name: str, *, compact_when_done: bool = True) -> 
         return
 
     with st.expander("✅ 訓練簽到 — 尚未簽到", expanded=True):
-        default_dur = _default_duration_minutes()
+        default_dur = _default_duration_minutes(specialty)
         if st.session_state.get("student_checkin_duration", default_dur) < 15:
             st.session_state.student_checkin_duration = default_dur
         c1, c2 = st.columns([2, 1])

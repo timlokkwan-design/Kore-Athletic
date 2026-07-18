@@ -6,7 +6,7 @@ from datetime import date
 import streamlit as st
 
 from utils.config import TRAIN_TYPES, TYPE_CATEGORY_COLORS, normalize_train_type
-from utils.data_store import get_programs_for_month, is_training_day, row_to_program
+from utils.data_store import get_programs_for_month, is_training_day, build_coach_prog_map
 from utils.helpers import normalize_date_str, program_calendar_summary, resolve_venue, safe_str
 from views.components.calendar_list import render_month_day_list, render_view_mode_toggle
 
@@ -211,12 +211,7 @@ def render_schedule_calendar(
         _sync_sched_month(select_key, year, month)
 
     programs = get_programs_for_month(year, month)
-    prog_map: dict[str, dict] = {}
-    if not programs.empty:
-        for _, row in programs.iterrows():
-            ds = normalize_date_str(row.get("date"))
-            if ds:
-                prog_map[ds] = row_to_program(row)
+    prog_map = build_coach_prog_map(programs)
 
     if select_key not in st.session_state:
         st.session_state[select_key] = date.today().isoformat()

@@ -7,12 +7,13 @@ import streamlit as st
 
 from utils.config import SPECIALTY_TO_GROUP, TRAIN_TYPES, TYPE_CATEGORY_COLORS, normalize_train_type
 from utils.data_store import (
+    build_coach_prog_map,
     get_attendance_map_for_month,
     get_attendance_record,
     get_programs_for_month,
     get_timetable_entries,
     program_visible_to_student,
-    row_to_program,
+    build_student_prog_map,
 )
 from utils.helpers import format_timetable_date, format_train_duration, normalize_date_str, program_specs, resolve_venue, safe_int, safe_str
 from views.components.calendar_list import render_view_mode_toggle
@@ -106,7 +107,7 @@ def _render_selected_day_detail(
             elif att and att.get("status") == "leave":
                 st.info(att_line)
     else:
-        title = safe_str(prog.get("title")) or tp
+        title = tp
         time_text, venue = _time_venue_text(prog)
         st.markdown(
             f"<div style='background:{bg};border:2px solid #1d4ed8;border-radius:10px;padding:14px 16px;'>"
@@ -150,7 +151,7 @@ def _student_day_cell(
     if is_today:
         if prog:
             tp = normalize_train_type(safe_str(prog.get("type")))
-            title_line = safe_str(prog.get("title")) or tp
+            title_line = tp
             time_part, venue = _time_venue_text(prog)
             detail = f"{time_part} · {venue}"
             if att_line:
@@ -333,12 +334,7 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
     if student_name and total_minutes > 0:
         st.caption(f"本月累計訓練：**{format_train_duration(total_minutes)}**（已簽到日）")
 
-    prog_map: dict[str, dict] = {}
-    if not programs.empty:
-        for _, row in programs.iterrows():
-            ds = normalize_date_str(row.get("date"))
-            if ds:
-                prog_map[ds] = row_to_program(row)
+    prog_map = build_student_prog_map(programs, student_specialty)
 
     view_mode = render_view_mode_toggle("student_sched")
     if view_mode == "list":
@@ -371,7 +367,7 @@ def _entry_card(prog: dict, *, highlight: bool = False) -> str:
         f"<div style='background:{bg};border:{border};border-radius:8px;padding:10px 12px;margin-bottom:8px;'>"
         f"<div style='font-size:12px;color:#334155;font-weight:600;'>{format_timetable_date(prog['date'])}"
         f"{' · 今日' if highlight else ''}</div>"
-        f"<div style='font-size:13px;font-weight:700;color:#1e3a8a;margin-top:4px;'>{tp} · {title}</div>"
+        f"<div style='font-size:13px;font-weight:700;color:#1e3a8a;margin-top:4px;'>{tp}</div>"
         f"{specs_html}"
         f"<div style='color:#334155;font-size:12px;margin-top:6px;'>🕐 {time_text}</div>"
         f"<div style='color:#475569;font-size:12px;margin-top:2px;'>📍 {venue}</div>"

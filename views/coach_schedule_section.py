@@ -11,11 +11,12 @@ from utils.data_store import (
     days_until_competition,
     ensure_program_dict,
     get_program,
+    get_programs_for_date,
     is_training_day,
     load_periodization,
     save_program_time_venue,
 )
-from utils.helpers import format_timetable_date, safe_str
+from utils.helpers import format_timetable_date, safe_str, short_group_label
 from views.components.schedule import render_program_timetable
 from views.components.schedule_calendar import render_schedule_calendar
 
@@ -147,14 +148,17 @@ def _render_sched_editor_ui() -> None:
             st.rerun()
 
     st.markdown("#### 編輯當日時間與地點")
+    day_programs = get_programs_for_date(selected)
     prog = ensure_program_dict(get_program(selected))
     tp = normalize_train_type(safe_str(prog.get("type")))
     if not is_training_day(sk):
         st.info(f"**{format_timetable_date(sk)}** — 休息日，無需設定時間地點。")
     else:
+        if len(day_programs) > 1:
+            groups = "、".join(short_group_label(p.get("group")) for p in day_programs)
+            st.caption(f"當日 **{len(day_programs)}** 組（{groups}）· 儲存後套用至全部組別")
         st.markdown(
-            f"**{format_timetable_date(sk)}** · {tp} · "
-            f"{safe_str(prog.get('title')) or tp} · 👥 {safe_str(prog.get('group'))}"
+            f"**{format_timetable_date(sk)}** · {tp} · 👥 {safe_str(prog.get('group'))}"
         )
         rk = sk.replace("-", "")
         venue_val = safe_str(prog.get("venue"))

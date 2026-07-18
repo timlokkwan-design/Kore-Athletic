@@ -200,6 +200,42 @@ def format_timetable_date(date_str: str) -> str:
     return f"{d.month}月{d.day}日（{WEEKDAY_SHORT[d.weekday()]}）"
 
 
+def short_group_label(group: str) -> str:
+    g = safe_str(group)
+    if g.startswith("短跑"):
+        return "短跑"
+    if g.startswith("中長"):
+        return "中長"
+    if "跨欄" in g or "田" in g:
+        return "田欄"
+    if g == "全體組員":
+        return "全體"
+    return g[:4] or "—"
+
+
+def merge_programs_calendar_summary(progs: list[dict]) -> tuple[str, str]:
+    """Combined title + detail when multiple groups share one calendar day."""
+    from utils.config import normalize_train_type
+
+    if not progs:
+        return "", ""
+    if len(progs) == 1:
+        return program_calendar_summary(progs[0])
+    types = [normalize_train_type(safe_str(p.get("type"))) for p in progs]
+    non_rest = [t for t in types if t != "休息"]
+    if not non_rest:
+        return "休息", ""
+    labels = [
+        f"{short_group_label(p.get('group'))}:{normalize_train_type(safe_str(p.get('type')))[:2]}"
+        for p in progs
+        if normalize_train_type(safe_str(p.get("type"))) != "休息"
+    ]
+    if len(set(non_rest)) == 1:
+        title, _ = program_calendar_summary(progs[0])
+        return title, " · ".join(labels)
+    return "多組別", " · ".join(labels[:4])
+
+
 def program_calendar_summary(prog: dict) -> tuple[str, str]:
     """Short title + specs for calendar cells."""
     tp = safe_str(prog.get("type"))

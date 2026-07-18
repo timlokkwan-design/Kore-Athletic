@@ -182,19 +182,63 @@ def ensure_program_dict(raw) -> dict:
     return {}
 
 
-def get_program(for_date: date | None = None) -> dict:
-    target = normalize_date_str((for_date or date.today()).isoformat())
+def get_programs_for_date(for_date: date | str) -> list[dict]:
+    """All program rows for one calendar date (multiple groups allowed)."""
+    if isinstance(for_date, date):
+        target = for_date.isoformat()
+    else:
+        target = normalize_date_str(for_date)
     programs = load_programs()
-    if not programs.empty:
-        match = programs[programs["date"].astype(str).str[:10] == target]
-        if not match.empty:
-            return _row_to_program(match.iloc[0])
+    if programs.empty or not target:
+        return []
+    match = programs[programs["date"].astype(str).str[:10] == target]
+    return [_row_to_program(row) for _, row in match.iterrows()]
+
+
+def pick_program_for_student(programs: list[dict], specialty: str | None = None) -> dict | None:
+    """Prefer group-specific program; fall back to 全體組員."""
+    if not programs:
+        return None
+    if not specialty:
+        return programs[0]
+    specific = None
+    general = None
+    for p in programs:
+        group = safe_str(p.get("group"), "全體組員")
+        if group == "全體組員":
+            general = general or p
+        elif program_visible_to_student(p, specialty):
+            specific = p
+    return specific or general
+
+
+def get_program(
+    for_date: date | None = None,
+    *,
+    group: str | None = None,
+    specialty: str | None = None,
+) -> dict:
+    target = normalize_date_str((for_date or date.today()).isoformat())
+    day_programs = get_programs_for_date(target)
+    if group:
+        for p in day_programs:
+            if safe_str(p.get("group")) == group:
+                return p
+        fallback = default_program(target)
+        fallback["group"] = group
+        return fallback
+    if specialty:
+        picked = pick_program_for_student(day_programs, specialty)
+        if picked:
+            return picked
+    if day_programs:
+        return day_programs[0]
     return default_program(target)
 
 
-def get_today_menu(for_date: date | None = None) -> dict:
+def get_today_menu(for_date: date | None = None, specialty: str | None = None) -> dict:
     from utils.helpers import program_specs
-    p = get_program(for_date)
+    p = get_program(for_date, specialty=specialty)
     return {**p, "event": p.get("title") or p.get("type", ""), "description": program_specs(p), "notes": p.get("tips", "")}
 
 
@@ -208,7 +252,16 @@ def save_program(prog: dict) -> None:
     programs = load_programs()
     target = normalize_date_str(prog["date"])
     prog["date"] = target
-    idx = programs.index[programs["date"].astype(str).str[:10] == target].tolist()
+    prog["group"] = safe_str(prog.get("group"), "全體組員")
+    if not safe_str(prog.get("title")):
+        prog["title"] = safe_str(prog.get("type"))
+    if programs.empty:
+        save_programs(pd.DataFrame([prog]))
+        return
+    mask = (
+        programs["date"].astype(str).str[:10] == target
+    ) & (programs["group"].astype(str) == prog["group"])
+    idx = programs.index[mask].tolist()
     row = pd.DataFrame([prog])
     if idx:
         programs = programs.drop(index=idx)
@@ -224,10 +277,27 @@ def program_exists(for_date: date | str) -> bool:
     return not programs[programs["date"].astype(str).str[:10] == target].empty
 
 
-def delete_program(for_date: date | str) -> bool:
-    """Remove saved program for a date. Returns True if a row was deleted."""
-    n = delete_programs([for_date.isoformat() if isinstance(for_date, date) else str(for_date)])
-    return n > 0
+def delete_program(for_date: date | str, group: str | None = None) -> bool:
+    """Remove program(s) for a date. With group, only that row is removed."""
+    from utils.permissions import enforce_coach_if_logged_in
+
+    enforce_coach_if_logged_in()
+    target = normalize_date_str(for_date.isoformat() if isinstance(for_date, date) else str(for_date))
+    if not target:
+        return False
+    if group:
+        programs = load_programs()
+        if programs.empty:
+            return False
+        mask = (
+            programs["date"].astype(str).str[:10] == target
+        ) & (programs["group"].astype(str) == group)
+        removed = int(mask.sum())
+        if not removed:
+            return False
+        save_programs(programs[~mask].reset_index(drop=True))
+        return True
+    return delete_programs([target]) > 0
 
 
 def delete_programs(dates: list[str] | list[date]) -> int:
@@ -255,30 +325,104 @@ def delete_programs(dates: list[str] | list[date]) -> int:
     return removed
 
 
-def copy_program(source_date: str, target_date: str, prog: dict | None = None) -> bool:
+def _copy_payloads(source_date: str, prog: dict | list[dict] | None) -> list[dict]:
+    src = normalize_date_str(source_date)
+    if isinstance(prog, list):
+        return [dict(p) for p in prog if p]
+    if prog is not None:
+        return [dict(prog)]
+    return [dict(p) for p in get_programs_for_date(src)]
+
+
+def copy_program(source_date: str, target_date: str, prog: dict | list[dict] | None = None) -> bool:
     from utils.permissions import enforce_coach_if_logged_in
     enforce_coach_if_logged_in()
-    """Copy program to another date. Returns True on success."""
+    """Copy all group programs (or one payload) to another date."""
     src = normalize_date_str(source_date)
     tgt = normalize_date_str(target_date)
     if not src or not tgt or src == tgt:
         return False
-    data = dict(prog if prog is not None else get_program(date.fromisoformat(src)))
-    data["date"] = tgt
-    save_program(data)
+    payloads = _copy_payloads(src, prog)
+    if not payloads:
+        return False
+    for data in payloads:
+        data["date"] = tgt
+        save_program(data)
     return True
 
 
-def copy_program_to_dates(source_date: str, target_dates: list[str], prog: dict | None = None) -> int:
-    """Copy program to multiple dates. Returns number of successful copies."""
+def copy_program_to_dates(source_date: str, target_dates: list[str], prog: dict | list[dict] | None = None) -> int:
+    """Copy all group programs on source date to multiple target dates."""
     src = normalize_date_str(source_date)
-    payload = dict(prog if prog is not None else get_program(date.fromisoformat(src)))
+    payloads = _copy_payloads(src, prog)
+    if not payloads:
+        return 0
     count = 0
     for tgt in target_dates:
         t = normalize_date_str(tgt)
-        if t and t != src and copy_program(src, t, payload):
-            count += 1
+        if not t or t == src:
+            continue
+        for data in payloads:
+            row = dict(data)
+            row["date"] = t
+            save_program(row)
+        count += 1
     return count
+
+
+def build_coach_prog_map(programs: pd.DataFrame) -> dict[str, dict]:
+    """One calendar cell per date; multi-group days show combined summary."""
+    from utils.helpers import merge_programs_calendar_summary
+
+    if programs.empty:
+        return {}
+    by_date: dict[str, list[dict]] = {}
+    for _, row in programs.iterrows():
+        ds = normalize_date_str(row.get("date"))
+        if not ds:
+            continue
+        by_date.setdefault(ds, []).append(_row_to_program(row))
+    result: dict[str, dict] = {}
+    for ds, progs in by_date.items():
+        if len(progs) == 1:
+            result[ds] = progs[0]
+            continue
+        title, spec = merge_programs_calendar_summary(progs)
+        merged = dict(progs[0])
+        merged["title"] = title
+        non_rest = [
+            p for p in progs
+            if normalize_train_type(safe_str(p.get("type"))) != "休息"
+        ]
+        types = {normalize_train_type(safe_str(p.get("type"))) for p in non_rest}
+        if len(types) == 1:
+            merged["type"] = next(iter(types))
+        elif non_rest:
+            merged["type"] = normalize_train_type(safe_str(non_rest[0].get("type")))
+        merged["_multi"] = True
+        merged["_programs"] = progs
+        if spec:
+            merged["tips"] = spec
+        result[ds] = merged
+    return result
+
+
+def build_student_prog_map(programs: pd.DataFrame, specialty: str) -> dict[str, dict]:
+    """One program per date, matched to student specialty."""
+    if programs.empty:
+        return {}
+    by_date: dict[str, list[dict]] = {}
+    for _, row in programs.iterrows():
+        ds = normalize_date_str(row.get("date"))
+        if not ds:
+            continue
+        by_date.setdefault(ds, []).append(_row_to_program(row))
+    result: dict[str, dict] = {}
+    for ds, progs in by_date.items():
+        picked = pick_program_for_student(progs, specialty)
+        if picked:
+            result[ds] = picked
+    return result
 
 
 def get_programs_for_month(year: int, month: int) -> pd.DataFrame:
@@ -387,13 +531,21 @@ def save_program_time_venue(
     venue_other: str = "",
 ) -> None:
     target = normalize_date_str(date_str)
-    prog = get_program(date.fromisoformat(target))
-    prog["date"] = target
-    prog["start_time"] = safe_str(start_time)
-    prog["end_time"] = safe_str(end_time)
-    prog["venue"] = safe_str(venue)
-    prog["venue_other"] = safe_str(venue_other) if venue == "其他" else ""
-    save_program(prog)
+    updates = {
+        "start_time": safe_str(start_time),
+        "end_time": safe_str(end_time),
+        "venue": safe_str(venue),
+        "venue_other": safe_str(venue_other) if venue == "其他" else "",
+    }
+    day_programs = get_programs_for_date(target)
+    if not day_programs:
+        prog = default_program(target)
+        prog.update(updates)
+        save_program(prog)
+        return
+    for prog in day_programs:
+        prog.update(updates)
+        save_program(prog)
 
 
 def _program_exists_on_date(date_str: str) -> bool:
@@ -406,10 +558,13 @@ def _program_exists_on_date(date_str: str) -> bool:
 
 def is_training_day(date_str: str) -> bool:
     """True if date has a non-rest program in the calendar."""
-    if not _program_exists_on_date(date_str):
+    target = normalize_date_str(date_str)
+    if not _program_exists_on_date(target):
         return False
-    prog = get_program(date.fromisoformat(normalize_date_str(date_str)))
-    return normalize_train_type(safe_str(prog.get("type"))) != "休息"
+    for prog in get_programs_for_date(target):
+        if normalize_train_type(safe_str(prog.get("type"))) != "休息":
+            return True
+    return False
 
 
 def copy_time_venue_to_dates(source_date: str, target_dates: list[str]) -> int:
@@ -417,12 +572,13 @@ def copy_time_venue_to_dates(source_date: str, target_dates: list[str]) -> int:
     enforce_coach_if_logged_in()
     """Copy time/venue from source to multiple dates. Returns success count."""
     src = normalize_date_str(source_date)
-    prog = get_program(date.fromisoformat(src))
+    src_programs = get_programs_for_date(src)
+    ref = src_programs[0] if src_programs else get_program(date.fromisoformat(src))
     payload = {
-        "start_time": safe_str(prog.get("start_time")),
-        "end_time": safe_str(prog.get("end_time")),
-        "venue": safe_str(prog.get("venue")),
-        "venue_other": safe_str(prog.get("venue_other")),
+        "start_time": safe_str(ref.get("start_time")),
+        "end_time": safe_str(ref.get("end_time")),
+        "venue": safe_str(ref.get("venue")),
+        "venue_other": safe_str(ref.get("venue_other")),
     }
     count = 0
     for tgt in target_dates:
@@ -465,7 +621,7 @@ def get_timetable_entries(
     programs = load_programs()
     if programs.empty:
         return []
-    entries: list[dict] = []
+    by_date: dict[str, list[dict]] = {}
     for _, row in programs.iterrows():
         ds = normalize_date_str(row.get("date"))
         if not ds:
@@ -476,13 +632,16 @@ def get_timetable_entries(
             continue
         if d < start or d > end:
             continue
-        prog = _row_to_program(row)
+        by_date.setdefault(ds, []).append(_row_to_program(row))
+
+    entries: list[dict] = []
+    for ds in sorted(by_date.keys()):
+        prog = pick_program_for_student(by_date[ds], specialty) if specialty else by_date[ds][0]
+        if not prog:
+            continue
         if not include_rest and prog.get("type") == "休息":
             continue
-        if specialty and not program_visible_to_student(prog, specialty):
-            continue
         entries.append(prog)
-    entries.sort(key=lambda p: p["date"])
     return entries
 
 

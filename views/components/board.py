@@ -9,10 +9,11 @@ from utils.data_store import (
     days_until_competition,
     ensure_program_dict,
     get_program,
+    get_programs_for_date,
     load_periodization,
     log_completion_rate,
 )
-from utils.helpers import safe_int, safe_str
+from utils.helpers import safe_int, safe_str, short_group_label
 from views.components.brand import render_brand_header as _render_brand_header
 
 
@@ -20,9 +21,9 @@ def render_brand_header() -> None:
     _render_brand_header(compact=True)
 
 
-def render_training_board(show_specs: bool = True) -> None:
+def render_training_board(show_specs: bool = True, specialty: str | None = None) -> None:
     """V6-style 訓練計劃看板."""
-    prog = ensure_program_dict(get_program())
+    prog = ensure_program_dict(get_program(specialty=specialty))
     per = load_periodization()
     countdown = days_until_competition()
     today_label = datetime.now().strftime("%Y年%m月%d日 %A")
@@ -56,7 +57,7 @@ def render_training_board(show_specs: bool = True) -> None:
     st.markdown(
         f"""
         <div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:1rem;">
-        <p style="margin:0;font-size:1.1rem;font-weight:bold;">🏋️ {safe_str(prog.get('title'), '今日無課表')}</p>
+        <p style="margin:0;font-size:1.1rem;font-weight:bold;">🏋️ {safe_str(prog.get('type'), '今日無課表')}</p>
         {"<p style='margin:0.5rem 0 0;font-size:0.85rem;font-family:monospace;'>規格：" + specs + "</p>" if show_specs else ""}
         <p style="margin:0.75rem 0 0;font-size:0.9rem;font-style:italic;">
         <strong>教練提示（{COACH_NAME}）：</strong>{safe_str(prog.get('tips'), '依教練指示完成')}</p>

@@ -17,6 +17,7 @@ from utils.config import (
     VENUE_OPTIONS,
     WEEKDAY_OPTIONS,
     WEEK_THEME_OPTIONS,
+    default_program,
     normalize_train_type,
 )
 from utils.data_store import (
@@ -40,6 +41,7 @@ from utils.data_store import (
     get_attendance_today,
     get_pending_users,
     get_program,
+    get_programs_for_date,
     get_programs_for_month,
     get_student_names,
     get_students,
@@ -78,6 +80,7 @@ from utils.helpers import (
     safe_int,
     safe_str,
     needs_wind,
+    short_group_label,
     weekly_summary_text,
     whatsapp_program_text,
 )
@@ -239,8 +242,9 @@ def render_coach_program() -> None:
 
     if not copy_mode and not delete_mode:
         st.caption(
-            "💡 複製課表：先點選來源日期 → 按「複製課表到其他日期」→ "
-            "在月曆**多選**目標日期 → 確認複製 · "
+            "💡 同一日可為**不同組別**設定不同訓練；學員只會看到屬於自己專項的課表 · "
+            "複製課表：先點選來源日期 → 按「複製課表到其他日期」→ "
+            "在月曆**多選**目標日期 → 確認複製（會複製當日全部組別） · "
             "刪除課表：按「多選刪除課表」可一次刪除多個日期"
         )
 
@@ -262,7 +266,7 @@ def _render_coach_program_editor() -> None:
             st.session_state.copy_mode = True
             st.session_state.delete_mode = False
             st.session_state.copy_source_date = src
-            st.session_state.copy_source_payload = ensure_program_dict(get_program(selected))
+            st.session_state.copy_source_payload = get_programs_for_date(selected)
             st.session_state.copy_target_dates = []
             st.rerun()
     with b_delete:
@@ -275,10 +279,52 @@ def _render_coach_program_editor() -> None:
     st.caption(f"今日完成率：**{log_completion_rate()}%**")
 
     st.markdown("#### 編輯當日訓練計劃")
-    prog = ensure_program_dict(get_program(selected))
     sk = selected.isoformat()
+    day_programs = get_programs_for_date(selected)
+    existing_groups = {safe_str(p.get("group")) for p in day_programs}
+    available_groups = [g for g in GROUP_OPTIONS if g not in existing_groups]
 
-    ptype_key = f"ptype_{sk}"
+    if day_programs:
+        group_labels = [
+            f"{short_group_label(p.get('group'))} · {normalize_train_type(safe_str(p.get('type')))}"
+            for p in day_programs
+        ]
+        edit_idx = st.radio(
+            "選擇組別",
+            range(len(day_programs)),
+            format_func=lambda i: group_labels[i],
+            horizontal=True,
+            key=f"pgroup_pick_{sk}",
+        )
+        prog = ensure_program_dict(day_programs[edit_idx])
+        edit_group = safe_str(prog.get("group"))
+    else:
+        edit_group = st.selectbox("組別", GROUP_OPTIONS, key=f"pgroup_new_{sk}")
+        prog = default_program(sk)
+        prog["group"] = edit_group
+        st.caption("此日尚無課表，選擇組別後填寫訓練內容並儲存。")
+
+    if available_groups:
+        with st.expander("➕ 新增其他組別訓練", expanded=False):
+            new_group = st.selectbox("組別", available_groups, key=f"padd_grp_{sk}")
+            if st.button("新增組別", key=f"padd_btn_{sk}", use_container_width=True):
+                draft = default_program(sk)
+                draft["group"] = new_group
+                draft["type"] = "休息"
+                draft["title"] = "休息"
+                save_program(draft)
+                st.success(f"已新增 {short_group_label(new_group)} 課表")
+                st.rerun()
+
+    if len(day_programs) > 1:
+        st.caption(
+            f"📅 **{sk}** 共 **{len(day_programs)}** 組訓練 · "
+            f"目前編輯：**{short_group_label(edit_group)}**"
+        )
+    else:
+        st.caption(f"👥 組別：**{edit_group}**")
+
+    ptype_key = f"ptype_{sk}_{edit_group}"
     default_type = normalize_train_type(prog["type"])
     if ptype_key not in st.session_state:
         st.session_state[ptype_key] = default_type
@@ -286,8 +332,10 @@ def _render_coach_program_editor() -> None:
         st.session_state[ptype_key] = normalize_train_type(st.session_state[ptype_key])
 
     train_type = normalize_train_type(
-        st.selectbox("訓練類型", TRAIN_TYPE_OPTIONS, key=ptype_key)
+        st.selectbox("訓練內容", TRAIN_TYPE_OPTIONS, key=ptype_key)
     )
+    title = "比賽" if train_type == "比賽" else train_type
+    group = edit_group
 
     sets = safe_int(prog["sets"])
     reps = safe_int(prog["reps"])
@@ -298,81 +346,59 @@ def _render_coach_program_editor() -> None:
     tech_focus = safe_str(prog.get("tech_focus"))
     field_event = safe_str(prog.get("field_event"), "跳遠")
     attempts = safe_int(prog.get("attempts"), 10)
-    phase = week_theme = tips = ""
+    tips = ""
     duration = 0
     rpe = 7
 
     if train_type == "比賽":
         st.info("🏁 比賽日 — 按「儲存課表」後，月曆將直接顯示「比賽」")
-        title = "比賽"
-        group = "全體組員"
         sets = reps = dist = attempts = 0
         rest = exercises = tech_focus = field_event = ""
         target_sec = 0.0
+    elif train_type == "休息":
+        st.info("休息日 — 無訓練安排")
     else:
-        title = st.text_input("訓練名稱", safe_str(prog["title"]), key=f"ptitle_{sk}")
-        group = st.selectbox(
-            "針對組別",
-            GROUP_OPTIONS,
-            index=_select_index(GROUP_OPTIONS, prog["group"], default=3),
-            key=f"pgroup_{sk}",
-        )
-
         if train_type in ("間歇跑", "節奏跑", "恢復跑"):
             r1, r2, r3, r4 = st.columns(4)
-            sets = r1.number_input("組數", 0, 20, sets, key=f"psets_{sk}")
-            reps = r2.number_input("趟數", 0, 30, reps, key=f"preps_{sk}")
-            dist = r3.number_input("距離(m)", 0, 5000, dist, key=f"pdist_{sk}")
+            sets = r1.number_input("組數", 0, 20, sets, key=f"psets_{sk}_{edit_group}")
+            reps = r2.number_input("趟數", 0, 30, reps, key=f"preps_{sk}_{edit_group}")
+            dist = r3.number_input("距離(m)", 0, 5000, dist, key=f"pdist_{sk}_{edit_group}")
             target_sec = r4.number_input(
-                "目標秒數", 0.0, 999.0, target_sec, step=0.1, key=f"ptarget_{sk}"
+                "目標秒數", 0.0, 999.0, target_sec, step=0.1, key=f"ptarget_{sk}_{edit_group}"
             )
             rest = st.text_input(
-                "休息", rest or "組間休息 90 秒", key=f"prest_{sk}"
+                "休息", rest or "組間休息 90 秒", key=f"prest_{sk}_{edit_group}"
             )
         elif train_type == "肌力課":
             exercises = st.text_input(
                 "動作項目",
                 exercises,
                 placeholder="深蹲、爆發起跳...",
-                key=f"pexercises_{sk}",
+                key=f"pexercises_{sk}_{edit_group}",
             )
         elif train_type == "技術課":
-            tech_focus = st.text_input("技術重點", tech_focus, key=f"ptech_{sk}")
-        elif train_type == "休息":
-            st.info("休息日 — 無訓練安排")
+            tech_focus = st.text_input("技術重點", tech_focus, key=f"ptech_{sk}_{edit_group}")
 
         default_duration = safe_int(prog.get("duration"), 0 if train_type == "休息" else 60)
         default_rpe = max(
             1, safe_int(prog.get("rpe"), 4 if train_type in ("恢復跑", "休息") else 7)
         )
 
-        d1, d2, d3, d4 = st.columns(4)
-        duration = d1.number_input("時長(分)", 0, 300, default_duration, key=f"pdur_{sk}")
-        rpe = d2.number_input("預期 RPE", 1, 10, default_rpe, key=f"prpe_{sk}")
-        phase = d3.selectbox(
-            "本日階段",
-            [""] + PHASE_OPTIONS,
-            index=_select_index([""] + PHASE_OPTIONS, prog.get("phase")),
-            key=f"pphase_{sk}",
-        )
-        week_theme = d4.selectbox(
-            "本週主題",
-            [""] + WEEK_THEME_OPTIONS,
-            index=_select_index([""] + WEEK_THEME_OPTIONS, prog.get("week_theme")),
-            key=f"pweek_{sk}",
-        )
-        tips = st.text_area("教練指導", safe_str(prog.get("tips")), key=f"ptips_{sk}")
+        d1, d2 = st.columns(2)
+        duration = d1.number_input("時長(分)", 0, 300, default_duration, key=f"pdur_{sk}_{edit_group}")
+        rpe = d2.number_input("預期 RPE", 1, 10, default_rpe, key=f"prpe_{sk}_{edit_group}")
+        tips = st.text_area("教練指導", safe_str(prog.get("tips")), key=f"ptips_{sk}_{edit_group}")
 
     load = calc_load(train_type, duration, rpe, int(sets or 0), int(reps or 0), int(dist or 0))
-    if train_type != "比賽":
+    if train_type not in ("比賽", "休息"):
         athletes = get_student_names()
         acwr_v, _ = acwr_status(
             calc_acwr(get_all_logs(), athletes[0] if athletes else "", selected)
         )
         st.markdown(f"**加權負荷：{load}** · **ACWR 預警：{acwr_v}**")
 
-    b1, b2, b3 = st.columns(3)
-    if b1.button("💾 儲存課表", type="primary", use_container_width=True, key=f"psave_{sk}"):
+    b1, b2, b3, b4 = st.columns(4)
+    if b1.button("💾 儲存課表", type="primary", use_container_width=True, key=f"psave_{sk}_{edit_group}"):
         save_program({
             "date": sk,
             "type": train_type,
@@ -385,8 +411,8 @@ def _render_coach_program_editor() -> None:
             "duration": duration,
             "rpe": rpe,
             "tips": tips,
-            "phase": phase,
-            "week_theme": week_theme,
+            "phase": "",
+            "week_theme": "",
             "target_seconds": target_sec,
             "exercises": exercises,
             "tech_focus": tech_focus,
@@ -397,9 +423,9 @@ def _render_coach_program_editor() -> None:
             "venue": safe_str(prog.get("venue")),
             "venue_other": safe_str(prog.get("venue_other")),
         })
-        st.success("課表已儲存！")
+        st.success(f"已儲存 {short_group_label(group)} 課表")
         st.rerun()
-    if b2.button("📁 存範本", use_container_width=True, key=f"ptpl_{sk}"):
+    if b2.button("📁 存範本", use_container_width=True, key=f"ptpl_{sk}_{edit_group}"):
         save_as_template({
             "type": train_type,
             "title": title,
@@ -411,8 +437,8 @@ def _render_coach_program_editor() -> None:
             "duration": duration,
             "rpe": rpe,
             "tips": tips,
-            "phase": phase,
-            "week_theme": week_theme,
+            "phase": "",
+            "week_theme": "",
             "target_seconds": target_sec,
             "exercises": exercises,
             "tech_focus": tech_focus,
@@ -420,27 +446,38 @@ def _render_coach_program_editor() -> None:
             "attempts": attempts,
         })
         st.success("已存範本")
-    if b3.button("🗑 刪除當日課表", use_container_width=True, key=f"pdelete_{sk}"):
+    if b3.button("🗑 刪除此組別", use_container_width=True, key=f"pdelete_grp_{sk}_{edit_group}"):
+        if program_exists(selected):
+            if delete_program(selected, group=edit_group):
+                st.success(f"已刪除 {short_group_label(edit_group)} 課表")
+                st.rerun()
+            st.info("找不到此組別課表")
+        else:
+            st.info("此日沒有已儲存的課表")
+    if b4.button("🗑 刪除當日全部", use_container_width=True, key=f"pdelete_all_{sk}"):
         if program_exists(selected):
             delete_program(selected)
-            st.success(f"已刪除 {sk} 的課表")
+            st.success(f"已刪除 {sk} 全部課表")
             st.rerun()
         else:
-            st.info("此日沒有已儲存的課表（月曆顯示為預設休息）")
+            st.info("此日沒有已儲存的課表")
 
     with st.expander("📱 WhatsApp 課表文案"):
-        txt = whatsapp_program_text(
-            {
-                **prog,
-                "date": sk,
-                "title": title,
-                "type": train_type,
-                "group": group,
-                "tips": tips,
-            },
-            load_periodization(),
-        )
-        st.code(txt, language=None)
+        per = load_periodization()
+        targets = day_programs if day_programs else [prog]
+        for p in targets:
+            st.markdown(f"**{short_group_label(p.get('group'))}**")
+            txt = whatsapp_program_text(
+                {
+                    **p,
+                    "date": sk,
+                    "title": p.get("title") or p.get("type"),
+                    "type": normalize_train_type(safe_str(p.get("type"))),
+                    "tips": p.get("tips") or tips,
+                },
+                per,
+            )
+            st.code(txt, language=None)
 
     with st.expander("📚 課表範本庫"):
         templates = load_templates()
@@ -449,8 +486,8 @@ def _render_coach_program_editor() -> None:
         else:
             for _, t in templates.iterrows():
                 c1, c2 = st.columns([3, 1])
-                c1.write(f"{t['title']} ({t['type']})")
-                if c2.button("套用", key=f"tpl_{t['id']}"):
+                c1.write(f"{t['title']} ({t['type']}) · {short_group_label(t.get('group'))}")
+                if c2.button("套用", key=f"tpl_{t['id']}_{edit_group}"):
                     apply_template(str(t["id"]), sk)
                     st.rerun()
 

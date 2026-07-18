@@ -39,7 +39,7 @@ def render_student_view(section: str) -> None:
         f"{user['name']} · 專項：{specialty}",
     )
     if section != "出席":
-        render_student_checkin_bar(user["name"])
+        render_student_checkin_bar(user["name"], specialty=user.get("specialty", ""))
     st.divider()
 
     if section == "訓練時間表":
@@ -62,7 +62,8 @@ def render_student_view(section: str) -> None:
 
 def _tab_schedule(user: dict) -> None:
     per = load_periodization()
-    prog = get_program()
+    specialty = user.get("specialty") or ""
+    prog = get_program(specialty=specialty)
     today = date.today().isoformat()
     att = get_attendance_record(user["name"], today)
     checked_in = att and att.get("status") == "present"
@@ -73,7 +74,7 @@ def _tab_schedule(user: dict) -> None:
     countdown_label = f"{countdown} 天" if countdown is not None else "—"
 
     render_stat_cards([
-        ("今日課表", safe_str(prog.get("title"), "—")[:12], "normal"),
+        ("今日課表", safe_str(prog.get("type"), "—")[:12], "normal"),
         ("訓練階段", safe_str(per.get("global_phase"), "—"), "normal"),
         ("本週主題", safe_str(per.get("global_week_theme"), "—"), "normal"),
         ("簽到", checkin_label, checkin_tone),
@@ -86,13 +87,13 @@ def _tab_schedule(user: dict) -> None:
 
 
 def _tab_training_log(user: dict) -> None:
-    prog = get_program()
-    menu = get_today_menu()
     specialty = user.get("specialty") or "短跑"
+    prog = get_program(specialty=specialty)
+    menu = get_today_menu(specialty=specialty)
     train_type = prog.get("type", "間歇跑")
 
     st.markdown("#### 回傳今日訓練數據")
-    st.info(f"今日課表：**{prog.get('title')}** · 專項：**{specialty}**")
+    st.info(f"今日課表：**{prog.get('type')}** · 專項：**{specialty}**")
 
     lap_times, lap_reactions = [], []
     with st.expander("① 訓練數據", expanded=True):
