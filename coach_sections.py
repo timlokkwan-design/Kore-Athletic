@@ -567,7 +567,9 @@ def _render_coach_program_editor() -> None:
                     st.rerun()
 
     st.markdown("#### 訓練日誌篩選")
-    test_logs = filter_logs(exclude_test=False)
+    from utils.data_store import filter_logs
+
+    test_logs = get_all_logs()
     test_count = int(test_logs["student_name"].astype(str).isin(TEST_STUDENT_NAMES).sum()) if not test_logs.empty else 0
     if test_count:
         if st.button(f"🧹 清除測試學員日誌（{test_count} 筆：陳大文、林明美等）", key="purge_test_logs"):
