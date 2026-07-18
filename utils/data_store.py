@@ -278,7 +278,8 @@ def save_program(prog: dict) -> None:
     prog["date"] = target
     prog["group"] = normalize_group(safe_str(prog.get("group"), "短跑組"))
     if not safe_str(prog.get("title")):
-        prog["title"] = safe_str(prog.get("type"))
+        from utils.config import group_display_label
+        prog["title"] = group_display_label(prog["group"])
     if programs.empty:
         save_programs(pd.DataFrame([prog]))
         return
@@ -392,6 +393,19 @@ def copy_program_to_dates(source_date: str, target_dates: list[str], prog: dict 
             save_program(row)
         count += 1
     return count
+
+
+def build_day_programs_map(programs: pd.DataFrame) -> dict[str, list[dict]]:
+    """All program rows grouped by date (supports multi-group / multi-session per day)."""
+    if programs.empty:
+        return {}
+    by_date: dict[str, list[dict]] = {}
+    for _, row in programs.iterrows():
+        ds = normalize_date_str(row.get("date"))
+        if not ds:
+            continue
+        by_date.setdefault(ds, []).append(_row_to_program(row))
+    return by_date
 
 
 def build_coach_prog_map(programs: pd.DataFrame) -> dict[str, dict]:
@@ -571,9 +585,12 @@ def save_program_time_venue(
     venue: str,
     venue_other: str = "",
     *,
-    group: str = "",
+    group: str,
 ) -> None:
+    from utils.config import group_display_label
+
     target = normalize_date_str(date_str)
+    grp = normalize_group(group)
     updates = {
         "start_time": safe_str(start_time),
         "end_time": safe_str(end_time),
@@ -581,17 +598,21 @@ def save_program_time_venue(
         "venue_other": safe_str(venue_other) if venue == "其他" else "",
     }
     day_programs = get_programs_for_date(target)
-    if not day_programs:
-        prog = schedule_placeholder_program(target, group=group or "短跑組")
+    match = [p for p in day_programs if normalize_group(safe_str(p.get("group"))) == grp]
+    if not match:
+        prog = schedule_placeholder_program(target, group=grp)
         prog.update(updates)
+        prog["title"] = group_display_label(grp)
         save_program(prog)
         return
-    for prog in day_programs:
+    for prog in match:
         merged = dict(prog)
         merged.update(updates)
-        if normalize_train_type(safe_str(merged.get("type"))) == "休息":
+        tp = normalize_train_type(safe_str(merged.get("type")))
+        if tp == "休息":
             merged["type"] = "待排課"
-            merged["title"] = "時間已定"
+        if not safe_str(merged.get("title")) or merged.get("title") == "時間已定":
+            merged["title"] = group_display_label(grp)
         save_program(merged)
 
 
@@ -615,29 +636,38 @@ def is_training_day(date_str: str) -> bool:
     return False
 
 
-def has_schedule_slot(date_str: str) -> bool:
-    """True if any program on this date has time or venue set."""
+def has_schedule_slot(date_str: str, group: str | None = None) -> bool:
+    """True if program on this date (and optional group) has time or venue set."""
     from utils.helpers import has_time_venue
 
     target = normalize_date_str(date_str)
     for prog in get_programs_for_date(target):
+        if group and normalize_group(safe_str(prog.get("group"))) != normalize_group(group):
+            continue
         if has_time_venue(prog):
             return True
     return False
 
 
-def copy_time_venue_to_dates(source_date: str, target_dates: list[str]) -> int:
+def copy_time_venue_to_dates(source_date: str, target_dates: list[str], *, group: str) -> int:
     from utils.permissions import enforce_coach_if_logged_in
     enforce_coach_if_logged_in()
-    """Copy time/venue from source to multiple dates. Returns success count."""
+    """Copy one group's time/venue from source to multiple dates."""
     src = normalize_date_str(source_date)
+    grp = normalize_group(group)
     src_programs = get_programs_for_date(src)
-    ref = src_programs[0] if src_programs else get_program(date.fromisoformat(src))
+    ref = next(
+        (p for p in src_programs if normalize_group(safe_str(p.get("group"))) == grp),
+        None,
+    )
+    if not ref:
+        return 0
     payload = {
         "start_time": safe_str(ref.get("start_time")),
         "end_time": safe_str(ref.get("end_time")),
         "venue": safe_str(ref.get("venue")),
         "venue_other": safe_str(ref.get("venue_other")),
+        "group": grp,
     }
     count = 0
     for tgt in target_dates:
@@ -655,15 +685,18 @@ def apply_time_venue_to_dates(
     end_time: str,
     venue: str,
     venue_other: str = "",
+    *,
+    group: str,
 ) -> int:
     from utils.permissions import enforce_coach_if_logged_in
     enforce_coach_if_logged_in()
+    grp = normalize_group(group)
     count = 0
     for tgt in target_dates:
         t = normalize_date_str(tgt)
         if not t:
             continue
-        save_program_time_venue(t, start_time, end_time, venue, venue_other)
+        save_program_time_venue(t, start_time, end_time, venue, venue_other, group=grp)
         count += 1
     return count
 

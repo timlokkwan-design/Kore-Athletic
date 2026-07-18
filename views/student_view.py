@@ -9,7 +9,7 @@ from utils.auth import refresh_current_user, require_student_or_stop
 from utils.config import EVENTS, INJURY_OPTIONS
 from utils.data_store import (
     append_training_log, filter_logs, get_program,
-    get_today_menu, get_wellness, get_attendance_record, load_attendance, load_periodization, mark_leave,
+    get_today_menu, get_wellness, get_attendance_record, load_attendance, mark_leave,
     submit_pending_record, submit_wellness, load_race_records, days_until_competition,
 )
 from utils.helpers import format_train_duration, needs_wind, parse_time, program_specs, safe_int, safe_str
@@ -61,7 +61,6 @@ def render_student_view(section: str) -> None:
 
 
 def _tab_schedule(user: dict) -> None:
-    per = load_periodization()
     specialty = user.get("specialty") or ""
     prog = get_program(specialty=specialty)
     today = date.today().isoformat()
@@ -75,8 +74,6 @@ def _tab_schedule(user: dict) -> None:
 
     render_stat_cards([
         ("今日課表", program_specs(prog)[:12] or safe_str(prog.get("type"), "—")[:12], "normal"),
-        ("訓練階段", safe_str(per.get("global_phase"), "—"), "normal"),
-        ("本週主題", safe_str(per.get("global_week_theme"), "—"), "normal"),
         ("簽到", checkin_label, checkin_tone),
         ("距離比賽", countdown_label, "normal"),
     ])

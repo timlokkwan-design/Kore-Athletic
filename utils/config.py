@@ -6,7 +6,7 @@ from utils.grades import U18_GRADES, WIND_EVENTS
 
 APP_NAME = "KORE ATHLETIC"
 APP_SUBTITLE = "關添樂教練田徑訓練與成績管理系統"
-APP_VERSION = "2026.07.18-71"
+APP_VERSION = "2026.07.18-73"
 COACH_NAME = "關添樂"
 EMAIL_DOMAIN = "@kore-athletic.app"
 
@@ -18,6 +18,7 @@ TRAIN_TYPES = {
     "肌力課": {"weight": 0.8, "category": "strength"},
     "比賽": {"weight": 0.7, "category": "field"},
     "休息": {"weight": 0.0, "category": "rest"},
+    "訓練": {"weight": 1.2, "category": "speed"},
     "待排課": {"weight": 0.0, "category": "pending"},
 }
 
@@ -37,6 +38,12 @@ TYPE_CATEGORY_COLORS = {
     "strength": "#ffedd5", "field": "#dcfce7", "rest": "#f1f5f9",
     "pending": "#fef3c7",
 }
+
+# Month calendar cell backgrounds (all calendars)
+CALENDAR_BG_TRAINING = "#dbeafe"
+CALENDAR_BG_COMPETITION = "#fee2e2"
+CALENDAR_BG_REST = "#f1f5f9"
+CALENDAR_BG_EMPTY = "#f8fafc"
 
 GROUP_OPTIONS = ["短跑組", "中長跑組", "跨欄組", "全體組員"]
 
@@ -157,12 +164,13 @@ def default_program(for_date: str | None = None) -> dict:
 
 def schedule_placeholder_program(for_date: str, *, group: str = "短跑組") -> dict:
     """Empty program row for pre-setting time/venue before workout is written."""
+    g = normalize_group(group)
     d = for_date or date.today().isoformat()
     return {
         "date": d,
         "type": "待排課",
-        "title": "時間已定",
-        "group": normalize_group(group),
+        "title": group_display_label(g),
+        "group": g,
         "sets": 0,
         "reps": 0,
         "dist": 0,

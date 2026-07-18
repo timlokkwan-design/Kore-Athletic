@@ -5,7 +5,6 @@ from datetime import date
 import streamlit as st
 
 from utils.acwr import acwr_status, calc_acwr
-from utils.config import TRAIN_TYPES, TYPE_CATEGORY_COLORS
 from utils.data_store import (
     build_coach_prog_map,
     ensure_program_dict,
@@ -20,7 +19,9 @@ from utils.helpers import (
     format_meters_short,
     format_timetable_date,
     format_time_venue_line,
+    calendar_cell_bg,
     normalize_date_str,
+    merge_programs_calendar_summary,
     program_calendar_summary,
     program_total_meters,
     resolve_venue,
@@ -134,12 +135,11 @@ def _coach_compact_day_style(
 ) -> dict:
     today_str = date.today().isoformat()
     prog = ensure_program_dict(prog_map.get(ds))
-    tp = safe_str(prog.get("type"))
-    cat = TRAIN_TYPES.get(tp, {}).get("category", "rest")
-    bg = TYPE_CATEGORY_COLORS.get(cat, "#f1f5f9")
+    bg = calendar_cell_bg(prog_map.get(ds))
     border = "1px solid #e2e8f0"
     label = f"●{day}" if ds == today_str else str(day)
     disabled = False
+    tp = safe_str(prog.get("type"))
 
     if copy_mode and ds == copy_source:
         border = "3px solid #f59e0b"
@@ -163,20 +163,23 @@ def _coach_compact_day_style(
 
     sync = day_sync_status(prog_map.get(ds)) if not copy_mode and not delete_mode else ""
     if sync == "need_workout":
-        bg = "#fef3c7"
         border = "2px solid #f59e0b"
     elif sync == "need_schedule":
         border = "2px solid #ea580c"
-    elif sync in ("need_both",):
-        bg = "#ffedd5"
+    elif sync == "need_both":
+        border = "2px dashed #f59e0b"
 
     if not copy_mode and not delete_mode:
         if tp == "比賽":
             vol_label = "賽"
         elif tp == "休息":
             vol_label = ""
+        elif prog.get("_multi") and prog.get("_programs"):
+            vol_label = merge_programs_calendar_summary(prog["_programs"])[0][:12]
         else:
-            vol_label = format_meters_short(program_total_meters(prog))
+            vol = format_meters_short(program_total_meters(prog))
+            gl = short_group_label(prog.get("group"))
+            vol_label = f"{gl}{vol}" if vol and gl else (vol or gl)
         if vol_label:
             if label.startswith("●"):
                 label = f"●{day}·{vol_label}"
@@ -293,7 +296,7 @@ def _render_calendar_impl(
         st.caption("🟥 紅色=已選刪除 · 虛線=有課表可選 · 灰底=無課表 · 可跨月多選")
     else:
         st.caption(
-            "🟨 黃色=時間已定待寫跑案 · 🟧 框線=跑案已寫待填時間 · 方格顯示總跑量"
+            "🔵 藍色=訓練 · 🔴 紅色=比賽 · 方格顯示總跑量 · 框線=課表待同步"
         )
 
     year, month = st.session_state.cal_year, st.session_state.cal_month
@@ -316,10 +319,7 @@ def _render_calendar_impl(
             prog = ensure_program_dict(prog)
             tp = safe_str(prog.get("type"))
             sync = day_sync_status(prog_map.get(ds))
-            cat = TRAIN_TYPES.get(tp, {}).get("category", "rest")
-            bg = TYPE_CATEGORY_COLORS.get(cat, "#f1f5f9")
-            if sync == "need_workout":
-                bg = "#fef3c7"
+            bg = calendar_cell_bg(prog_map.get(ds))
             title_line, spec_line = program_calendar_summary(prog) if prog else ("", "")
             detail = spec_line or ""
             hint = sync_status_label(sync)

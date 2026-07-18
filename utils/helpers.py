@@ -192,10 +192,9 @@ def format_meters_short(meters: int) -> str:
 
 
 def program_total_meters(prog: dict) -> int:
-    """Sum run volume for one day (including multi-group merged cells)."""
-    progs = prog.get("_programs")
-    if progs:
-        return sum(workout_volume_from_program(p)["total_meters"] for p in progs)
+    """Run volume for one group row only (never sums multi-group merged cells)."""
+    if prog.get("_programs"):
+        return 0
     return workout_volume_from_program(prog)["total_meters"]
 
 
@@ -399,8 +398,32 @@ def short_group_label(group: str) -> str:
     return group_display_label(group)
 
 
+def calendar_cell_bg(prog: dict | None = None, *, progs: list[dict] | None = None) -> str:
+    """Blue = training day, red = competition, gray = rest / empty."""
+    from utils.config import (
+        CALENDAR_BG_COMPETITION,
+        CALENDAR_BG_EMPTY,
+        CALENDAR_BG_REST,
+        CALENDAR_BG_TRAINING,
+        normalize_train_type,
+    )
+
+    items: list[dict] = list(progs) if progs else []
+    if not items and prog:
+        nested = prog.get("_programs")
+        items = list(nested) if nested else [prog]
+    if not items:
+        return CALENDAR_BG_EMPTY
+    types = [normalize_train_type(safe_str(p.get("type"))) for p in items]
+    if any(t == "比賽" for t in types):
+        return CALENDAR_BG_COMPETITION
+    if any(t not in ("休息", "") for t in types):
+        return CALENDAR_BG_TRAINING
+    return CALENDAR_BG_REST
+
+
 def merge_programs_calendar_summary(progs: list[dict]) -> tuple[str, str]:
-    """Combined title + detail when multiple groups share one calendar day."""
+    """Multi-group day: per-group volume labels (not summed)."""
     from utils.config import normalize_train_type
 
     if not progs:
@@ -416,35 +439,37 @@ def merge_programs_calendar_summary(progs: list[dict]) -> tuple[str, str]:
         p for p in progs
         if normalize_train_type(safe_str(p.get("type"))) not in ("休息", "比賽")
     ]
-    total = sum(workout_volume_from_program(p)["total_meters"] for p in active)
-    vol = format_meters_short(total)
-    groups = [short_group_label(p.get("group")) for p in active]
-    title = vol or "訓練"
-    detail = " · ".join(groups[:4]) if groups else ""
+    parts: list[str] = []
+    for p in active:
+        gl = short_group_label(p.get("group"))
+        vol = format_meters_short(workout_volume_from_program(p)["total_meters"])
+        parts.append(f"{gl}{vol}" if vol else gl)
+    title = "·".join(parts[:4]) if parts else "訓練"
+    times = [format_time_venue_line(p) for p in active if format_time_venue_line(p)]
+    detail = " · ".join(dict.fromkeys(times[:3]))
     return title, detail
 
 
 def program_calendar_summary(prog: dict) -> tuple[str, str]:
-    """Short title + specs for calendar cells (coach: volume-first)."""
+    """Calendar cell: group name + per-group volume (no train-type category)."""
     tp = safe_str(prog.get("type"))
+    group_title = short_group_label(prog.get("group"))
     if tp == "比賽":
-        return "比賽", ""
+        return "比賽", group_title
     if tp == "休息":
         return "休息", ""
     if tp == "待排課":
         tv = format_time_venue_line(prog)
-        return "待寫跑案", tv or "時間已定"
-    meters = program_total_meters(prog)
-    vol = format_meters_short(meters)
+        return group_title or "待寫跑案", tv or "時間已定"
+    vol = format_meters_short(workout_volume_from_program(prog)["total_meters"])
     detail = workout_detail(prog)
     spec = detail.split("\n")[0].strip()[:18] if detail else ""
     if vol:
-        return vol, spec
+        return group_title or "訓練", vol if not spec else f"{vol} · {spec}"
     if detail:
         first = detail.split("\n")[0].strip()
-        return first[:12], first[:18]
-    title = safe_str(prog.get("title")) or "訓練"
-    return title[:12], spec or title[:18]
+        return group_title or "訓練", first[:18]
+    return group_title or "訓練", spec
 
 
 def whatsapp_program_text(prog: dict, per: dict) -> str:

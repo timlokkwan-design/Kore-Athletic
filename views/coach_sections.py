@@ -425,9 +425,8 @@ def _render_coach_program_editor() -> None:
             safe_str(prog.get("tips")),
             key=f"ptips_{sk}_{edit_group}",
         )
-        train_type = normalize_train_type(cur_type)
-        if train_type in ("休息", "比賽", "待排課"):
-            train_type = "間歇跑"
+        train_type = "訓練"
+        title = group_display_label(edit_group)
         run_vol = parse_workout_volume(workout_text)
         total_meters = run_vol["total_meters"]
         total_reps = run_vol["total_reps"]
@@ -441,8 +440,6 @@ def _render_coach_program_editor() -> None:
             st.caption(
                 "📊 總跑量待計算（請用 **6×200m**、**800m** 等格式填寫）"
             )
-        first_line = workout_text.split("\n")[0].strip() if workout_text else ""
-        title = first_line[:60] if first_line else train_type
 
     group = edit_group
     rest = workout_text

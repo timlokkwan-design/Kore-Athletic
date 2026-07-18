@@ -5,7 +5,14 @@ from datetime import date
 
 import streamlit as st
 
-from utils.config import SPECIALTY_TO_GROUP, TRAIN_TYPES, TYPE_CATEGORY_COLORS, normalize_train_type
+from utils.config import (
+    CALENDAR_BG_COMPETITION,
+    CALENDAR_BG_EMPTY,
+    CALENDAR_BG_REST,
+    CALENDAR_BG_TRAINING,
+    SPECIALTY_TO_GROUP,
+    normalize_train_type,
+)
 from utils.data_store import (
     build_coach_prog_map,
     get_attendance_map_for_month,
@@ -15,14 +22,23 @@ from utils.data_store import (
     program_visible_to_student,
     build_student_prog_map,
 )
-from utils.helpers import format_timetable_date, format_train_duration, normalize_date_str, program_specs, resolve_venue, safe_int, safe_str, workout_detail
+from utils.helpers import (
+    calendar_cell_bg,
+    format_timetable_date,
+    format_train_duration,
+    normalize_date_str,
+    program_specs,
+    resolve_venue,
+    safe_int,
+    safe_str,
+    workout_detail,
+)
 from views.components.calendar_compact import open_dialog_if_requested, render_compact_month_grid
 from views.components.calendar_list import render_view_mode_toggle
 
 
-def _type_bg(train_type: str) -> str:
-    cat = TRAIN_TYPES.get(train_type, {}).get("category", "rest")
-    return TYPE_CATEGORY_COLORS.get(cat, "#f1f5f9")
+def _type_bg(prog: dict) -> str:
+    return calendar_cell_bg(prog)
 
 
 def _time_venue_text(prog: dict) -> tuple[str, str]:
@@ -177,7 +193,8 @@ def _student_compact_style(
         label = str(day)
 
     if prog:
-        bg = "#dbeafe"
+        tp = normalize_train_type(safe_str(prog.get("type")))
+        bg = CALENDAR_BG_COMPETITION if tp == "比賽" else CALENDAR_BG_TRAINING
         hint = _time_hint(prog)
         if att and att.get("status") == "present" and d < today:
             border = "2px solid #16a34a"
@@ -185,10 +202,10 @@ def _student_compact_style(
         bg = "#dcfce7"
         hint = ""
     elif d > today:
-        bg = "#f1f5f9"
+        bg = CALENDAR_BG_REST
         hint = ""
     else:
-        bg = "#f8fafc"
+        bg = CALENDAR_BG_EMPTY
         hint = ""
 
     return {"bg": bg, "border": border, "label": label, "disabled": False, "hint": hint}
@@ -251,19 +268,20 @@ def _student_day_cell(
         detail = " · ".join(detail_parts)
         if att_line:
             detail = f"{detail} · {att_line}" if detail else att_line
-        bg = "#dbeafe"
-        title = "訓練"
+        tp = normalize_train_type(safe_str(prog.get("type")))
+        bg = CALENDAR_BG_COMPETITION if tp == "比賽" else CALENDAR_BG_TRAINING
+        title = "比賽" if tp == "比賽" else "訓練"
         if is_today:
-            return f"🔵 {title}", detail, "訓練", bg, f"🔵 {d.day}"
+            return f"🔵 {title}", detail, title, bg, f"🔵 {d.day}"
         if d > today:
-            return title, detail, "訓練", bg, str(d.day)
+            return title, detail, title, bg, str(d.day)
         if att and att.get("status") == "present":
-            return "✅ 已訓練", detail, "訓練", "#dcfce7", str(d.day)
-        return "已過", detail, "訓練", "#e2e8f0", str(d.day)
+            return "✅ 已訓練", detail, title, "#dcfce7", str(d.day)
+        return "已過", detail, title, "#e2e8f0", str(d.day)
 
     if is_today:
         detail = att_line or ""
-        return "🔵 休息", detail, "休息", TYPE_CATEGORY_COLORS["rest"], f"🔵 {d.day}"
+        return "🔵 休息", detail, "休息", CALENDAR_BG_REST, f"🔵 {d.day}"
 
     if att_line:
         title = "已簽到" if att and att.get("status") == "present" else "—"
@@ -357,7 +375,7 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
     mapped = SPECIALTY_TO_GROUP.get(student_specialty, "—")
     st.caption(
         f"顯示 **全體組員** 及 **{mapped}** · "
-        f"藍色方格＝有訓練 · 點選查看跑案、時間與地點"
+        f"🔵 藍色=訓練 · 🔴 紅色=比賽 · 點選查看跑案、時間與地點"
     )
 
     programs = get_programs_for_month(year, month)
@@ -383,12 +401,12 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
             year, month, prog_map, student_specialty, att_map, today, student_name
         )
 
-    st.caption("💡 月曆為 7 格一列；藍色＝有訓練，方格下方可預覽訓練時間；點方格查看完整跑案。")
+    st.caption("💡 月曆為 7 格一列；🔵 藍色=訓練、🔴 紅色=比賽；點方格查看完整跑案。")
 
 
 def _entry_card(prog: dict, *, highlight: bool = False) -> str:
-    tp = safe_str(prog.get("type"))
-    bg = _type_bg(tp)
+    tp = normalize_train_type(safe_str(prog.get("type"))) or "訓練"
+    bg = calendar_cell_bg(prog)
     border = "2px solid #1d4ed8" if highlight else "1px solid #e2e8f0"
     title = safe_str(prog.get("title")) or tp or "訓練"
     specs = program_specs(prog)
@@ -430,4 +448,4 @@ def render_program_timetable(
 
     html = "".join(_entry_card(p, highlight=p["date"] == today) for p in entries)
     st.markdown(html, unsafe_allow_html=True)
-    st.caption("🟥速度 🟦耐力 🟪技術 🟧肌力 🟩比賽")
+    st.caption("🔵 藍色=訓練 · 🔴 紅色=比賽")

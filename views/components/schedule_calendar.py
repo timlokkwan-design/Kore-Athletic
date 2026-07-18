@@ -5,15 +5,17 @@ from datetime import date
 
 import streamlit as st
 
-from utils.config import TRAIN_TYPES, TYPE_CATEGORY_COLORS, normalize_train_type
-from utils.data_store import get_programs_for_month, is_training_day, has_schedule_slot, build_coach_prog_map
+from utils.config import normalize_train_type
+from utils.data_store import get_programs_for_month, build_day_programs_map
 from utils.helpers import (
+    calendar_cell_bg,
     day_sync_status,
     format_timetable_date,
     normalize_date_str,
-    program_calendar_summary,
+    program_sync_status,
     resolve_venue,
     safe_str,
+    short_group_label,
     sync_status_label,
     sync_status_priority,
     format_time_venue_line,
@@ -72,87 +74,93 @@ def _sched_next_month(select_key: str, pick_mode: str | None) -> None:
         _sync_sched_month(select_key, st.session_state.sched_cal_year, st.session_state.sched_cal_month)
 
 
-def _cell_summary(prog: dict | None) -> tuple[str, str, str]:
+def _normalize_progs(progs: list[dict] | dict | None) -> list[dict]:
+    if progs is None:
+        return []
+    if isinstance(progs, dict):
+        if progs.get("_programs"):
+            return list(progs["_programs"])
+        return [progs]
+    return list(progs)
+
+
+def _merged_for_sync(progs: list[dict]) -> dict | None:
+    if not progs:
+        return None
+    if len(progs) == 1:
+        return progs[0]
+    merged = dict(progs[0])
+    merged["_programs"] = progs
+    return merged
+
+
+def _cell_summary(progs: list[dict] | dict | None) -> tuple[str, str, str]:
     """Return (title_line, detail_line, train_type) for calendar cell."""
-    if not prog:
-        return "可預排", "點選後設定時間地點", "—"
-    tp = normalize_train_type(safe_str(prog.get("type")))
-    if tp == "休息":
+    progs = _normalize_progs(progs)
+    if not progs:
+        return "可預排", "", "—"
+    active = [
+        p for p in progs
+        if normalize_train_type(safe_str(p.get("type"))) not in ("休息",)
+    ]
+    if not active:
         return "休息", "", "休息"
-    sync = day_sync_status(prog)
-    title, spec = program_calendar_summary(prog)
-    time_line = format_time_venue_line(prog)
-    detail_parts = []
-    hint = sync_status_label(sync)
-    if hint and sync in ("need_workout", "need_schedule", "need_both"):
-        detail_parts.append(hint)
-    if time_line:
-        detail_parts.append(time_line)
-    elif spec:
-        detail_parts.append(spec)
-    detail = " · ".join(detail_parts)
-    if tp == "待排課":
-        return title or "待寫跑案", detail, tp
-    return title or tp, detail, tp
+    parts: list[str] = []
+    for p in active:
+        gl = short_group_label(p.get("group"))
+        tv = format_time_venue_line(p)
+        if tv:
+            parts.append(f"{gl} {tv}")
+        else:
+            parts.append(gl)
+    title = f"{len(active)}組" if len(active) > 1 else short_group_label(active[0].get("group"))
+    detail = " · ".join(parts[:3])
+    tp = normalize_train_type(safe_str(active[0].get("type")))
+    return title, detail, tp
 
 
-def _render_sched_day_dialog(ds: str, prog_map: dict[str, dict]) -> None:
+def _render_sched_day_dialog(ds: str, day_map: dict[str, list[dict]]) -> None:
     st.markdown(f"### {format_timetable_date(ds)}")
-    prog = prog_map.get(ds)
-    sync = day_sync_status(prog)
-    if not prog:
-        st.info("此日尚未排課，可直接在下方預先設定時間與地點。")
+    progs = day_map.get(ds, [])
+    if not progs:
+        st.info("此日尚未排課，可為各組別預先設定時間與地點。")
         return
-    if sync == "rest":
-        st.info("此日為休息。")
-        return
-    title, detail, tp = _cell_summary(prog)
-    hint = sync_status_label(sync)
-    if hint:
-        st.caption(hint)
-    st.markdown(f"**{title}**")
-    if detail:
-        st.caption(detail)
-    start = safe_str(prog.get("start_time"))
-    end = safe_str(prog.get("end_time"))
-    time_text = f"{start} – {end}" if start and end else (start or end or "時間待設定")
-    st.markdown(f"🕐 **{time_text}**")
-    st.markdown(f"📍 **{resolve_venue(prog)}**")
-    from utils.helpers import workout_detail
+    for p in progs:
+        tp = normalize_train_type(safe_str(p.get("type")))
+        if tp == "休息":
+            continue
+        gl = short_group_label(p.get("group"))
+        st.markdown(f"**{gl}**")
+        hint = sync_status_label(program_sync_status(p))
+        if hint:
+            st.caption(hint)
+        start = safe_str(p.get("start_time"))
+        end = safe_str(p.get("end_time"))
+        time_text = f"{start} – {end}" if start and end else (start or end or "時間待設定")
+        st.markdown(f"🕐 {time_text} · 📍 {resolve_venue(p)}")
+        from utils.helpers import workout_detail
 
-    wdetail = workout_detail(prog)
-    if wdetail:
-        st.markdown("**跑案**")
-        st.markdown(wdetail)
-    elif sync == "need_workout":
-        st.warning("請至「週期化課表」填寫跑案內容。")
-    elif sync == "need_schedule":
-        st.warning("請在此頁設定訓練時間與地點。")
+        wdetail = workout_detail(p)
+        if wdetail:
+            st.markdown(wdetail)
+        st.markdown("---")
 
 
 def _sched_compact_style(
     ds: str,
     day: int,
     *,
-    prog_map: dict[str, dict],
+    day_map: dict[str, list[dict]],
     select_key: str,
     pick_mode: str | None,
     copy_source: str,
     picks: set,
 ) -> dict:
     today_str = date.today().isoformat()
-    prog = prog_map.get(ds)
-    title, detail, tp = _cell_summary(prog)
-    sync = day_sync_status(prog)
-    if sync == "need_workout":
-        cat = "pending"
-    elif sync == "need_schedule":
-        cat = TRAIN_TYPES.get(tp, {}).get("category", "rest")
-    elif tp == "—":
-        cat = "rest"
-    else:
-        cat = TRAIN_TYPES.get(tp, {}).get("category", "rest")
-    bg = TYPE_CATEGORY_COLORS.get(cat, "#f1f5f9")
+    progs = day_map.get(ds, [])
+    title, detail, tp = _cell_summary(progs)
+    sync = day_sync_status(_merged_for_sync(progs))
+    bg = calendar_cell_bg(progs=progs)
     border = "1px solid #e2e8f0"
     label = f"●{day}" if ds == today_str else str(day)
     disabled = False
@@ -172,17 +180,19 @@ def _sched_compact_style(
 
     if not pick_mode:
         if sync == "need_workout":
-            bg = "#fef3c7"
             border = "2px solid #f59e0b"
         elif sync == "need_schedule":
             border = "2px solid #ea580c"
-        time_hint = format_time_venue_line(prog) if prog else ""
-        if time_hint and len(time_hint) <= 10:
-            label = f"{day}·{time_hint[:8]}"
+        elif sync == "need_both":
+            border = "2px dashed #f59e0b"
+        if len(progs) == 1:
+            time_hint = format_time_venue_line(progs[0])
+            if time_hint and len(time_hint) <= 10:
+                label = f"{day}·{time_hint[:8]}"
+        elif len(progs) > 1:
+            label = f"{day}·{len(progs)}組"
 
-    hint = ""
-    if not pick_mode and prog and format_time_venue_line(prog):
-        hint = format_time_venue_line(prog)[:12]
+    hint = detail[:24] if detail and not pick_mode else ""
 
     return {"bg": bg, "border": border, "label": label, "disabled": disabled, "hint": hint}
 
@@ -191,7 +201,7 @@ def _render_sched_compact_grid(
     select_key: str,
     year: int,
     month: int,
-    prog_map: dict[str, dict],
+    day_map: dict[str, list[dict]],
     pick_mode: str | None,
     pick_key: str,
     copy_source: str,
@@ -202,7 +212,7 @@ def _render_sched_compact_grid(
     def _style(ds: str, day: int) -> dict:
         return _sched_compact_style(
             ds, day,
-            prog_map=prog_map,
+            day_map=day_map,
             select_key=select_key,
             pick_mode=pick_mode,
             copy_source=copy_source,
@@ -230,7 +240,7 @@ def _render_sched_compact_grid(
     if not pick_mode:
         open_dialog_if_requested(
             dialog_key,
-            lambda ds: _render_sched_day_dialog(ds, prog_map),
+            lambda ds: _render_sched_day_dialog(ds, day_map),
             title="訓練時間表",
         )
 
@@ -271,14 +281,17 @@ def render_schedule_calendar(
     elif pick_mode == "bulk":
         st.caption("🟩 綠色=已選 · 可選任意日期預排時間地點")
     else:
-        st.caption("🟨 黃色=時間已定待寫跑案 · 🟧 框線=待填時間 · 可預先排定任意日期")
+        st.caption("🔵 藍色=訓練 · 🔴 紅色=比賽 · 🟨 框線=待同步 · 可預先排定任意日期")
 
     year, month = st.session_state.sched_cal_year, st.session_state.sched_cal_month
     if not pick_mode:
         _sync_sched_month(select_key, year, month)
 
     programs = get_programs_for_month(year, month)
-    prog_map = build_coach_prog_map(programs)
+    day_map = build_day_programs_map(programs)
+    prog_map = {
+        ds: _merged_for_sync(progs) for ds, progs in day_map.items()
+    }
 
     if select_key not in st.session_state:
         st.session_state[select_key] = date.today().isoformat()
@@ -286,9 +299,9 @@ def render_schedule_calendar(
     view_mode = render_view_mode_toggle(select_key)
 
     def _describe(ds: str, prog: dict | None) -> tuple[str, str, str, str]:
-        title_line, detail_line, tp = _cell_summary(prog)
-        cat = TRAIN_TYPES.get(tp, {}).get("category", "rest")
-        bg = TYPE_CATEGORY_COLORS.get(cat, "#f1f5f9")
+        progs = day_map.get(ds, [])
+        title_line, detail_line, tp = _cell_summary(progs)
+        bg = calendar_cell_bg(progs=progs)
         return title_line, detail_line, tp, bg
 
     if view_mode == "list":
@@ -307,15 +320,14 @@ def render_schedule_calendar(
         )
     else:
         _render_sched_compact_grid(
-            select_key, year, month, prog_map, pick_mode, pick_key, copy_source, picks
+            select_key, year, month, day_map, pick_mode, pick_key, copy_source, picks
         )
         selected = date.fromisoformat(st.session_state[select_key])
 
     picks_list = st.session_state.get(pick_key, [])
 
     if pick_mode == "copy":
-        src_prog = prog_map.get(copy_source) or {}
-        src_title, _, _ = _cell_summary(src_prog)
+        src_title, _, _ = _cell_summary(day_map.get(copy_source, []))
         st.warning(
             f"📋 **複製時間地點** — 來源：**{copy_source}** {src_title}\n\n"
             f"👉 多選訓練日後按「確認複製」\n\n"
