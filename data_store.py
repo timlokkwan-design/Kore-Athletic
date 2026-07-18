@@ -68,6 +68,9 @@ PENDING_SPECIALTY_COLUMNS = [
 ]
 RACE_COLUMNS = ["id", "athlete_name", "item", "score", "date", "wind", "comp_name", "grade", "valid"]
 
+TEST_USERNAMES = frozenset({"student1", "student2", "student3", "parent1"})
+TEST_STUDENT_NAMES = frozenset({"陳大文", "林明美", "張豪傑", "陳家長"})
+
 
 def _data_path(filename: str) -> Path:
     base = Path(__file__).resolve().parent.parent / DATA_DIR
@@ -215,18 +218,33 @@ def program_exists(for_date: date | str) -> bool:
 
 def delete_program(for_date: date | str) -> bool:
     """Remove saved program for a date. Returns True if a row was deleted."""
+    n = delete_programs([for_date.isoformat() if isinstance(for_date, date) else str(for_date)])
+    return n > 0
+
+
+def delete_programs(dates: list[str] | list[date]) -> int:
+    """Remove saved programs for multiple dates. Returns number of rows deleted."""
     from utils.permissions import enforce_coach_if_logged_in
 
     enforce_coach_if_logged_in()
-    target = normalize_date_str(for_date.isoformat() if isinstance(for_date, date) else for_date)
+    if not dates:
+        return 0
+    targets = {
+        normalize_date_str(d.isoformat() if isinstance(d, date) else str(d))
+        for d in dates
+    }
+    targets.discard("")
+    if not targets:
+        return 0
     programs = load_programs()
     if programs.empty:
-        return False
-    idx = programs.index[programs["date"].astype(str).str[:10] == target].tolist()
-    if not idx:
-        return False
-    save_programs(programs.drop(index=idx).reset_index(drop=True))
-    return True
+        return 0
+    mask = programs["date"].astype(str).str[:10].isin(targets)
+    removed = int(mask.sum())
+    if not removed:
+        return 0
+    save_programs(programs[~mask].reset_index(drop=True))
+    return removed
 
 
 def copy_program(source_date: str, target_date: str, prog: dict | None = None) -> bool:
@@ -803,10 +821,20 @@ def get_logs_for_athlete(name: str) -> pd.DataFrame:
     return logs[logs["student_name"] == name].copy() if not logs.empty else logs
 
 
-def filter_logs(date_str: str | None = None, rpe_range: str | None = None) -> pd.DataFrame:
+def filter_logs(
+    date_str: str | None = None,
+    rpe_range: str | None = None,
+    student_name: str | None = None,
+    *,
+    exclude_test: bool = False,
+) -> pd.DataFrame:
     logs = load_logs().sort_values("submitted_at", ascending=False) if not load_logs().empty else load_logs()
+    if exclude_test and not logs.empty:
+        logs = logs[~logs["student_name"].astype(str).isin(TEST_STUDENT_NAMES)]
     if date_str:
         logs = logs[logs["date"].astype(str) == date_str]
+    if student_name:
+        logs = logs[logs["student_name"].astype(str) == student_name]
     if rpe_range and "-" in rpe_range:
         lo, hi = map(int, rpe_range.split("-"))
         logs = logs[(logs["rpe"] >= lo) & (logs["rpe"] <= hi)]
@@ -1679,21 +1707,30 @@ def get_pb_leaderboard_by_gender(event: str, gender: str) -> list[dict]:
 
 # ── Seed ────────────────────────────────────────────────────────────────────
 
-TEST_USERNAMES = frozenset({"student1", "student2", "student3", "parent1"})
-TEST_STUDENT_NAMES = frozenset({"陳大文", "林明美", "張豪傑", "陳家長"})
-
 
 def clear_test_data(*, clear_programs: bool = True) -> dict[str, int]:
     """Remove demo accounts, their records, and seeded calendar programs."""
     from utils.production import enable_production_mode
 
-    stats: dict[str, int] = {}
-
+    stats = purge_test_student_records(clear_programs=clear_programs)
     users = load_users()
     stats["users_removed"] = int(users["username"].astype(str).isin(TEST_USERNAMES).sum())
     users = users[~users["username"].astype(str).isin(TEST_USERNAMES)]
     users = users.drop_duplicates(subset=["username"], keep="first").reset_index(drop=True)
     save_users(users)
+
+    pending_sp = load_pending_specialty()
+    if not pending_sp.empty and "username" in pending_sp.columns:
+        pending_sp = pending_sp[~pending_sp["username"].astype(str).isin(TEST_USERNAMES)]
+        save_pending_specialty(pending_sp.reset_index(drop=True))
+
+    enable_production_mode()
+    return stats
+
+
+def purge_test_student_records(*, clear_programs: bool = False) -> dict[str, int]:
+    """Remove demo student records (陳大文、林明美等) from logs and related tables."""
+    stats: dict[str, int] = {}
 
     def _drop_names(df: pd.DataFrame, col: str) -> pd.DataFrame:
         if df.empty or col not in df.columns:
@@ -1720,11 +1757,6 @@ def clear_test_data(*, clear_programs: bool = True) -> dict[str, int]:
     pending = _drop_names(load_pending_records(), "athlete_name")
     save_pending_records(pending)
 
-    pending_sp = load_pending_specialty()
-    if not pending_sp.empty and "username" in pending_sp.columns:
-        pending_sp = pending_sp[~pending_sp["username"].astype(str).isin(TEST_USERNAMES)]
-        save_pending_specialty(pending_sp.reset_index(drop=True))
-
     race = _drop_names(load_race_records(), "athlete_name")
     save_race_records(race)
 
@@ -1738,7 +1770,6 @@ def clear_test_data(*, clear_programs: bool = True) -> dict[str, int]:
     else:
         stats["programs_cleared"] = 0
 
-    enable_production_mode()
     return stats
 
 
