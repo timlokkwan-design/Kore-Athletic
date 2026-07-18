@@ -3,7 +3,6 @@
 import streamlit as st
 
 from utils.auth import login
-from utils.production import is_production
 from views.components.brand import render_auth_brand
 
 
@@ -28,13 +27,6 @@ def render_auth_view() -> None:
             "請點左側 **「註冊新學員」** 提交資料，"
             "待教練核准後即可登入。"
         )
-        if not is_production():
-            with st.expander("開發／測試帳號（正式使用可忽略）"):
-                st.markdown(
-                    "· 教練：`ktll` / `170330`\n\n"
-                    "· 學生：`student1` / `123`\n\n"
-                    "· 家長：`parent1` / `123`"
-                )
         with st.expander("忘記密碼？"):
             st.caption(
                 "**學員**：請聯絡教練，由教練在「隊伍管理 → 重設學員密碼」協助重設。\n\n"
