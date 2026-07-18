@@ -1,15 +1,18 @@
-"""Persist login across browser refresh via signed HTTP cookie."""
+"""Persist login across browser refresh via signed HTTP cookie (no extra deps)."""
 
 from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import time
+from urllib.parse import unquote
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 COOKIE_NAME = "ka_auth"
-MAX_AGE_DAYS = 30
+MAX_AGE_SECONDS = 30 * 24 * 60 * 60
 
 
 def _cookie_secret() -> str:
@@ -48,30 +51,70 @@ def _verify(token: str) -> str | None:
     return username.strip()
 
 
-@st.cache_resource
-def _cookie_manager():
-    import extra_streamlit_components as stx
+def _parse_cookie_header(header: str) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for part in header.split(";"):
+        part = part.strip()
+        if "=" not in part:
+            continue
+        key, value = part.split("=", 1)
+        out[key.strip()] = value.strip()
+    return out
 
-    return stx.CookieManager(key="ka_auth_cookie_manager")
+
+def _read_request_cookies() -> dict[str, str]:
+    """Read browser cookies sent with the current Streamlit request."""
+    try:
+        ctx = st.context
+        if hasattr(ctx, "cookies") and ctx.cookies:
+            return {str(k): str(v) for k, v in ctx.cookies.items()}
+    except Exception:
+        pass
+    try:
+        from streamlit.web.server.websocket_headers import _get_websocket_headers
+
+        headers = _get_websocket_headers() or {}
+        raw = headers.get("Cookie") or headers.get("cookie") or ""
+        if raw:
+            return _parse_cookie_header(raw)
+    except Exception:
+        pass
+    return {}
 
 
-def persist_login(username: str) -> None:
-    from datetime import datetime, timedelta
-
-    exp = int(time.time()) + MAX_AGE_DAYS * 86400
-    token = _sign(username.strip(), exp)
-    _cookie_manager().set(
-        COOKIE_NAME,
-        token,
-        expires_at=datetime.now() + timedelta(days=MAX_AGE_DAYS),
-        key="ka_set_auth_cookie",
+def _set_auth_cookie(token: str) -> None:
+    components.html(
+        f"""
+        <script>
+        document.cookie = {json.dumps(COOKIE_NAME)} + "=" + encodeURIComponent({json.dumps(token)})
+            + "; path=/; max-age={MAX_AGE_SECONDS}; SameSite=Lax";
+        </script>
+        """,
+        height=0,
+        width=0,
     )
 
 
+def _clear_auth_cookie() -> None:
+    components.html(
+        f"""
+        <script>
+        document.cookie = {json.dumps(COOKIE_NAME)} + "=; path=/; max-age=0; SameSite=Lax";
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
+
+def persist_login(username: str) -> None:
+    exp = int(time.time()) + MAX_AGE_SECONDS
+    _set_auth_cookie(_sign(username.strip(), exp))
+
+
 def clear_persisted_login() -> None:
-    _cookie_manager().delete(COOKIE_NAME, key="ka_del_auth_cookie")
-    for key in ("_cookie_restore_done", "_cookie_restore_attempted"):
-        st.session_state.pop(key, None)
+    _clear_auth_cookie()
+    st.session_state.pop("_cookie_restore_done", None)
 
 
 def try_restore_session() -> None:
@@ -81,21 +124,14 @@ def try_restore_session() -> None:
     if st.session_state.get("_cookie_restore_done"):
         return
 
-    cookies = _cookie_manager().get_all()
-    if cookies is None:
-        if not st.session_state.get("_cookie_restore_attempted"):
-            st.session_state._cookie_restore_attempted = True
-            st.rerun()
-        return
-
     st.session_state._cookie_restore_done = True
-    token = cookies.get(COOKIE_NAME)
-    if not token:
+    raw = _read_request_cookies().get(COOKIE_NAME, "")
+    if not raw:
         return
 
-    username = _verify(str(token))
+    username = _verify(unquote(raw))
     if not username:
-        _cookie_manager().delete(COOKIE_NAME, key="ka_del_bad_cookie")
+        _clear_auth_cookie()
         return
 
     from utils.auth import _public_user
