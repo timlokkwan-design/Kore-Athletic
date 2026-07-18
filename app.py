@@ -41,6 +41,12 @@ st.set_page_config(
 if "initialized" not in st.session_state:
     init_sample_data()
     st.session_state.initialized = True
+    # 預載常用資料到 session 快取，減少按鈕後等待
+    from utils.data_store import load_periodization, load_programs, load_users
+
+    load_users()
+    load_programs()
+    load_periodization()
 
 if "ui_theme" not in st.session_state:
     st.session_state.ui_theme = "light"

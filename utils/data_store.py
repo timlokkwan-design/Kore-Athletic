@@ -86,25 +86,33 @@ def _ensure_cols(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
 
 
 def _read(filename: str, columns: list[str]) -> pd.DataFrame:
-    from utils.supabase_config import is_supabase_enabled
+    from utils.session_cache import cached_dataframe
 
-    if is_supabase_enabled():
-        from utils.supabase_io import read_csv_table
-        return read_csv_table(filename, columns)
-    path = _data_path(filename)
-    if not path.exists():
-        return pd.DataFrame(columns=columns)
-    return _ensure_cols(pd.read_csv(path), columns)
+    def _load() -> pd.DataFrame:
+        from utils.supabase_config import is_supabase_enabled
+
+        if is_supabase_enabled():
+            from utils.supabase_io import read_csv_table
+            return read_csv_table(filename, columns)
+        path = _data_path(filename)
+        if not path.exists():
+            return pd.DataFrame(columns=columns)
+        return _ensure_cols(pd.read_csv(path), columns)
+
+    return cached_dataframe(filename, _load)
 
 
 def _write(filename: str, df: pd.DataFrame, columns: list[str]) -> None:
+    from utils.session_cache import invalidate_data_cache
     from utils.supabase_config import is_supabase_enabled
 
     if is_supabase_enabled():
         from utils.supabase_io import write_csv_table
         write_csv_table(filename, df, columns)
+        invalidate_data_cache()
         return
     _ensure_cols(df, columns).to_csv(_data_path(filename), index=False, encoding="utf-8-sig")
+    invalidate_data_cache()
 
 
 def _next_id(df: pd.DataFrame, col: str = "id") -> int:

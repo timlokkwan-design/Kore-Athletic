@@ -8,6 +8,19 @@ from typing import Callable
 import streamlit as st
 
 
+def _select_list_date(select_key: str, ds: str) -> None:
+    st.session_state[select_key] = ds
+
+
+def _toggle_list_pick(pick_key: str, ds: str) -> None:
+    picks_list = list(st.session_state.get(pick_key, []))
+    if ds in picks_list:
+        picks_list.remove(ds)
+    else:
+        picks_list.append(ds)
+    st.session_state[pick_key] = sorted(picks_list)
+
+
 def render_view_mode_toggle(key: str) -> str:
     """Return 'grid' or 'list'."""
     choice = st.radio(
@@ -97,25 +110,19 @@ def render_month_day_list(
                         st.caption("—")
                     else:
                         picked = ds in picks
-                        if st.button(
+                        st.button(
                             "✓" if picked else ("🗑" if pick_mode == "delete" else "＋"),
                             key=f"list_{select_key}_{ds}",
                             use_container_width=True,
-                        ):
-                            if pick_mode == "copy" and ds == copy_source:
-                                st.session_state["sched_flash"] = ("error", "來源日期不能選為目標")
-                            elif pick_mode == "delete" and can_pick is not None and not can_pick(ds, prog):
-                                st.session_state["sched_flash"] = ("error", f"{ds} 沒有已儲存的課表")
-                            else:
-                                picks_list = list(st.session_state.get(pick_key, []))
-                                if ds in picks_list:
-                                    picks_list.remove(ds)
-                                else:
-                                    picks_list.append(ds)
-                                st.session_state[pick_key] = sorted(picks_list)
-                            st.rerun()
-                elif st.button("選", key=f"list_{select_key}_{ds}", use_container_width=True):
-                    st.session_state[select_key] = ds
-                    st.rerun()
+                            on_click=_toggle_list_pick,
+                            args=(pick_key, ds),
+                        )
+                st.button(
+                    "選",
+                    key=f"list_{select_key}_{ds}",
+                    use_container_width=True,
+                    on_click=_select_list_date,
+                    args=(select_key, ds),
+                )
 
     return date.fromisoformat(str(st.session_state[select_key]))

@@ -38,40 +38,19 @@ def _clear_pick_state() -> None:
     st.session_state.sched_pick_dates = []
 
 
-def render_coach_schedule() -> None:
-    st.subheader("📆 訓練時間表")
-    st.caption(
-        "月曆顯示**週期化課表**已有訓練；無課表日期顯示**休息**。"
-        "此頁只需設定**時間與地點**。"
-    )
+def _clear_sched_picks() -> None:
+    st.session_state.sched_pick_dates = []
 
-    pick_mode = st.session_state.get("sched_pick_mode")
-    flash = st.session_state.pop("sched_flash", None)
-    if flash:
-        kind, msg = flash
-        (st.success if kind == "success" else st.error)(msg)
 
-    per = load_periodization()
-    c1, c2, c3 = st.columns(3)
-    c1.metric("訓練階段", per.get("global_phase", "—"))
-    c2.metric("本週主題", per.get("global_week_theme", "—"))
-    countdown = days_until_competition()
-    c3.metric("校際賽倒數", f"{countdown} 天" if countdown is not None else "—")
-
-    if not pick_mode:
-        st.caption(
-            "💡 **複製**：選日期 →「複製時間地點」→ 多選目標 → 確認 · "
-            "**多選套用**：「多選套用時間地點」→ 多選日期 → 填寫 → 確認"
-        )
-
+@st.fragment
+def _render_sched_pick_ui(pick_mode: str) -> None:
     copy_source = st.session_state.get("sched_copy_source", "")
-    selected = render_schedule_calendar(
+    render_schedule_calendar(
         "sched_cal",
         pick_mode=pick_mode,
         pick_key="sched_pick_dates",
         copy_source=copy_source if pick_mode == "copy" else "",
     )
-    sk = selected.isoformat()
 
     if pick_mode == "copy":
         targets = st.session_state.get("sched_pick_dates", [])
@@ -94,9 +73,13 @@ def render_coach_schedule() -> None:
                     st.session_state.sched_cal_month = d.month
                 st.rerun()
         with b2:
-            if st.button("↺ 清除已選", disabled=not targets, key="sched_copy_clear", use_container_width=True):
-                st.session_state.sched_pick_dates = []
-                st.rerun()
+            st.button(
+                "↺ 清除已選",
+                disabled=not targets,
+                key="sched_copy_clear",
+                use_container_width=True,
+                on_click=_clear_sched_picks,
+            )
         with b3:
             if st.button("✖ 取消", key="sched_copy_cancel", use_container_width=True):
                 _clear_pick_state()
@@ -128,66 +111,107 @@ def render_coach_schedule() -> None:
                 st.session_state["sched_flash"] = ("success", f"已套用至 {n} 個訓練日")
                 st.rerun()
         with b2:
-            if st.button("↺ 清除已選", disabled=not targets, key="sched_bulk_clear", use_container_width=True):
-                st.session_state.sched_pick_dates = []
-                st.rerun()
+            st.button(
+                "↺ 清除已選",
+                disabled=not targets,
+                key="sched_bulk_clear",
+                use_container_width=True,
+                on_click=_clear_sched_picks,
+            )
         with b3:
             if st.button("✖ 取消", key="sched_bulk_cancel", use_container_width=True):
                 _clear_pick_state()
                 st.rerun()
 
+
+@st.fragment
+def _render_sched_editor_ui() -> None:
+    selected = render_schedule_calendar("sched_cal", pick_mode=None)
+    sk = selected.isoformat()
+
+    b1, b2 = st.columns(2)
+    with b1:
+        if st.button("📋 複製時間地點到其他日期", key="sched_copy_btn", use_container_width=True):
+            if not is_training_day(sk):
+                st.session_state["sched_flash"] = ("error", "請先選有訓練課表的日期作為來源")
+                st.rerun()
+            st.session_state.sched_pick_mode = "copy"
+            st.session_state.sched_copy_source = sk
+            st.session_state.sched_pick_dates = []
+            st.rerun()
+    with b2:
+        if st.button("✅ 多選套用時間地點", key="sched_bulk_btn", use_container_width=True):
+            st.session_state.sched_pick_mode = "bulk"
+            st.session_state.pop("sched_copy_source", None)
+            st.session_state.sched_pick_dates = []
+            st.rerun()
+
+    st.markdown("#### 編輯當日時間與地點")
+    prog = ensure_program_dict(get_program(selected))
+    tp = normalize_train_type(safe_str(prog.get("type")))
+    if not is_training_day(sk):
+        st.info(f"**{format_timetable_date(sk)}** — 休息日，無需設定時間地點。")
     else:
-        b1, b2 = st.columns(2)
-        with b1:
-            if st.button("📋 複製時間地點到其他日期", key="sched_copy_btn", use_container_width=True):
-                if not is_training_day(sk):
-                    st.session_state["sched_flash"] = ("error", "請先選有訓練課表的日期作為來源")
-                    st.rerun()
-                st.session_state.sched_pick_mode = "copy"
-                st.session_state.sched_copy_source = sk
-                st.session_state.sched_pick_dates = []
-                st.rerun()
-        with b2:
-            if st.button("✅ 多選套用時間地點", key="sched_bulk_btn", use_container_width=True):
-                st.session_state.sched_pick_mode = "bulk"
-                st.session_state.pop("sched_copy_source", None)
-                st.session_state.sched_pick_dates = []
-                st.rerun()
+        st.markdown(
+            f"**{format_timetable_date(sk)}** · {tp} · "
+            f"{safe_str(prog.get('title')) or tp} · 👥 {safe_str(prog.get('group'))}"
+        )
+        rk = sk.replace("-", "")
+        venue_val = safe_str(prog.get("venue"))
+        venue_idx = _select_index(VENUE_OPTIONS, venue_val)
+        if venue_val and venue_val not in VENUE_OPTIONS:
+            venue_idx = VENUE_OPTIONS.index("其他")
 
-        st.markdown("#### 編輯當日時間與地點")
-        prog = ensure_program_dict(get_program(selected))
-        tp = normalize_train_type(safe_str(prog.get("type")))
-        if not is_training_day(sk):
-            st.info(f"**{format_timetable_date(sk)}** — 休息日，無需設定時間地點。")
-        else:
-            st.markdown(
-                f"**{format_timetable_date(sk)}** · {tp} · "
-                f"{safe_str(prog.get('title')) or tp} · 👥 {safe_str(prog.get('group'))}"
+        c1, c2, c3, c4 = st.columns([1, 1, 1.5, 1.5])
+        start_time = c1.text_input(
+            "開始時間", safe_str(prog.get("start_time")), placeholder="17:00", key=f"sched_st_{rk}",
+        )
+        end_time = c2.text_input(
+            "結束時間", safe_str(prog.get("end_time")), placeholder="19:00", key=f"sched_et_{rk}",
+        )
+        venue = c3.selectbox("地點", VENUE_OPTIONS, index=venue_idx, key=f"sched_vn_{rk}")
+        venue_other = ""
+        if venue == "其他":
+            venue_other = c4.text_input(
+                "其他地點", safe_str(prog.get("venue_other")),
+                placeholder="請填寫詳細地點", key=f"sched_vo_{rk}",
             )
-            rk = sk.replace("-", "")
-            venue_val = safe_str(prog.get("venue"))
-            venue_idx = _select_index(VENUE_OPTIONS, venue_val)
-            if venue_val and venue_val not in VENUE_OPTIONS:
-                venue_idx = VENUE_OPTIONS.index("其他")
+        if st.button("💾 儲存時間與地點", type="primary", key=f"sched_save_{rk}"):
+            save_program_time_venue(sk, start_time, end_time, venue, venue_other)
+            st.session_state["sched_flash"] = ("success", f"已儲存 {format_timetable_date(sk)}")
+            st.rerun()
 
-            c1, c2, c3, c4 = st.columns([1, 1, 1.5, 1.5])
-            start_time = c1.text_input(
-                "開始時間", safe_str(prog.get("start_time")), placeholder="17:00", key=f"sched_st_{rk}",
-            )
-            end_time = c2.text_input(
-                "結束時間", safe_str(prog.get("end_time")), placeholder="19:00", key=f"sched_et_{rk}",
-            )
-            venue = c3.selectbox("地點", VENUE_OPTIONS, index=venue_idx, key=f"sched_vn_{rk}")
-            venue_other = ""
-            if venue == "其他":
-                venue_other = c4.text_input(
-                    "其他地點", safe_str(prog.get("venue_other")),
-                    placeholder="請填寫詳細地點", key=f"sched_vo_{rk}",
-                )
-            if st.button("💾 儲存時間與地點", type="primary", key=f"sched_save_{rk}"):
-                save_program_time_venue(sk, start_time, end_time, venue, venue_other)
-                st.session_state["sched_flash"] = ("success", f"已儲存 {format_timetable_date(sk)}")
-                st.rerun()
+
+def render_coach_schedule() -> None:
+    st.subheader("📆 訓練時間表")
+    st.caption(
+        "月曆顯示**週期化課表**已有訓練；無課表日期顯示**休息**。"
+        "此頁只需設定**時間與地點**。"
+    )
+
+    pick_mode = st.session_state.get("sched_pick_mode")
+    flash = st.session_state.pop("sched_flash", None)
+    if flash:
+        kind, msg = flash
+        (st.success if kind == "success" else st.error)(msg)
+
+    per = load_periodization()
+    c1, c2, c3 = st.columns(3)
+    c1.metric("訓練階段", per.get("global_phase", "—"))
+    c2.metric("本週主題", per.get("global_week_theme", "—"))
+    countdown = days_until_competition()
+    c3.metric("校際賽倒數", f"{countdown} 天" if countdown is not None else "—")
+
+    if not pick_mode:
+        st.caption(
+            "💡 **複製**：選日期 →「複製時間地點」→ 多選目標 → 確認 · "
+            "**多選套用**：「多選套用時間地點」→ 多選日期 → 填寫 → 確認"
+        )
+
+    if pick_mode:
+        _render_sched_pick_ui(pick_mode)
+    else:
+        _render_sched_editor_ui()
 
     st.divider()
     st.markdown("#### 👀 預覽（學生時間表）")

@@ -47,17 +47,34 @@ def _toggle_copy_target(ds: str, copy_source: str) -> None:
 
 
 def _toggle_delete_target(ds: str) -> None:
-    from utils.data_store import program_exists
-
-    if not program_exists(ds):
-        st.session_state["sched_flash"] = ("error", f"{ds} 沒有已儲存的課表")
-        return
     targets = list(st.session_state.get("delete_target_dates", []))
     if ds in targets:
         targets.remove(ds)
     else:
         targets.append(ds)
     st.session_state.delete_target_dates = sorted(targets)
+
+
+def _select_calendar_date(select_key: str, ds: str) -> None:
+    st.session_state[select_key] = ds
+
+
+def _calendar_prev_month(select_key: str, copy_mode: bool, delete_mode: bool) -> None:
+    if st.session_state.cal_month == 1:
+        st.session_state.cal_month, st.session_state.cal_year = 12, st.session_state.cal_year - 1
+    else:
+        st.session_state.cal_month -= 1
+    if not copy_mode and not delete_mode:
+        _sync_selection_to_month(select_key, st.session_state.cal_year, st.session_state.cal_month)
+
+
+def _calendar_next_month(select_key: str, copy_mode: bool, delete_mode: bool) -> None:
+    if st.session_state.cal_month == 12:
+        st.session_state.cal_month, st.session_state.cal_year = 1, st.session_state.cal_year + 1
+    else:
+        st.session_state.cal_month += 1
+    if not copy_mode and not delete_mode:
+        _sync_selection_to_month(select_key, st.session_state.cal_year, st.session_state.cal_month)
 
 
 def _render_calendar_grid(
@@ -79,9 +96,12 @@ def _render_calendar_grid(
 
     cal = calendar.Calendar(firstweekday=6)
     weeks = cal.monthdayscalendar(year, month)
-    logs = get_all_logs()
-    athlete_names = get_student_names()
-    acwr_athlete = athlete_names[0] if show_acwr and athlete_names else None
+    acwr_athlete = None
+    logs = None
+    if show_acwr and not copy_mode and not delete_mode:
+        logs = get_all_logs()
+        athlete_names = get_student_names()
+        acwr_athlete = athlete_names[0] if athlete_names else None
 
     for week in weeks:
         cols = st.columns(7)
@@ -134,22 +154,36 @@ def _render_calendar_grid(
             if tp and not copy_mode and not delete_mode:
                 btn_label = f"{day} · {tp[:2]}"
             if copy_mode and ds != copy_source:
-                btn_label = f"✓ {day}" if ds in copy_targets else f"+ {day}"
+                cols[i].button(
+                    f"✓ {day}" if ds in copy_targets else f"+ {day}",
+                    key=f"{select_key}_{ds}",
+                    use_container_width=True,
+                    on_click=_toggle_copy_target,
+                    args=(ds, copy_source),
+                )
             elif delete_mode and ds in prog_map:
-                btn_label = f"✓ {day}" if ds in delete_targets else f"🗑 {day}"
+                cols[i].button(
+                    f"✓ {day}" if ds in delete_targets else f"🗑 {day}",
+                    key=f"{select_key}_{ds}",
+                    use_container_width=True,
+                    on_click=_toggle_delete_target,
+                    args=(ds,),
+                )
             elif delete_mode:
-                btn_label = f"— {day}"
-            if cols[i].button(btn_label, key=f"{select_key}_{ds}", use_container_width=True):
-                if copy_mode:
-                    _toggle_copy_target(ds, copy_source)
-                    st.rerun()
-                elif delete_mode:
-                    if ds in prog_map:
-                        _toggle_delete_target(ds)
-                        st.rerun()
-                else:
-                    st.session_state[select_key] = ds
-                    st.rerun()
+                cols[i].button(
+                    f"— {day}",
+                    key=f"{select_key}_{ds}",
+                    use_container_width=True,
+                    disabled=True,
+                )
+            else:
+                cols[i].button(
+                    btn_label,
+                    key=f"{select_key}_{ds}",
+                    use_container_width=True,
+                    on_click=_select_calendar_date,
+                    args=(select_key, ds),
+                )
             spec_html = f"<br><span style='color:#475569;'>{spec_line}</span>" if spec_line else ""
             cols[i].markdown(
                 f"<div style='background:{bg};border:{border};border-radius:4px;padding:3px 4px;"
@@ -168,6 +202,15 @@ def render_calendar(
     copy_mode: bool = False,
     delete_mode: bool = False,
 ) -> date | None:
+    return _render_calendar_impl(select_key, show_acwr, copy_mode, delete_mode)
+
+
+def _render_calendar_impl(
+    select_key: str,
+    show_acwr: bool,
+    copy_mode: bool,
+    delete_mode: bool,
+) -> date | None:
     if "cal_year" not in st.session_state:
         t = date.today()
         st.session_state.cal_year, st.session_state.cal_month = t.year, t.month
@@ -177,23 +220,19 @@ def render_calendar(
     delete_targets = set(st.session_state.get("delete_target_dates", [])) if delete_mode else set()
 
     c1, c2, c3 = st.columns([1, 2, 1])
-    if c1.button("◀ 上月", key=f"{select_key}_prev"):
-        if st.session_state.cal_month == 1:
-            st.session_state.cal_month, st.session_state.cal_year = 12, st.session_state.cal_year - 1
-        else:
-            st.session_state.cal_month -= 1
-        if not copy_mode and not delete_mode:
-            _sync_selection_to_month(select_key, st.session_state.cal_year, st.session_state.cal_month)
-        st.rerun()
+    c1.button(
+        "◀ 上月",
+        key=f"{select_key}_prev",
+        on_click=_calendar_prev_month,
+        args=(select_key, copy_mode, delete_mode),
+    )
     c2.markdown(f"### {st.session_state.cal_year} 年 {st.session_state.cal_month:02d} 月")
-    if c3.button("下月 ▶", key=f"{select_key}_next"):
-        if st.session_state.cal_month == 12:
-            st.session_state.cal_month, st.session_state.cal_year = 1, st.session_state.cal_year + 1
-        else:
-            st.session_state.cal_month += 1
-        if not copy_mode and not delete_mode:
-            _sync_selection_to_month(select_key, st.session_state.cal_year, st.session_state.cal_month)
-        st.rerun()
+    c3.button(
+        "下月 ▶",
+        key=f"{select_key}_next",
+        on_click=_calendar_next_month,
+        args=(select_key, copy_mode, delete_mode),
+    )
 
     if copy_mode:
         st.caption("🟧 橙色=來源 · 🟩 綠色=已選目標（可跨月多選）· 點一下選取/取消")
@@ -218,9 +257,9 @@ def render_calendar(
 
     view_mode = render_view_mode_toggle(select_key)
     if view_mode == "list":
-        logs = get_all_logs()
         athlete_names = get_student_names()
         acwr_athlete = athlete_names[0] if show_acwr and athlete_names else None
+        logs = get_all_logs() if show_acwr and acwr_athlete else None
 
         def _describe(ds: str, prog: dict | None) -> tuple[str, str, str, str]:
             prog = ensure_program_dict(prog)
@@ -229,7 +268,7 @@ def render_calendar(
             bg = TYPE_CATEGORY_COLORS.get(cat, "#f1f5f9")
             title_line, spec_line = program_calendar_summary(prog) if prog else ("", "")
             detail = spec_line or ""
-            if show_acwr and acwr_athlete:
+            if show_acwr and acwr_athlete and logs is not None:
                 v, _ = acwr_status(calc_acwr(logs, acwr_athlete, date.fromisoformat(ds)))
                 detail = f"{detail} · ACWR {v}".strip(" · ")
             return title_line or "—", detail, tp or "休息", bg

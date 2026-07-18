@@ -38,6 +38,33 @@ def _toggle_pick(ds: str, pick_key: str, source: str = "", *, block_source: bool
     st.session_state[pick_key] = sorted(picks)
 
 
+def _sched_select_date(select_key: str, ds: str) -> None:
+    st.session_state[select_key] = ds
+
+
+def _sched_pick_day(ds: str, pick_key: str, copy_source: str, pick_mode: str | None) -> None:
+    if pick_mode and is_training_day(ds):
+        _toggle_pick(ds, pick_key, copy_source, block_source=(pick_mode == "copy"))
+
+
+def _sched_prev_month(select_key: str, pick_mode: str | None) -> None:
+    if st.session_state.sched_cal_month == 1:
+        st.session_state.sched_cal_month, st.session_state.sched_cal_year = 12, st.session_state.sched_cal_year - 1
+    else:
+        st.session_state.sched_cal_month -= 1
+    if not pick_mode:
+        _sync_sched_month(select_key, st.session_state.sched_cal_year, st.session_state.sched_cal_month)
+
+
+def _sched_next_month(select_key: str, pick_mode: str | None) -> None:
+    if st.session_state.sched_cal_month == 12:
+        st.session_state.sched_cal_month, st.session_state.sched_cal_year = 1, st.session_state.sched_cal_year + 1
+    else:
+        st.session_state.sched_cal_month += 1
+    if not pick_mode:
+        _sync_sched_month(select_key, st.session_state.sched_cal_year, st.session_state.sched_cal_month)
+
+
 def _cell_summary(prog: dict | None) -> tuple[str, str, str]:
     """Return (title_line, detail_line, train_type) for calendar cell."""
     if not prog:
@@ -110,17 +137,24 @@ def _render_schedule_grid(
             elif not pick_mode and tp != "休息":
                 btn_label = f"{day} · {tp[:2]}"
 
-            if cols[i].button(btn_label, key=f"{select_key}_{ds}", use_container_width=True):
-                if pick_mode:
-                    if training:
-                        _toggle_pick(
-                            ds, pick_key, copy_source,
-                            block_source=(pick_mode == "copy"),
-                        )
-                    st.rerun()
-                else:
-                    st.session_state[select_key] = ds
-                    st.rerun()
+            if pick_mode and training and ds != copy_source:
+                cols[i].button(
+                    f"✓ {day}" if ds in picks else f"+ {day}",
+                    key=f"{select_key}_{ds}",
+                    use_container_width=True,
+                    on_click=_sched_pick_day,
+                    args=(ds, pick_key, copy_source, pick_mode),
+                )
+            elif not pick_mode:
+                cols[i].button(
+                    btn_label,
+                    key=f"{select_key}_{ds}",
+                    use_container_width=True,
+                    on_click=_sched_select_date,
+                    args=(select_key, ds),
+                )
+            elif pick_mode:
+                cols[i].button(btn_label, key=f"{select_key}_{ds}", use_container_width=True, disabled=True)
 
             detail_html = f"<br><span style='color:#64748b;'>{detail_line}</span>" if detail_line else ""
             cols[i].markdown(
@@ -151,23 +185,19 @@ def render_schedule_calendar(
     picks = set(st.session_state.get(pick_key, []))
 
     c1, c2, c3 = st.columns([1, 2, 1])
-    if c1.button("◀ 上月", key=f"{select_key}_prev"):
-        if st.session_state.sched_cal_month == 1:
-            st.session_state.sched_cal_month, st.session_state.sched_cal_year = 12, st.session_state.sched_cal_year - 1
-        else:
-            st.session_state.sched_cal_month -= 1
-        if not pick_mode:
-            _sync_sched_month(select_key, st.session_state.sched_cal_year, st.session_state.sched_cal_month)
-        st.rerun()
+    c1.button(
+        "◀ 上月",
+        key=f"{select_key}_prev",
+        on_click=_sched_prev_month,
+        args=(select_key, pick_mode),
+    )
     c2.markdown(f"### {st.session_state.sched_cal_year} 年 {st.session_state.sched_cal_month:02d} 月")
-    if c3.button("下月 ▶", key=f"{select_key}_next"):
-        if st.session_state.sched_cal_month == 12:
-            st.session_state.sched_cal_month, st.session_state.sched_cal_year = 1, st.session_state.sched_cal_year + 1
-        else:
-            st.session_state.sched_cal_month += 1
-        if not pick_mode:
-            _sync_sched_month(select_key, st.session_state.sched_cal_year, st.session_state.sched_cal_month)
-        st.rerun()
+    c3.button(
+        "下月 ▶",
+        key=f"{select_key}_next",
+        on_click=_sched_next_month,
+        args=(select_key, pick_mode),
+    )
 
     if pick_mode == "copy":
         st.caption("🟧 橙色=來源 · 🟩 綠色=已選目標 · 僅訓練日可複製")

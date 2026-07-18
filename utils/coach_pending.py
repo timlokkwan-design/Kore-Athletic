@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from utils.data_store import get_pending_users, load_pending_records, load_pending_specialty
+from utils.session_cache import cached_value
 
 PENDING_LABELS = {
     "registrations": "新學員註冊",
@@ -10,12 +11,16 @@ PENDING_LABELS = {
 }
 
 
-def get_coach_pending_summary() -> dict[str, int]:
+def _load_pending_summary() -> dict[str, int]:
     return {
         "registrations": len(get_pending_users()),
         "scores": len(load_pending_records()),
         "specialty": len(load_pending_specialty()),
     }
+
+
+def get_coach_pending_summary() -> dict[str, int]:
+    return cached_value("coach_pending_summary", _load_pending_summary)
 
 
 def get_coach_pending_total() -> int:

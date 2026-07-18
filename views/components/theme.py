@@ -36,16 +36,17 @@ def get_ui_theme() -> str:
 
 
 def render_theme_toggle() -> None:
-    dark = st.toggle(
+    st.toggle(
         "深色主內容區",
         value=get_ui_theme() == "dark",
         key="ui_theme_toggle",
         help="切換主內容區深/淺色（側欄維持深色）",
+        on_change=_sync_theme_from_toggle,
     )
-    theme = "dark" if dark else "light"
-    if st.session_state.get("ui_theme") != theme:
-        st.session_state.ui_theme = theme
-        st.rerun()
+
+
+def _sync_theme_from_toggle() -> None:
+    st.session_state.ui_theme = "dark" if st.session_state.get("ui_theme_toggle") else "light"
 
 
 def inject_global_css(theme: str | None = None) -> None:

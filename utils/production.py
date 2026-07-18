@@ -4,7 +4,14 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-PRODUCTION_FLAG = Path(__file__).resolve().parent.parent / "data" / ".production"
+_DATA = Path(__file__).resolve().parent.parent / "data"
+# 隱藏檔（本機）與可見檔（方便 GitHub 上傳）擇一即可
+PRODUCTION_FLAG = _DATA / ".production"
+PRODUCTION_FLAG_VISIBLE = _DATA / "PRODUCTION_MODE.txt"
+
+
+def _has_production_flag() -> bool:
+    return PRODUCTION_FLAG.exists() or PRODUCTION_FLAG_VISIBLE.exists()
 
 
 def _secrets_production_enabled() -> bool:
@@ -26,7 +33,7 @@ def is_production() -> bool:
         return True
     if _secrets_production_enabled():
         return True
-    if PRODUCTION_FLAG.exists():
+    if _has_production_flag():
         return True
     # Streamlit Cloud + Supabase = 正式部署，不注入測試資料
     try:
@@ -41,5 +48,6 @@ def is_production() -> bool:
 
 
 def enable_production_mode() -> None:
-    PRODUCTION_FLAG.parent.mkdir(parents=True, exist_ok=True)
+    _DATA.mkdir(parents=True, exist_ok=True)
     PRODUCTION_FLAG.write_text("production\n", encoding="utf-8")
+    PRODUCTION_FLAG_VISIBLE.write_text("production\n", encoding="utf-8")

@@ -4,6 +4,10 @@ from __future__ import annotations
 import streamlit as st
 
 
+def _select_nav_section(session_key: str, item: str) -> None:
+    st.session_state[session_key] = item
+
+
 def render_nav_categories(
     categories: list[tuple[str, list[str]]],
     session_key: str,
@@ -30,14 +34,14 @@ def render_nav_categories(
                 is_active = item == selected
                 badge = (badges or {}).get(item, 0)
                 label = f"{item} ({badge})" if badge > 0 else item
-                if st.button(
+                st.button(
                     label,
                     key=f"{session_key}_{item}",
                     use_container_width=True,
                     type="primary" if is_active else "secondary",
-                ):
-                    st.session_state[session_key] = item
-                    st.rerun()
+                    on_click=_select_nav_section,
+                    args=(session_key, item),
+                )
 
     return st.session_state[session_key]
 
@@ -63,8 +67,5 @@ def render_top_nav(
         index=labels.index(current_label),
         label_visibility="collapsed",
     )
-    picked = label_to_value[picked_label]
-    if picked != st.session_state[session_key]:
-        st.session_state[session_key] = picked
-        st.rerun()
+    st.session_state[session_key] = label_to_value[picked_label]
     return st.session_state[session_key]

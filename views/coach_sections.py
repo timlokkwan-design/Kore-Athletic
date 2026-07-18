@@ -104,6 +104,99 @@ def _athlete_select(label: str, athletes: list[str], key: str) -> str | None:
     return st.selectbox(label, athletes, key=key)
 
 
+def _clear_delete_targets() -> None:
+    st.session_state.delete_target_dates = []
+
+
+def _clear_copy_targets() -> None:
+    st.session_state.copy_target_dates = []
+
+
+@st.fragment
+def _coach_calendar_pick_ui(copy_mode: bool, delete_mode: bool) -> None:
+    """Fast multi-select: only reruns this block, not the program edit form."""
+    flash = st.session_state.pop("copy_flash", None) or st.session_state.pop("sched_flash", None)
+    if flash:
+        kind, msg = flash
+        (st.success if kind == "success" else st.error)(msg)
+
+    from views.components.calendar import _render_calendar_impl
+
+    _render_calendar_impl("coach_cal", show_acwr=False, copy_mode=copy_mode, delete_mode=delete_mode)
+
+    if delete_mode:
+        targets = st.session_state.get("delete_target_dates", [])
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            if st.button(
+                f"🗑 確認刪除 {len(targets)} 個課表",
+                key="prog_delete_confirm",
+                type="primary",
+                disabled=len(targets) == 0,
+                use_container_width=True,
+            ):
+                n = delete_programs(targets)
+                st.session_state.delete_mode = False
+                st.session_state.pop("delete_target_dates", None)
+                st.session_state["sched_flash"] = ("success", f"已刪除 {n} 個日期的課表")
+                st.rerun()
+        with c2:
+            st.button(
+                "↺ 清除已選",
+                key="prog_delete_clear",
+                disabled=len(targets) == 0,
+                use_container_width=True,
+                on_click=_clear_delete_targets,
+            )
+        with c3:
+            if st.button("✖ 取消刪除", key="prog_delete_cancel", use_container_width=True):
+                st.session_state.delete_mode = False
+                st.session_state.pop("delete_target_dates", None)
+                st.rerun()
+    elif copy_mode:
+        targets = st.session_state.get("copy_target_dates", [])
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            if st.button(
+                f"✅ 確認複製到 {len(targets)} 個日期",
+                key="prog_copy_confirm",
+                type="primary",
+                disabled=len(targets) == 0,
+                use_container_width=True,
+            ):
+                payload = st.session_state.get("copy_source_payload")
+                src = st.session_state.get("copy_source_date", "")
+                n = copy_program_to_dates(src, targets, payload)
+                st.session_state.copy_mode = False
+                st.session_state.pop("copy_source_date", None)
+                st.session_state.pop("copy_source_payload", None)
+                st.session_state.pop("copy_target_dates", None)
+                if n and targets:
+                    st.session_state["coach_cal"] = targets[-1]
+                    st.session_state.cal_year = date.fromisoformat(targets[-1]).year
+                    st.session_state.cal_month = date.fromisoformat(targets[-1]).month
+                st.session_state["copy_flash"] = (
+                    "success",
+                    f"已複製至 {n} 個日期：{', '.join(targets)}",
+                )
+                st.rerun()
+        with c2:
+            st.button(
+                "↺ 清除已選",
+                key="prog_copy_clear",
+                disabled=len(targets) == 0,
+                use_container_width=True,
+                on_click=_clear_copy_targets,
+            )
+        with c3:
+            if st.button("✖ 取消複製", key="prog_copy_cancel", use_container_width=True):
+                st.session_state.copy_mode = False
+                st.session_state.pop("copy_source_date", None)
+                st.session_state.pop("copy_source_payload", None)
+                st.session_state.pop("copy_target_dates", None)
+                st.rerun()
+
+
 def render_coach_program() -> None:
     st.subheader("📅 月曆訓練計畫與 ACWR")
     per = load_periodization()
@@ -151,103 +244,33 @@ def render_coach_program() -> None:
             "刪除課表：按「多選刪除課表」可一次刪除多個日期"
         )
 
-    selected = render_calendar(
-        "coach_cal",
-        show_acwr=True,
-        copy_mode=copy_mode,
-        delete_mode=delete_mode,
-    )
+    if copy_mode or delete_mode:
+        _coach_calendar_pick_ui(copy_mode, delete_mode)
+        return
 
-    if delete_mode:
-        targets = st.session_state.get("delete_target_dates", [])
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            if st.button(
-                f"🗑 確認刪除 {len(targets)} 個課表",
-                key="prog_delete_confirm",
-                type="primary",
-                disabled=len(targets) == 0,
-                use_container_width=True,
-            ):
-                n = delete_programs(targets)
-                st.session_state.delete_mode = False
-                st.session_state.pop("delete_target_dates", None)
-                st.session_state["sched_flash"] = ("success", f"已刪除 {n} 個日期的課表")
-                st.rerun()
-        with c2:
-            if st.button(
-                "↺ 清除已選",
-                key="prog_delete_clear",
-                disabled=len(targets) == 0,
-                use_container_width=True,
-            ):
-                st.session_state.delete_target_dates = []
-                st.rerun()
-        with c3:
-            if st.button("✖ 取消刪除", key="prog_delete_cancel", use_container_width=True):
-                st.session_state.delete_mode = False
-                st.session_state.pop("delete_target_dates", None)
-                st.rerun()
-    elif copy_mode:
-        targets = st.session_state.get("copy_target_dates", [])
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            if st.button(
-                f"✅ 確認複製到 {len(targets)} 個日期",
-                key="prog_copy_confirm",
-                type="primary",
-                disabled=len(targets) == 0,
-                use_container_width=True,
-            ):
-                payload = st.session_state.get("copy_source_payload")
-                src = st.session_state.get("copy_source_date", "")
-                n = copy_program_to_dates(src, targets, payload)
-                st.session_state.copy_mode = False
-                st.session_state.pop("copy_source_date", None)
-                st.session_state.pop("copy_source_payload", None)
-                st.session_state.pop("copy_target_dates", None)
-                if n and targets:
-                    st.session_state["coach_cal"] = targets[-1]
-                    st.session_state.cal_year = date.fromisoformat(targets[-1]).year
-                    st.session_state.cal_month = date.fromisoformat(targets[-1]).month
-                st.session_state["copy_flash"] = (
-                    "success",
-                    f"已複製至 {n} 個日期：{', '.join(targets)}",
-                )
-                st.rerun()
-        with c2:
-            if st.button(
-                "↺ 清除已選",
-                key="prog_copy_clear",
-                disabled=len(targets) == 0,
-                use_container_width=True,
-            ):
-                st.session_state.copy_target_dates = []
-                st.rerun()
-        with c3:
-            if st.button("✖ 取消複製", key="prog_copy_cancel", use_container_width=True):
-                st.session_state.copy_mode = False
-                st.session_state.pop("copy_source_date", None)
-                st.session_state.pop("copy_source_payload", None)
-                st.session_state.pop("copy_target_dates", None)
-                st.rerun()
-    else:
-        b_copy, b_delete = st.columns(2)
-        with b_copy:
-            if st.button("📋 複製課表到其他日期", key="prog_copy_btn", use_container_width=True):
-                src = st.session_state.get("coach_cal", selected.isoformat())
-                st.session_state.copy_mode = True
-                st.session_state.delete_mode = False
-                st.session_state.copy_source_date = src
-                st.session_state.copy_source_payload = ensure_program_dict(get_program(selected))
-                st.session_state.copy_target_dates = []
-                st.rerun()
-        with b_delete:
-            if st.button("🗑 多選刪除課表", key="prog_delete_btn", use_container_width=True):
-                st.session_state.delete_mode = True
-                st.session_state.copy_mode = False
-                st.session_state.delete_target_dates = []
-                st.rerun()
+    _render_coach_program_editor()
+
+
+@st.fragment
+def _render_coach_program_editor() -> None:
+    selected = render_calendar("coach_cal", show_acwr=True, copy_mode=False, delete_mode=False)
+
+    b_copy, b_delete = st.columns(2)
+    with b_copy:
+        if st.button("📋 複製課表到其他日期", key="prog_copy_btn", use_container_width=True):
+            src = st.session_state.get("coach_cal", selected.isoformat())
+            st.session_state.copy_mode = True
+            st.session_state.delete_mode = False
+            st.session_state.copy_source_date = src
+            st.session_state.copy_source_payload = ensure_program_dict(get_program(selected))
+            st.session_state.copy_target_dates = []
+            st.rerun()
+    with b_delete:
+        if st.button("🗑 多選刪除課表", key="prog_delete_btn", use_container_width=True):
+            st.session_state.delete_mode = True
+            st.session_state.copy_mode = False
+            st.session_state.delete_target_dates = []
+            st.rerun()
 
     st.caption(f"今日完成率：**{log_completion_rate()}%**")
 

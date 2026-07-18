@@ -5,11 +5,14 @@ import time
 import streamlit as st
 
 
-def _init_timer():
+def _init_timer() -> None:
     if "timer" not in st.session_state:
         st.session_state.timer = {
-            "running": False, "start": 0.0, "elapsed": 0.0,
-            "laps": [], "last_lap": 0.0,
+            "running": False,
+            "start": 0.0,
+            "elapsed": 0.0,
+            "laps": [],
+            "last_lap": 0.0,
         }
 
 
@@ -26,13 +29,46 @@ def _fmt(seconds: float) -> str:
     return f"{m:02d}:{s:05.2f}"
 
 
+def _timer_toggle() -> None:
+    t = st.session_state.timer
+    elapsed = _elapsed()
+    if t["running"]:
+        t["elapsed"] = elapsed
+        t["running"] = False
+    else:
+        t["start"] = time.time()
+        t["running"] = True
+
+
+def _timer_lap(on_lap_callback) -> None:
+    t = st.session_state.timer
+    elapsed = _elapsed()
+    lap_t = elapsed - t["last_lap"]
+    t["laps"].append(lap_t)
+    t["last_lap"] = elapsed
+    if on_lap_callback:
+        on_lap_callback(len(t["laps"]), lap_t)
+
+
+def _timer_lap_noop() -> None:
+    _timer_lap(None)
+    st.session_state.timer = {
+        "running": False,
+        "start": 0.0,
+        "elapsed": 0.0,
+        "laps": [],
+        "last_lap": 0.0,
+    }
+
+
+@st.fragment
 def render_lap_timer(on_lap_callback=None) -> list[float]:
     """Render stopwatch; return list of lap times in seconds."""
     _init_timer()
     t = st.session_state.timer
     elapsed = _elapsed()
 
-    st.markdown(f"### ⏱️ 分圈計時器")
+    st.markdown("### ⏱️ 分圈計時器")
     st.markdown(
         f"<div style='text-align:center;font-size:2.5rem;font-family:monospace;"
         f"color:#10b981;background:#0f172a;padding:1rem;border-radius:8px;'>{_fmt(elapsed)}</div>",
@@ -40,24 +76,25 @@ def render_lap_timer(on_lap_callback=None) -> list[float]:
     )
 
     b1, b2, b3 = st.columns(3)
-    if b1.button("開始 / 暫停", use_container_width=True, key="timer_toggle"):
-        if t["running"]:
-            t["elapsed"] = elapsed
-            t["running"] = False
-        else:
-            t["start"] = time.time()
-            t["running"] = True
-        st.rerun()
-    if b2.button("記圈", use_container_width=True, key="timer_lap", disabled=not t["running"] and elapsed == 0):
-        lap_t = elapsed - t["last_lap"]
-        t["laps"].append(lap_t)
-        t["last_lap"] = elapsed
-        if on_lap_callback:
-            on_lap_callback(len(t["laps"]), lap_t)
-        st.rerun()
-    if b3.button("重置", use_container_width=True, key="timer_reset"):
-        st.session_state.timer = {"running": False, "start": 0.0, "elapsed": 0.0, "laps": [], "last_lap": 0.0}
-        st.rerun()
+    b1.button("開始 / 暫停", use_container_width=True, key="timer_toggle", on_click=_timer_toggle)
+    if on_lap_callback:
+        b2.button(
+            "記圈",
+            use_container_width=True,
+            key="timer_lap",
+            disabled=not t["running"] and elapsed == 0,
+            on_click=_timer_lap,
+            args=(on_lap_callback,),
+        )
+    else:
+        b2.button(
+            "記圈",
+            use_container_width=True,
+            key="timer_lap",
+            disabled=not t["running"] and elapsed == 0,
+            on_click=_timer_lap_noop,
+        )
+    b3.button("重置", use_container_width=True, key="timer_reset", on_click=_timer_reset)
 
     if t["laps"]:
         st.markdown("**分圈紀錄**")
