@@ -15,7 +15,7 @@ from utils.data_store import (
     program_visible_to_student,
     build_student_prog_map,
 )
-from utils.helpers import format_timetable_date, format_train_duration, normalize_date_str, program_specs, resolve_venue, safe_int, safe_str
+from utils.helpers import format_timetable_date, format_train_duration, normalize_date_str, program_specs, resolve_venue, safe_int, safe_str, workout_detail
 from views.components.calendar_list import render_view_mode_toggle
 
 
@@ -107,12 +107,16 @@ def _render_selected_day_detail(
             elif att and att.get("status") == "leave":
                 st.info(att_line)
     else:
-        title = tp
+        detail = workout_detail(prog)
         time_text, venue = _time_venue_text(prog)
+        detail_html = ""
+        if detail:
+            safe_detail = detail.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+            detail_html = f"<div style='font-size:14px;margin-top:8px;line-height:1.5;white-space:normal;'>{safe_detail}</div>"
         st.markdown(
             f"<div style='background:{bg};border:2px solid #1d4ed8;border-radius:10px;padding:14px 16px;'>"
             f"<div style='font-size:14px;font-weight:700;color:#1e3a8a;'>{date_label} · {tp}</div>"
-            f"<div style='font-size:16px;font-weight:800;margin-top:6px;'>{title}</div>"
+            f"{detail_html}"
             f"<div style='font-size:14px;margin-top:10px;'>🕐 <b>{time_text}</b></div>"
             f"<div style='font-size:14px;margin-top:6px;'>📍 <b>{venue}</b></div>"
             f"</div>",

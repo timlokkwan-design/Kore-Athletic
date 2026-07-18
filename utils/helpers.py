@@ -143,29 +143,55 @@ def needs_wind(item: str) -> bool:
     return item in WIND_EVENTS
 
 
+def infer_train_type(text: str, fallback: str = "間歇跑") -> str:
+    """Guess calendar category from free-text workout plan."""
+    from utils.config import TRAIN_TYPE_OPTIONS, normalize_train_type
+
+    fb = normalize_train_type(fallback)
+    blob = safe_str(text)
+    if not blob:
+        return fb
+    if "肌力" in blob or "深蹲" in blob or "重量" in blob:
+        return "肌力課"
+    if "技術" in blob or "欄架" in blob or "起跑" in blob:
+        return "技術課"
+    if "節奏" in blob:
+        return "節奏跑"
+    if "恢復" in blob or "慢跑" in blob:
+        return "恢復跑"
+    return fb if fb in TRAIN_TYPE_OPTIONS else "間歇跑"
+
+
+def workout_detail(prog: dict) -> str:
+    """Free-text run/workout plan (supports mixed distances). Stored in `rest`."""
+    rest = safe_str(prog.get("rest"))
+    sets, reps, dist = safe_int(prog.get("sets")), safe_int(prog.get("reps")), safe_int(prog.get("dist"))
+    target = safe_float(prog.get("target_seconds"))
+    if sets and reps and dist and not rest:
+        lines = [f"{sets}組 × {reps}趟 × {dist}m"]
+        if target > 0:
+            lines.append(f"目標 {target:g} 秒")
+        return "\n".join(lines)
+    if rest:
+        return rest
+    exercises = safe_str(prog.get("exercises"))
+    if exercises:
+        return exercises
+    return safe_str(prog.get("tech_focus"))
+
+
 def program_specs(p: dict) -> str:
     tp = safe_str(p.get("type"))
     if tp in ("比賽", "休息"):
         return ""
-    parts = []
-    sets, reps, dist = safe_int(p.get("sets")), safe_int(p.get("reps")), safe_int(p.get("dist"))
-    if sets and reps and dist:
-        parts.append(f"{sets}x{reps}x{dist}m")
-    elif reps and dist:
-        parts.append(f"{dist}m x {reps}")
-    rest = safe_str(p.get("rest"))
-    if rest:
-        parts.append(rest)
-    exercises = safe_str(p.get("exercises"))
-    if exercises:
-        parts.append(exercises)
-    tech_focus = safe_str(p.get("tech_focus"))
-    if tech_focus:
-        parts.append(tech_focus)
-    field_event = safe_str(p.get("field_event"))
-    if field_event:
-        parts.append(field_event)
-    return " | ".join(parts) if parts else safe_str(p.get("title"), "-")
+    detail = workout_detail(p)
+    if detail:
+        first = detail.split("\n")[0].strip()
+        return first[:48] + ("…" if len(first) > 48 else "")
+    tips = safe_str(p.get("tips"))
+    if tips:
+        return tips[:48]
+    return safe_str(p.get("title"), "-")
 
 
 def resolve_venue(prog: dict) -> str:
@@ -206,8 +232,10 @@ def short_group_label(group: str) -> str:
         return "短跑"
     if g.startswith("中長"):
         return "中長"
-    if "跨欄" in g or "田" in g:
-        return "田欄"
+    if "跨欄" in g:
+        return "跨欄"
+    if "田" in g:
+        return "田項"
     if g == "全體組員":
         return "全體"
     return g[:4] or "—"
@@ -243,10 +271,14 @@ def program_calendar_summary(prog: dict) -> tuple[str, str]:
         return "比賽", ""
     if tp == "休息":
         return "休息", ""
+    detail = workout_detail(prog)
+    if detail:
+        first = detail.split("\n")[0].strip()
+        return first[:12], detail.split("\n")[0][:18]
     title = safe_str(prog.get("title")) or tp or "—"
     specs = program_specs(prog)
     if specs == title or specs == "-":
-        specs = safe_str(prog.get("type"))
+        specs = tp
     return title[:12], specs[:18]
 
 
@@ -254,11 +286,13 @@ def whatsapp_program_text(prog: dict, per: dict) -> str:
     from utils.config import APP_NAME, COACH_NAME
     phase = prog.get("phase") or per.get("global_phase", "")
     theme = prog.get("week_theme") or per.get("global_week_theme", "")
+    detail = workout_detail(prog)
+    detail_block = f"\n📝 {detail}\n" if detail else ""
     return (
         f"🏃 {APP_NAME} 訓練課表\n"
         f"📅 {prog['date']}\n"
-        f"📋 {prog.get('title')} ({prog.get('type')})\n"
-        f"👥 {prog.get('group')}\n"
+        f"📋 {prog.get('type')} · {prog.get('group')}\n"
+        f"{detail_block}"
         f"📊 階段:{phase} | 主題:{theme}\n"
         f"💡 {prog.get('tips') or '依教練指示'}\n"
         f"— {COACH_NAME}教練"

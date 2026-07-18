@@ -13,7 +13,6 @@ from utils.config import (
     SPECIALTY_OPTIONS,
     TAPER_DAYS,
     TECHNIQUE_LIB,
-    TRAIN_TYPE_OPTIONS,
     VENUE_OPTIONS,
     WEEKDAY_OPTIONS,
     WEEK_THEME_OPTIONS,
@@ -81,6 +80,8 @@ from utils.helpers import (
     safe_str,
     needs_wind,
     short_group_label,
+    infer_train_type,
+    workout_detail,
     weekly_summary_text,
     whatsapp_program_text,
 )
@@ -302,7 +303,7 @@ def _render_coach_program_editor() -> None:
         edit_group = st.selectbox("組別", GROUP_OPTIONS, key=f"pgroup_new_{sk}")
         prog = default_program(sk)
         prog["group"] = edit_group
-        st.caption("此日尚無課表，選擇組別後填寫訓練內容並儲存。")
+        st.caption("此日尚無課表，選擇組別後填寫跑案並儲存。")
 
     if available_groups:
         with st.expander("➕ 新增其他組別訓練", expanded=False):
@@ -324,72 +325,80 @@ def _render_coach_program_editor() -> None:
     else:
         st.caption(f"👥 組別：**{edit_group}**")
 
-    ptype_key = f"ptype_{sk}_{edit_group}"
-    default_type = normalize_train_type(prog["type"])
-    if ptype_key not in st.session_state:
-        st.session_state[ptype_key] = default_type
-    elif st.session_state[ptype_key] not in TRAIN_TYPE_OPTIONS:
-        st.session_state[ptype_key] = normalize_train_type(st.session_state[ptype_key])
-
-    train_type = normalize_train_type(
-        st.selectbox("訓練內容", TRAIN_TYPE_OPTIONS, key=ptype_key)
+    cur_type = normalize_train_type(prog["type"])
+    status_options = ["訓練", "休息", "比賽"]
+    default_status = (
+        "比賽" if cur_type == "比賽" else "休息" if cur_type == "休息" else "訓練"
     )
-    title = "比賽" if train_type == "比賽" else train_type
-    group = edit_group
+    day_status = st.radio(
+        "當日安排",
+        status_options,
+        index=status_options.index(default_status),
+        horizontal=True,
+        key=f"pstatus_{sk}_{edit_group}",
+    )
 
-    sets = safe_int(prog["sets"])
-    reps = safe_int(prog["reps"])
-    dist = safe_int(prog["dist"])
-    rest = safe_str(prog.get("rest"))
-    target_sec = safe_float(prog.get("target_seconds"))
-    exercises = safe_str(prog.get("exercises"))
-    tech_focus = safe_str(prog.get("tech_focus"))
-    field_event = safe_str(prog.get("field_event"), "跳遠")
-    attempts = safe_int(prog.get("attempts"), 10)
+    workout_text = ""
     tips = ""
-    duration = 0
     rpe = 7
+    train_type = "休息"
+    title = "休息"
+    sets = reps = dist = 0
+    target_sec = 0.0
+    exercises = tech_focus = field_event = ""
+    attempts = 0
 
-    if train_type == "比賽":
-        st.info("🏁 比賽日 — 按「儲存課表」後，月曆將直接顯示「比賽」")
-        sets = reps = dist = attempts = 0
-        rest = exercises = tech_focus = field_event = ""
-        target_sec = 0.0
-    elif train_type == "休息":
+    if day_status == "比賽":
+        st.info("🏁 比賽日 — 儲存後月曆顯示「比賽」")
+        train_type = title = "比賽"
+    elif day_status == "休息":
         st.info("休息日 — 無訓練安排")
+        train_type = title = "休息"
     else:
-        if train_type in ("間歇跑", "節奏跑", "恢復跑"):
-            r1, r2, r3, r4 = st.columns(4)
-            sets = r1.number_input("組數", 0, 20, sets, key=f"psets_{sk}_{edit_group}")
-            reps = r2.number_input("趟數", 0, 30, reps, key=f"preps_{sk}_{edit_group}")
-            dist = r3.number_input("距離(m)", 0, 5000, dist, key=f"pdist_{sk}_{edit_group}")
-            target_sec = r4.number_input(
-                "目標秒數", 0.0, 999.0, target_sec, step=0.1, key=f"ptarget_{sk}_{edit_group}"
-            )
-            rest = st.text_input(
-                "休息", rest or "組間休息 90 秒", key=f"prest_{sk}_{edit_group}"
-            )
-        elif train_type == "肌力課":
-            exercises = st.text_input(
-                "動作項目",
-                exercises,
-                placeholder="深蹲、爆發起跳...",
-                key=f"pexercises_{sk}_{edit_group}",
-            )
-        elif train_type == "技術課":
-            tech_focus = st.text_input("技術重點", tech_focus, key=f"ptech_{sk}_{edit_group}")
-
-        default_duration = safe_int(prog.get("duration"), 0 if train_type == "休息" else 60)
-        default_rpe = max(
-            1, safe_int(prog.get("rpe"), 4 if train_type in ("恢復跑", "休息") else 7)
+        workout_text = st.text_area(
+            "跑案詳情",
+            value=workout_detail(prog),
+            height=170,
+            placeholder=(
+                "可寫多段不同距離，每行一段，例如：\n"
+                "A. 6×200m @ 30\"  走200m恢復\n"
+                "B. 4×400m @ 70\"  休息3分鐘\n"
+                "C. 800m 節奏跑 @ 3'10\""
+            ),
+            key=f"pworkout_{sk}_{edit_group}",
         )
+        st.caption("💡 同一日混合不同米數、趟數，直接在此逐行填寫即可。")
+        rpe = st.number_input(
+            "預期 RPE",
+            1,
+            10,
+            max(1, safe_int(prog.get("rpe"), 7)),
+            key=f"prpe_{sk}_{edit_group}",
+        )
+        tips = st.text_area(
+            "教練備註",
+            safe_str(prog.get("tips")),
+            key=f"ptips_{sk}_{edit_group}",
+        )
+        train_type = infer_train_type(workout_text, cur_type)
+        with st.expander("月曆顏色（預設依跑案自動判斷）", expanded=False):
+            cal_types = ["間歇跑", "節奏跑", "恢復跑", "肌力課", "技術課"]
+            train_type = normalize_train_type(
+                st.selectbox(
+                    "訓練類型",
+                    cal_types,
+                    index=_select_index(cal_types, train_type),
+                    key=f"pcaltype_{sk}_{edit_group}",
+                )
+            )
+        first_line = workout_text.split("\n")[0].strip() if workout_text else ""
+        title = first_line[:60] if first_line else train_type
 
-        d1, d2 = st.columns(2)
-        duration = d1.number_input("時長(分)", 0, 300, default_duration, key=f"pdur_{sk}_{edit_group}")
-        rpe = d2.number_input("預期 RPE", 1, 10, default_rpe, key=f"prpe_{sk}_{edit_group}")
-        tips = st.text_area("教練指導", safe_str(prog.get("tips")), key=f"ptips_{sk}_{edit_group}")
+    group = edit_group
+    rest = workout_text
+    duration = 0
 
-    load = calc_load(train_type, duration, rpe, int(sets or 0), int(reps or 0), int(dist or 0))
+    load = calc_load(train_type, 45, rpe, 0, 0, 0)
     if train_type not in ("比賽", "休息"):
         athletes = get_student_names()
         acwr_v, _ = acwr_status(
@@ -404,20 +413,20 @@ def _render_coach_program_editor() -> None:
             "type": train_type,
             "title": title,
             "group": group,
-            "sets": sets,
-            "reps": reps,
-            "dist": dist,
+            "sets": 0,
+            "reps": 0,
+            "dist": 0,
             "rest": rest,
-            "duration": duration,
+            "duration": 0,
             "rpe": rpe,
             "tips": tips,
             "phase": "",
             "week_theme": "",
-            "target_seconds": target_sec,
-            "exercises": exercises,
-            "tech_focus": tech_focus,
-            "field_event": field_event,
-            "attempts": attempts,
+            "target_seconds": 0,
+            "exercises": "",
+            "tech_focus": "",
+            "field_event": "",
+            "attempts": 0,
             "start_time": safe_str(prog.get("start_time")),
             "end_time": safe_str(prog.get("end_time")),
             "venue": safe_str(prog.get("venue")),
@@ -430,20 +439,20 @@ def _render_coach_program_editor() -> None:
             "type": train_type,
             "title": title,
             "group": group,
-            "sets": sets,
-            "reps": reps,
-            "dist": dist,
+            "sets": 0,
+            "reps": 0,
+            "dist": 0,
             "rest": rest,
-            "duration": duration,
+            "duration": 0,
             "rpe": rpe,
             "tips": tips,
             "phase": "",
             "week_theme": "",
-            "target_seconds": target_sec,
-            "exercises": exercises,
-            "tech_focus": tech_focus,
-            "field_event": field_event,
-            "attempts": attempts,
+            "target_seconds": 0,
+            "exercises": "",
+            "tech_focus": "",
+            "field_event": "",
+            "attempts": 0,
         })
         st.success("已存範本")
     if b3.button("🗑 刪除此組別", use_container_width=True, key=f"pdelete_grp_{sk}_{edit_group}"):

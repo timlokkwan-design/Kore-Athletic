@@ -6,7 +6,7 @@ from utils.grades import U18_GRADES, WIND_EVENTS
 
 APP_NAME = "KORE ATHLETIC"
 APP_SUBTITLE = "關添樂教練田徑訓練與成績管理系統"
-APP_VERSION = "2026.07.18-59"
+APP_VERSION = "2026.07.18-61"
 COACH_NAME = "關添樂"
 EMAIL_DOMAIN = "@kore-athletic.app"
 
@@ -36,19 +36,31 @@ TYPE_CATEGORY_COLORS = {
     "strength": "#ffedd5", "field": "#dcfce7", "rest": "#f1f5f9",
 }
 
-GROUP_OPTIONS = [
-    "短跑組 (100-400m)", "中長跑組 (800-5000m)", "跨欄及田賽組", "全體組員",
-]
+GROUP_OPTIONS = ["短跑組", "中長跑組", "跨欄組", "全體組員"]
+
+LEGACY_GROUP_MAP = {
+    "短跑組 (100-400m)": "短跑組",
+    "中長跑組 (800-5000m)": "中長跑組",
+    "跨欄及田賽組": "跨欄組",
+    "全體組員": "全體組員",
+}
+
+
+def normalize_group(group: str) -> str:
+    g = str(group or "").strip()
+    if g in GROUP_OPTIONS:
+        return g
+    return LEGACY_GROUP_MAP.get(g, g or "短跑組")
 WEEKDAY_OPTIONS = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
 WEEKDAY_SHORT = ["一", "二", "三", "四", "五", "六", "日"]
 VENUE_OPTIONS = ["斧山道運動場", "將軍澳運動場", "葵涌運動場", "其他"]
 DEFAULT_VENUE = "斧山道運動場"
 SPECIALTY_TO_GROUP = {
-    "短跑": "短跑組 (100-400m)",
-    "中長跑": "中長跑組 (800-5000m)",
-    "跨欄": "跨欄及田賽組",
-    "田項": "跨欄及田賽組",
-    "田賽": "跨欄及田賽組",  # legacy
+    "短跑": "短跑組",
+    "中長跑": "中長跑組",
+    "跨欄": "跨欄組",
+    "田項": "跨欄組",
+    "田賽": "跨欄組",  # legacy
 }
 PHASE_OPTIONS = ["準備期", "強化期", "調整期", "賽季期", "恢復期"]
 WEEK_THEME_OPTIONS = ["速度週", "速度耐力週", "技術週", "減量週", "恢復週"]
@@ -109,9 +121,9 @@ MENUS_FILE = PROGRAMS_FILE
 def default_program(for_date: str | None = None) -> dict:
     d = for_date or date.today().isoformat()
     return {
-        "date": d, "type": "間歇跑", "title": "400m 間歇訓練",
-        "group": "短跑組 (100-400m)", "sets": 1, "reps": 6, "dist": 400,
-        "rest": "組間休息 90 秒", "duration": 60, "rpe": 7,
+        "date": d, "type": "間歇跑", "title": "",
+        "group": "短跑組", "sets": 0, "reps": 0, "dist": 0,
+        "rest": "6×200m @ 30\"  走200m\n4×400m @ 70\"  休息3分", "duration": 0, "rpe": 7,
         "tips": "前兩趟輕鬆跑，後四趟配速跑", "phase": "", "week_theme": "",
         "target_seconds": 65.0, "load": 630,
         "exercises": "", "tech_focus": "", "field_event": "跳遠", "attempts": 10,

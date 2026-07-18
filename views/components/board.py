@@ -13,7 +13,7 @@ from utils.data_store import (
     load_periodization,
     log_completion_rate,
 )
-from utils.helpers import safe_int, safe_str, short_group_label
+from utils.helpers import program_specs, safe_str, short_group_label, workout_detail
 from views.components.brand import render_brand_header as _render_brand_header
 
 
@@ -30,16 +30,9 @@ def render_training_board(show_specs: bool = True, specialty: str | None = None)
 
     phase = safe_str(prog.get("phase")) or safe_str(per.get("global_phase"))
     theme = safe_str(prog.get("week_theme")) or safe_str(per.get("global_week_theme"))
-    specs_parts = []
-    sets, reps, dist = safe_int(prog.get("sets")), safe_int(prog.get("reps")), safe_int(prog.get("dist"))
-    if sets and reps and dist:
-        specs_parts.append(f"{sets}x{reps}x{dist}m")
-    elif reps and dist:
-        specs_parts.append(f"{dist}m × {reps}")
-    rest = safe_str(prog.get("rest"))
-    if rest:
-        specs_parts.append(rest)
-    specs = " | ".join(specs_parts) if specs_parts else "-"
+    specs = program_specs(prog)
+    detail = workout_detail(prog)
+    detail_block = detail.replace("\n", "<br>") if detail else specs
 
     st.markdown("##### 📋 訓練計劃看板")
     st.caption(today_label)
@@ -50,7 +43,7 @@ def render_training_board(show_specs: bool = True, specialty: str | None = None)
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("訓練類型", safe_str(prog.get("type"), "-"))
     group = safe_str(prog.get("group"), "-")
-    col2.metric("組別", group[:8] + "…" if len(group) > 8 else group)
+    col2.metric("組別", short_group_label(group))
     col3.metric("階段", phase)
     col4.metric("週主題", theme)
 
@@ -58,7 +51,8 @@ def render_training_board(show_specs: bool = True, specialty: str | None = None)
         f"""
         <div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:1rem;">
         <p style="margin:0;font-size:1.1rem;font-weight:bold;">🏋️ {safe_str(prog.get('type'), '今日無課表')}</p>
-        {"<p style='margin:0.5rem 0 0;font-size:0.85rem;font-family:monospace;'>規格：" + specs + "</p>" if show_specs else ""}
+        {"<p style='margin:0.5rem 0 0;font-size:0.85rem;line-height:1.5;'>" + detail_block + "</p>" if detail_block and detail_block != "-" else ""}
+        {"<p style='margin:0.5rem 0 0;font-size:0.85rem;font-family:monospace;'>規格：" + specs + "</p>" if show_specs and specs and specs != detail_block else ""}
         <p style="margin:0.75rem 0 0;font-size:0.9rem;font-style:italic;">
         <strong>教練提示（{COACH_NAME}）：</strong>{safe_str(prog.get('tips'), '依教練指示完成')}</p>
         </div>

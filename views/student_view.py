@@ -12,7 +12,7 @@ from utils.data_store import (
     get_today_menu, get_wellness, get_attendance_record, load_attendance, load_periodization, mark_leave,
     submit_pending_record, submit_wellness, load_race_records, days_until_competition,
 )
-from utils.helpers import format_train_duration, needs_wind, parse_time, safe_int, safe_str
+from utils.helpers import format_train_duration, needs_wind, parse_time, program_specs, safe_int, safe_str
 from views.components.avatar import render_person
 from views.components.checkin import render_student_checkin_bar
 from views.components.comp_registration import render_student_comp_registration
@@ -74,7 +74,7 @@ def _tab_schedule(user: dict) -> None:
     countdown_label = f"{countdown} 天" if countdown is not None else "—"
 
     render_stat_cards([
-        ("今日課表", safe_str(prog.get("type"), "—")[:12], "normal"),
+        ("今日課表", program_specs(prog)[:12] or safe_str(prog.get("type"), "—")[:12], "normal"),
         ("訓練階段", safe_str(per.get("global_phase"), "—"), "normal"),
         ("本週主題", safe_str(per.get("global_week_theme"), "—"), "normal"),
         ("簽到", checkin_label, checkin_tone),
@@ -93,7 +93,7 @@ def _tab_training_log(user: dict) -> None:
     train_type = prog.get("type", "間歇跑")
 
     st.markdown("#### 回傳今日訓練數據")
-    st.info(f"今日課表：**{prog.get('type')}** · 專項：**{specialty}**")
+    st.info(f"今日課表：**{program_specs(prog) or prog.get('type')}** · 專項：**{specialty}**")
 
     lap_times, lap_reactions = [], []
     with st.expander("① 訓練數據", expanded=True):

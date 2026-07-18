@@ -30,6 +30,7 @@ from utils.config import (
     VIDEOS_FILE,
     WELLNESS_FILE,
     default_program,
+    normalize_group,
     normalize_train_type,
 )
 from utils.helpers import format_birth_display, get_grade, is_missing, is_wind_valid, normalize_date_str, safe_float, safe_int, safe_str
@@ -150,7 +151,7 @@ def _row_to_program(row) -> dict:
     return {
         "date": safe_str(row["date"]),
         "type": normalize_train_type(safe_str(row.get("type"), "間歇跑")),
-        "title": safe_str(row.get("title")), "group": safe_str(row.get("group"), "全體組員"),
+        "title": safe_str(row.get("title")), "group": normalize_group(safe_str(row.get("group"), "短跑組")),
         "sets": safe_int(row.get("sets")), "reps": safe_int(row.get("reps")), "dist": safe_int(row.get("dist")),
         "rest": safe_str(row.get("rest")), "duration": safe_int(row.get("duration"), 60),
         "rpe": safe_int(row.get("rpe"), 7), "tips": safe_str(row.get("tips")),
@@ -204,7 +205,7 @@ def pick_program_for_student(programs: list[dict], specialty: str | None = None)
     specific = None
     general = None
     for p in programs:
-        group = safe_str(p.get("group"), "全體組員")
+        group = normalize_group(safe_str(p.get("group")))
         if group == "全體組員":
             general = general or p
         elif program_visible_to_student(p, specialty):
@@ -252,7 +253,7 @@ def save_program(prog: dict) -> None:
     programs = load_programs()
     target = normalize_date_str(prog["date"])
     prog["date"] = target
-    prog["group"] = safe_str(prog.get("group"), "全體組員")
+    prog["group"] = normalize_group(safe_str(prog.get("group"), "短跑組"))
     if not safe_str(prog.get("title")):
         prog["title"] = safe_str(prog.get("type"))
     if programs.empty:
@@ -515,9 +516,9 @@ def days_until_competition() -> int | None:
 # ── Timetable (time & venue on calendar programs) ───────────────────────────
 
 def program_visible_to_student(prog: dict, specialty: str) -> bool:
-    from utils.config import SPECIALTY_TO_GROUP
+    from utils.config import SPECIALTY_TO_GROUP, normalize_group
 
-    group = safe_str(prog.get("group"), "全體組員")
+    group = normalize_group(safe_str(prog.get("group")))
     if group == "全體組員":
         return True
     return group == SPECIALTY_TO_GROUP.get(safe_str(specialty), "")
