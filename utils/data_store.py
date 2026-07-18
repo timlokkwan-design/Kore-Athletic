@@ -456,6 +456,15 @@ def get_programs_for_month(year: int, month: int) -> pd.DataFrame:
     return programs[programs["date"].astype(str).str[:10].str.startswith(prefix)]
 
 
+def filter_programs_by_group(programs: pd.DataFrame, group: str | None) -> pd.DataFrame:
+    """Filter month programs to one training group (None = show all)."""
+    if programs.empty or not group:
+        return programs
+    target = normalize_group(group)
+    mask = programs["group"].astype(str).map(normalize_group) == target
+    return programs[mask]
+
+
 def apply_recovery_template(start_date: date) -> None:
     from utils.permissions import enforce_coach_if_logged_in
     enforce_coach_if_logged_in()
@@ -503,6 +512,14 @@ def apply_template(template_id: str, target_date: str) -> None:
     prog = match.iloc[0].to_dict()
     prog["date"] = target_date
     save_program(prog)
+
+
+def delete_template(template_id: str) -> None:
+    from utils.permissions import enforce_coach_if_logged_in
+    enforce_coach_if_logged_in()
+    df = load_templates()
+    df = df[df["id"].astype(str) != str(template_id)]
+    save_templates(df)
 
 
 # ── Periodization ───────────────────────────────────────────────────────────

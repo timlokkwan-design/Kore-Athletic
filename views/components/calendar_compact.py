@@ -97,6 +97,7 @@ def render_compact_month_grid(
                 border = style.get("border", "1px solid #e2e8f0")
                 label = style.get("label", str(day))
                 disabled = bool(style.get("disabled"))
+                hint = style.get("hint", "")
                 is_sel = selected == ds
 
                 st.markdown(
@@ -104,8 +105,15 @@ def render_compact_month_grid(
                     f"border:{border};'></div>",
                     unsafe_allow_html=True,
                 )
+                if hint:
+                    st.markdown(
+                        f"<div style='font-size:0.58rem;text-align:center;color:#475569;"
+                        f"line-height:1.05;margin:-1px 0 1px;overflow:hidden;"
+                        f"white-space:nowrap;text-overflow:ellipsis;'>{hint}</div>",
+                        unsafe_allow_html=True,
+                    )
                 btn_type = "primary" if is_sel else "secondary"
-                cols[i].button(
+                st.button(
                     label,
                     key=f"compact_{select_key}_{ds}",
                     use_container_width=True,

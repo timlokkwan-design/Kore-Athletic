@@ -175,6 +175,30 @@ def parse_workout_volume(text: str) -> dict[str, int]:
     return {"total_meters": total_meters, "total_reps": total_reps}
 
 
+def format_meters_short(meters: int) -> str:
+    """Compact volume label for calendar cells, e.g. 2800 -> 2.8k."""
+    m = max(0, int(meters or 0))
+    if m == 0:
+        return ""
+    if m >= 10000:
+        return f"{m // 1000}k"
+    if m >= 1000:
+        v = m / 1000
+        text = f"{v:.1f}k"
+        if text.endswith(".0k"):
+            text = f"{int(v)}k"
+        return text
+    return f"{m}m"
+
+
+def program_total_meters(prog: dict) -> int:
+    """Sum run volume for one day (including multi-group merged cells)."""
+    progs = prog.get("_programs")
+    if progs:
+        return sum(workout_volume_from_program(p)["total_meters"] for p in progs)
+    return workout_volume_from_program(prog)["total_meters"]
+
+
 def workout_volume_from_program(prog: dict) -> dict[str, int]:
     """Volume from free-text plan, or legacy sets/reps/dist columns."""
     detail = workout_detail(prog)
@@ -276,18 +300,9 @@ def format_timetable_date(date_str: str) -> str:
 
 
 def short_group_label(group: str) -> str:
-    g = safe_str(group)
-    if g.startswith("短跑"):
-        return "短跑"
-    if g.startswith("中長"):
-        return "中長"
-    if "跨欄" in g:
-        return "跨欄"
-    if "田" in g:
-        return "田項"
-    if g == "全體組員":
-        return "全體"
-    return g[:4] or "—"
+    from utils.config import group_display_label
+
+    return group_display_label(group)
 
 
 def merge_programs_calendar_summary(progs: list[dict]) -> tuple[str, str]:
@@ -299,36 +314,40 @@ def merge_programs_calendar_summary(progs: list[dict]) -> tuple[str, str]:
     if len(progs) == 1:
         return program_calendar_summary(progs[0])
     types = [normalize_train_type(safe_str(p.get("type"))) for p in progs]
-    non_rest = [t for t in types if t != "休息"]
-    if not non_rest:
+    if all(t == "休息" for t in types):
         return "休息", ""
-    labels = [
-        f"{short_group_label(p.get('group'))}:{normalize_train_type(safe_str(p.get('type')))[:2]}"
-        for p in progs
-        if normalize_train_type(safe_str(p.get("type"))) != "休息"
+    if any(t == "比賽" for t in types):
+        return "比賽", ""
+    active = [
+        p for p in progs
+        if normalize_train_type(safe_str(p.get("type"))) not in ("休息", "比賽")
     ]
-    if len(set(non_rest)) == 1:
-        title, _ = program_calendar_summary(progs[0])
-        return title, " · ".join(labels)
-    return "多組別", " · ".join(labels[:4])
+    total = sum(workout_volume_from_program(p)["total_meters"] for p in active)
+    vol = format_meters_short(total)
+    groups = [short_group_label(p.get("group")) for p in active]
+    title = vol or "訓練"
+    detail = " · ".join(groups[:4]) if groups else ""
+    return title, detail
 
 
 def program_calendar_summary(prog: dict) -> tuple[str, str]:
-    """Short title + specs for calendar cells."""
+    """Short title + specs for calendar cells (coach: volume-first)."""
     tp = safe_str(prog.get("type"))
     if tp == "比賽":
         return "比賽", ""
     if tp == "休息":
         return "休息", ""
+    meters = program_total_meters(prog)
+    vol = format_meters_short(meters)
     detail = workout_detail(prog)
+    spec = detail.split("\n")[0].strip()[:18] if detail else ""
+    if vol:
+        return vol, spec
     if detail:
         first = detail.split("\n")[0].strip()
-        return first[:12], detail.split("\n")[0][:18]
-    title = safe_str(prog.get("title")) or tp or "—"
-    specs = program_specs(prog)
-    if specs == title or specs == "-":
-        specs = tp
-    return title[:12], specs[:18]
+        return first[:12], first[:18]
+    title = safe_str(prog.get("title")) or "訓練"
+    return title[:12], spec or title[:18]
 
 
 def whatsapp_program_text(prog: dict, per: dict) -> str:

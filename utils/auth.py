@@ -8,6 +8,7 @@ from utils.data_store import get_user, set_user_password
 from utils.helpers import safe_str
 from utils.passwords import is_hashed, verify_password
 from utils.permissions import PermissionDenied, check_role, require_login
+from utils.session_persist import clear_persisted_login, persist_login
 
 
 def _public_user(user: dict) -> dict:
@@ -50,11 +51,13 @@ def login(username: str, password: str) -> tuple[bool, str]:
         set_user_password(name, password)
         user = get_user(name) or user
     st.session_state.user = _public_user(user)
+    persist_login(name)
     return True, ""
 
 
 def logout() -> None:
     st.session_state.pop("user", None)
+    clear_persisted_login()
 
 
 def require_roles(*roles: str) -> bool:

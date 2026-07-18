@@ -94,22 +94,19 @@ def _render_day_detail_content(
         st.info(f"**{date_label}** — 休息或無你的組別訓練。")
         return
 
-    tp = normalize_train_type(safe_str(prog.get("type")))
-    att = get_attendance_record(student_name, selected) if student_name else None
-    att_line = _attendance_line(att)
     detail = workout_detail(prog)
     time_text, venue = _time_venue_text(prog)
+    att = get_attendance_record(student_name, selected) if student_name else None
+    att_line = _attendance_line(att)
 
-    if sel_d > today:
-        st.caption("🔒 此日尚未到")
-    elif sel_d < today:
+    if sel_d < today:
         st.caption("ℹ️ 過往訓練")
 
     if detail:
-        st.markdown(f"**{tp}**")
+        st.markdown("**跑案內容**")
         st.markdown(detail)
     else:
-        st.markdown(f"**{tp}**")
+        st.markdown("**訓練**")
 
     st.markdown(f"🕐 **{time_text}**")
     st.markdown(f"📍 **{venue}**")
@@ -138,6 +135,19 @@ def _render_selected_day_detail(
     )
 
 
+def _time_hint(prog: dict) -> str:
+    """Short time/venue preview for calendar cell."""
+    start = safe_str(prog.get("start_time"))
+    venue = resolve_venue(prog)
+    parts: list[str] = []
+    if start:
+        parts.append(start[:5] if len(start) >= 5 else start)
+    if venue and venue not in ("（待設定）", "（待通知）"):
+        short = venue if len(venue) <= 5 else venue[:4] + "…"
+        parts.append(short)
+    return "·".join(parts)
+
+
 def _student_compact_style(
     ds: str,
     day: int,
@@ -161,18 +171,21 @@ def _student_compact_style(
         label = str(day)
 
     if prog:
-        tp = normalize_train_type(safe_str(prog.get("type")))
-        bg = _type_bg(tp)
+        bg = "#dbeafe"
+        hint = _time_hint(prog)
         if att and att.get("status") == "present" and d < today:
             border = "2px solid #16a34a"
     elif att and att.get("status") == "present":
         bg = "#dcfce7"
+        hint = ""
     elif d > today:
         bg = "#f1f5f9"
+        hint = ""
     else:
         bg = "#f8fafc"
+        hint = ""
 
-    return {"bg": bg, "border": border, "label": label, "disabled": False}
+    return {"bg": bg, "border": border, "label": label, "disabled": False, "hint": hint}
 
 
 def _render_student_schedule_compact(
@@ -222,39 +235,29 @@ def _student_day_cell(
     today_str = today.isoformat()
     d = date.fromisoformat(ds)
     is_today = ds == today_str
-    is_future = d > today
     prog = _student_prog_for_day(prog_map, ds, student_specialty)
     att = att_map.get(ds)
     att_line = _attendance_line(att)
 
-    if is_future:
-        if prog:
-            tp = normalize_train_type(safe_str(prog.get("type")))
-            time_part, venue = _time_venue_text(prog)
-            return "未到", f"{time_part} · {venue}", tp, "#f1f5f9", str(d.day)
-        return "未到", "", "—", "#f1f5f9", str(d.day)
-
-    if is_today:
-        if prog:
-            tp = normalize_train_type(safe_str(prog.get("type")))
-            title_line = tp
-            time_part, venue = _time_venue_text(prog)
-            detail = f"{time_part} · {venue}"
-            if att_line:
-                detail = f"{detail} · {att_line}" if detail else att_line
-            return f"🔵 {title_line}", detail, tp, _type_bg(tp), f"🔵 {d.day}"
-        detail = att_line or ""
-        return "🔵 休息", detail, "休息", TYPE_CATEGORY_COLORS["rest"], f"🔵 {d.day}"
-
     if prog:
         time_part, venue = _time_venue_text(prog)
-        detail = f"{time_part} · {venue}"
+        detail_parts = [p for p in (time_part, venue) if p and p not in ("時間待通知", "（待設定）", "（待通知）")]
+        detail = " · ".join(detail_parts)
         if att_line:
             detail = f"{detail} · {att_line}" if detail else att_line
-        tp = normalize_train_type(safe_str(prog.get("type")))
+        bg = "#dbeafe"
+        title = "訓練"
+        if is_today:
+            return f"🔵 {title}", detail, "訓練", bg, f"🔵 {d.day}"
+        if d > today:
+            return title, detail, "訓練", bg, str(d.day)
         if att and att.get("status") == "present":
-            return "✅ 已過", detail, tp, "#dcfce7", str(d.day)
-        return "已過", detail, tp, "#e2e8f0", str(d.day)
+            return "✅ 已訓練", detail, "訓練", "#dcfce7", str(d.day)
+        return "已過", detail, "訓練", "#e2e8f0", str(d.day)
+
+    if is_today:
+        detail = att_line or ""
+        return "🔵 休息", detail, "休息", TYPE_CATEGORY_COLORS["rest"], f"🔵 {d.day}"
 
     if att_line:
         title = "已簽到" if att and att.get("status") == "present" else "—"
@@ -348,7 +351,7 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
     mapped = SPECIALTY_TO_GROUP.get(student_specialty, "—")
     st.caption(
         f"顯示 **全體組員** 及 **{mapped}** · "
-        f"點選日期方格查看訓練內容"
+        f"藍色方格＝有訓練 · 點選查看跑案、時間與地點"
     )
 
     programs = get_programs_for_month(year, month)
@@ -374,7 +377,7 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
             year, month, prog_map, student_specialty, att_map, today, student_name
         )
 
-    st.caption("💡 月曆為 7 格一列；點日期方格可彈出訓練詳情。")
+    st.caption("💡 月曆為 7 格一列；藍色＝有訓練，方格下方可預覽訓練時間；點方格查看完整跑案。")
 
 
 def _entry_card(prog: dict, *, highlight: bool = False) -> str:

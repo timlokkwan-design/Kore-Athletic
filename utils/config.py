@@ -6,7 +6,7 @@ from utils.grades import U18_GRADES, WIND_EVENTS
 
 APP_NAME = "KORE ATHLETIC"
 APP_SUBTITLE = "關添樂教練田徑訓練與成績管理系統"
-APP_VERSION = "2026.07.18-66"
+APP_VERSION = "2026.07.18-69"
 COACH_NAME = "關添樂"
 EMAIL_DOMAIN = "@kore-athletic.app"
 
@@ -38,6 +38,21 @@ TYPE_CATEGORY_COLORS = {
 
 GROUP_OPTIONS = ["短跑組", "中長跑組", "跨欄組", "全體組員"]
 
+GROUP_DISPLAY = {
+    "短跑組": "短跑",
+    "中長跑組": "中長跑",
+    "跨欄組": "跨欄",
+    "全體組員": "全部學員",
+}
+
+CALENDAR_GROUP_FILTERS = [
+    ("全部組別", None),
+    ("短跑", "短跑組"),
+    ("中長跑", "中長跑組"),
+    ("跨欄", "跨欄組"),
+    ("全部學員", "全體組員"),
+]
+
 LEGACY_GROUP_MAP = {
     "短跑組 (100-400m)": "短跑組",
     "中長跑組 (800-5000m)": "中長跑組",
@@ -51,6 +66,13 @@ def normalize_group(group: str) -> str:
     if g in GROUP_OPTIONS:
         return g
     return LEGACY_GROUP_MAP.get(g, g or "短跑組")
+
+
+def group_display_label(group: str) -> str:
+    """User-facing group name (短跑 / 中長跑 / 跨欄 / 全部學員)."""
+    return GROUP_DISPLAY.get(normalize_group(group), normalize_group(group))
+
+
 WEEKDAY_OPTIONS = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
 WEEKDAY_SHORT = ["一", "二", "三", "四", "五", "六", "日"]
 VENUE_OPTIONS = ["斧山道運動場", "將軍澳運動場", "葵涌運動場", "其他"]

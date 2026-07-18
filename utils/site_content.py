@@ -23,7 +23,7 @@ DEFAULT_SITE_CONTENT: dict = {
     ),
     "contact_info": "查詢及報名：請聯絡關教練（電話/WhatsApp 由教練更新）",
     "join_process": (
-        "1. 點選左側「註冊新學員」填寫資料\n"
+        "1. 點選上方「註冊」填寫資料\n"
         "2. 等待教練審批\n"
         "3. 核准後使用帳號登入學生平台"
     ),

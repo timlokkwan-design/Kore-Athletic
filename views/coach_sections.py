@@ -7,6 +7,7 @@ import streamlit as st
 
 from utils.acwr import acwr_status, calc_acwr, calc_load, estimate_workout_minutes, needs_rest
 from utils.config import (
+    CALENDAR_GROUP_FILTERS,
     EVENTS,
     GROUP_OPTIONS,
     PHASE_OPTIONS,
@@ -17,6 +18,7 @@ from utils.config import (
     WEEKDAY_OPTIONS,
     WEEK_THEME_OPTIONS,
     default_program,
+    group_display_label,
     normalize_train_type,
 )
 from utils.data_store import (
@@ -26,6 +28,7 @@ from utils.data_store import (
     add_video,
     apply_recovery_template,
     apply_template,
+    delete_template,
     approve_pending_record,
     approve_specialty_change,
     approve_student,
@@ -80,7 +83,6 @@ from utils.helpers import (
     safe_str,
     needs_wind,
     short_group_label,
-    infer_train_type,
     parse_workout_volume,
     workout_detail,
     weekly_summary_text,
@@ -259,7 +261,22 @@ def render_coach_program() -> None:
 
 @st.fragment
 def _render_coach_program_editor() -> None:
-    selected = render_calendar("coach_cal", show_acwr=True, copy_mode=False, delete_mode=False)
+    filter_labels = [label for label, _ in CALENDAR_GROUP_FILTERS]
+    filter_map = {label: value for label, value in CALENDAR_GROUP_FILTERS}
+    cal_group_label = st.selectbox(
+        "選擇組別",
+        filter_labels,
+        key="coach_cal_group_filter",
+    )
+    cal_group = filter_map[cal_group_label]
+
+    selected = render_calendar(
+        "coach_cal",
+        show_acwr=True,
+        copy_mode=False,
+        delete_mode=False,
+        group_filter=cal_group,
+    )
 
     b_copy, b_delete = st.columns(2)
     with b_copy:
@@ -287,12 +304,9 @@ def _render_coach_program_editor() -> None:
     available_groups = [g for g in GROUP_OPTIONS if g not in existing_groups]
 
     if day_programs:
-        group_labels = [
-            f"{short_group_label(p.get('group'))} · {normalize_train_type(safe_str(p.get('type')))}"
-            for p in day_programs
-        ]
+        group_labels = [group_display_label(p.get("group")) for p in day_programs]
         edit_idx = st.radio(
-            "選擇組別",
+            "編輯組別",
             range(len(day_programs)),
             format_func=lambda i: group_labels[i],
             horizontal=True,
@@ -301,14 +315,24 @@ def _render_coach_program_editor() -> None:
         prog = ensure_program_dict(day_programs[edit_idx])
         edit_group = safe_str(prog.get("group"))
     else:
-        edit_group = st.selectbox("組別", GROUP_OPTIONS, key=f"pgroup_new_{sk}")
+        edit_group = st.selectbox(
+            "組別",
+            GROUP_OPTIONS,
+            format_func=group_display_label,
+            key=f"pgroup_new_{sk}",
+        )
         prog = default_program(sk)
         prog["group"] = edit_group
         st.caption("此日尚無課表，選擇組別後填寫跑案並儲存。")
 
     if available_groups:
         with st.expander("➕ 新增其他組別訓練", expanded=False):
-            new_group = st.selectbox("組別", available_groups, key=f"padd_grp_{sk}")
+            new_group = st.selectbox(
+                "組別",
+                available_groups,
+                format_func=group_display_label,
+                key=f"padd_grp_{sk}",
+            )
             if st.button("新增組別", key=f"padd_btn_{sk}", use_container_width=True):
                 draft = default_program(sk)
                 draft["group"] = new_group
@@ -324,7 +348,7 @@ def _render_coach_program_editor() -> None:
             f"目前編輯：**{short_group_label(edit_group)}**"
         )
     else:
-        st.caption(f"👥 組別：**{edit_group}**")
+        st.caption(f"👥 組別：**{group_display_label(edit_group)}**")
 
     cur_type = normalize_train_type(prog["type"])
     status_options = ["訓練", "休息", "比賽"]
@@ -381,21 +405,21 @@ def _render_coach_program_editor() -> None:
             safe_str(prog.get("tips")),
             key=f"ptips_{sk}_{edit_group}",
         )
-        train_type = infer_train_type(workout_text, cur_type)
+        train_type = normalize_train_type(cur_type)
+        if train_type in ("休息", "比賽"):
+            train_type = "間歇跑"
         run_vol = parse_workout_volume(workout_text)
         total_meters = run_vol["total_meters"]
         total_reps = run_vol["total_reps"]
         est_minutes = estimate_workout_minutes(total_meters, train_type)
         if total_meters > 0:
             st.info(
-                f"📊 依跑案自動判斷：**{train_type}** · "
-                f"總跑量 **{total_meters:,} m** · 總趟數 **{total_reps}** 趟 · "
+                f"📊 總跑量 **{total_meters:,} m** · 總趟數 **{total_reps}** 趟 · "
                 f"估算 **{est_minutes:.0f}** 分鐘"
             )
         else:
             st.caption(
-                f"📊 依跑案自動判斷：**{train_type}** · "
-                f"總跑量待計算（請用 **6×200m**、**800m** 等格式填寫）"
+                "📊 總跑量待計算（請用 **6×200m**、**800m** 等格式填寫）"
             )
         first_line = workout_text.split("\n")[0].strip() if workout_text else ""
         title = first_line[:60] if first_line else train_type
@@ -420,7 +444,7 @@ def _render_coach_program_editor() -> None:
         )
         vol_note = f"{total_meters:,} m" if total_meters else "—"
         st.markdown(
-            f"**加權負荷：{load}**（總跑量 {vol_note} · RPE {rpe} · {train_type}）· "
+            f"**加權負荷：{load}**（總跑量 {vol_note} · RPE {rpe}）· "
             f"**ACWR 預警：{acwr_v}**"
         )
 
@@ -514,10 +538,14 @@ def _render_coach_program_editor() -> None:
             st.write("尚無範本")
         else:
             for _, t in templates.iterrows():
-                c1, c2 = st.columns([3, 1])
-                c1.write(f"{t['title']} ({t['type']}) · {short_group_label(t.get('group'))}")
+                c1, c2, c3 = st.columns([3, 1, 1])
+                c1.write(f"{t['title']} · {short_group_label(t.get('group'))}")
                 if c2.button("套用", key=f"tpl_{t['id']}_{edit_group}"):
                     apply_template(str(t["id"]), sk)
+                    st.rerun()
+                if c3.button("刪除", key=f"tpl_del_{t['id']}_{edit_group}"):
+                    delete_template(str(t["id"]))
+                    st.success("已刪除範本")
                     st.rerun()
 
     st.markdown("#### 訓練日誌篩選")

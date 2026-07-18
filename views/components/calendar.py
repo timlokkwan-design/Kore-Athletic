@@ -9,15 +9,18 @@ from utils.config import TRAIN_TYPES, TYPE_CATEGORY_COLORS
 from utils.data_store import (
     build_coach_prog_map,
     ensure_program_dict,
+    filter_programs_by_group,
     get_all_logs,
     get_programs_for_month,
     get_student_names,
     row_to_program,
 )
 from utils.helpers import (
+    format_meters_short,
     format_timetable_date,
     normalize_date_str,
     program_calendar_summary,
+    program_total_meters,
     resolve_venue,
     safe_str,
     short_group_label,
@@ -154,6 +157,19 @@ def _coach_compact_day_style(
     elif st.session_state.get(select_key) == ds:
         border = "2px solid #1d4ed8"
 
+    if not copy_mode and not delete_mode:
+        if tp == "比賽":
+            vol_label = "賽"
+        elif tp == "休息":
+            vol_label = ""
+        else:
+            vol_label = format_meters_short(program_total_meters(prog))
+        if vol_label:
+            if label.startswith("●"):
+                label = f"●{day}·{vol_label}"
+            else:
+                label = f"{day}·{vol_label}"
+
     return {"bg": bg, "border": border, "label": label, "disabled": disabled}
 
 
@@ -223,8 +239,9 @@ def render_calendar(
     show_acwr: bool = False,
     copy_mode: bool = False,
     delete_mode: bool = False,
+    group_filter: str | None = None,
 ) -> date | None:
-    return _render_calendar_impl(select_key, show_acwr, copy_mode, delete_mode)
+    return _render_calendar_impl(select_key, show_acwr, copy_mode, delete_mode, group_filter)
 
 
 def _render_calendar_impl(
@@ -232,6 +249,7 @@ def _render_calendar_impl(
     show_acwr: bool,
     copy_mode: bool,
     delete_mode: bool,
+    group_filter: str | None = None,
 ) -> date | None:
     if "cal_year" not in st.session_state:
         t = date.today()
@@ -261,12 +279,13 @@ def _render_calendar_impl(
     elif delete_mode:
         st.caption("🟥 紅色=已選刪除 · 虛線=有課表可選 · 灰底=無課表 · 可跨月多選")
     else:
-        st.caption("🟥速度 🟦耐力 🟪技術 🟧肌力 🟩比賽 ⬜休息 · 點日期方格查看課表")
+        st.caption("點方格查看課表 · 方格顯示總跑量 · 列表預設顯示今日起")
 
     year, month = st.session_state.cal_year, st.session_state.cal_month
     if not copy_mode and not delete_mode:
         _sync_selection_to_month(select_key, year, month)
     programs = get_programs_for_month(year, month)
+    programs = filter_programs_by_group(programs, group_filter)
     prog_map = build_coach_prog_map(programs)
 
     if select_key not in st.session_state:
@@ -301,6 +320,7 @@ def _render_calendar_impl(
             copy_source=copy_source,
             empty_label="休息",
             can_pick=(lambda ds, _p: ds in prog_map) if delete_mode else None,
+            hide_past_days=not copy_mode and not delete_mode,
         )
     else:
         _render_coach_compact_grid(

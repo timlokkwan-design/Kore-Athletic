@@ -17,6 +17,7 @@ from utils.auth import get_current_user, logout
 from utils.config import APP_NAME, APP_VERSION
 from utils.coach_pending import get_coach_pending_total
 from utils.data_store import init_sample_data
+from utils.session_persist import try_restore_session
 from utils.site_content import is_pb_public
 from views.analysis_view import render_analysis
 from views.auth_view import render_auth_view
@@ -115,6 +116,7 @@ def _render_page(
 
 def main() -> None:
     inject_global_css()
+    try_restore_session()
     user = get_current_user()
     role = user["role"] if user else "visitor"
 
