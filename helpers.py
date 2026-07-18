@@ -143,29 +143,127 @@ def needs_wind(item: str) -> bool:
     return item in WIND_EVENTS
 
 
+def parse_workout_volume(text: str) -> dict[str, int]:
+    """Parse free-text workout plan → total meters and rep count (e.g. 6×200m + 800m)."""
+    import re
+
+    blob = safe_str(text)
+    total_meters = 0
+    total_reps = 0
+    if not blob:
+        return {"total_meters": 0, "total_reps": 0}
+
+    consumed: list[tuple[int, int]] = []
+    mult_pat = re.compile(r"(\d+)\s*[×xX*]\s*(\d+)\s*(?:m|米)\b", re.I)
+    for match in mult_pat.finditer(blob):
+        reps, dist = int(match.group(1)), int(match.group(2))
+        total_reps += reps
+        total_meters += reps * dist
+        consumed.append(match.span())
+
+    def _inside_consumed(index: int) -> bool:
+        return any(start <= index < end for start, end in consumed)
+
+    single_pat = re.compile(r"\b(\d{2,5})\s*(?:m|米)\b", re.I)
+    for match in single_pat.finditer(blob):
+        if _inside_consumed(match.start(1)):
+            continue
+        dist = int(match.group(1))
+        total_reps += 1
+        total_meters += dist
+
+    return {"total_meters": total_meters, "total_reps": total_reps}
+
+
+def format_meters_short(meters: int) -> str:
+    """Compact volume label for calendar cells, e.g. 2800 -> 2.8k."""
+    m = max(0, int(meters or 0))
+    if m == 0:
+        return ""
+    if m >= 10000:
+        return f"{m // 1000}k"
+    if m >= 1000:
+        v = m / 1000
+        text = f"{v:.1f}k"
+        if text.endswith(".0k"):
+            text = f"{int(v)}k"
+        return text
+    return f"{m}m"
+
+
+def program_total_meters(prog: dict) -> int:
+    """Run volume for one group row only (never sums multi-group merged cells)."""
+    if prog.get("_programs"):
+        return 0
+    return workout_volume_from_program(prog)["total_meters"]
+
+
+def workout_volume_from_program(prog: dict) -> dict[str, int]:
+    """Volume from free-text plan, or legacy sets/reps/dist columns."""
+    detail = workout_detail(prog)
+    vol = parse_workout_volume(detail)
+    if vol["total_meters"] > 0:
+        return vol
+    sets, reps, dist = safe_int(prog.get("sets")), safe_int(prog.get("reps")), safe_int(prog.get("dist"))
+    if sets and reps and dist:
+        total_reps = sets * reps
+        return {"total_meters": total_reps * dist, "total_reps": total_reps}
+    if reps and dist:
+        return {"total_meters": reps * dist, "total_reps": reps}
+    if dist:
+        return {"total_meters": dist, "total_reps": 1}
+    return vol
+
+
+def infer_train_type(text: str, fallback: str = "間歇跑") -> str:
+    """Guess calendar category from free-text workout plan."""
+    from utils.config import TRAIN_TYPE_OPTIONS, normalize_train_type
+
+    fb = normalize_train_type(fallback)
+    blob = safe_str(text)
+    if not blob:
+        return fb
+    if "肌力" in blob or "深蹲" in blob or "重量" in blob:
+        return "肌力課"
+    if "技術" in blob or "欄架" in blob or "起跑" in blob:
+        return "技術課"
+    if "節奏" in blob:
+        return "節奏跑"
+    if "恢復" in blob or "慢跑" in blob:
+        return "恢復跑"
+    return fb if fb in TRAIN_TYPE_OPTIONS else "間歇跑"
+
+
+def workout_detail(prog: dict) -> str:
+    """Free-text run/workout plan (supports mixed distances). Stored in `rest`."""
+    rest = safe_str(prog.get("rest"))
+    sets, reps, dist = safe_int(prog.get("sets")), safe_int(prog.get("reps")), safe_int(prog.get("dist"))
+    target = safe_float(prog.get("target_seconds"))
+    if sets and reps and dist and not rest:
+        lines = [f"{sets}組 × {reps}趟 × {dist}m"]
+        if target > 0:
+            lines.append(f"目標 {target:g} 秒")
+        return "\n".join(lines)
+    if rest:
+        return rest
+    exercises = safe_str(prog.get("exercises"))
+    if exercises:
+        return exercises
+    return safe_str(prog.get("tech_focus"))
+
+
 def program_specs(p: dict) -> str:
     tp = safe_str(p.get("type"))
     if tp in ("比賽", "休息"):
         return ""
-    parts = []
-    sets, reps, dist = safe_int(p.get("sets")), safe_int(p.get("reps")), safe_int(p.get("dist"))
-    if sets and reps and dist:
-        parts.append(f"{sets}x{reps}x{dist}m")
-    elif reps and dist:
-        parts.append(f"{dist}m x {reps}")
-    rest = safe_str(p.get("rest"))
-    if rest:
-        parts.append(rest)
-    exercises = safe_str(p.get("exercises"))
-    if exercises:
-        parts.append(exercises)
-    tech_focus = safe_str(p.get("tech_focus"))
-    if tech_focus:
-        parts.append(tech_focus)
-    field_event = safe_str(p.get("field_event"))
-    if field_event:
-        parts.append(field_event)
-    return " | ".join(parts) if parts else safe_str(p.get("title"), "-")
+    detail = workout_detail(p)
+    if detail:
+        first = detail.split("\n")[0].strip()
+        return first[:48] + ("…" if len(first) > 48 else "")
+    tips = safe_str(p.get("tips"))
+    if tips:
+        return tips[:48]
+    return safe_str(p.get("title"), "-")
 
 
 def resolve_venue(prog: dict) -> str:
@@ -173,6 +271,100 @@ def resolve_venue(prog: dict) -> str:
     if venue == "其他":
         return safe_str(prog.get("venue_other")) or "（待通知）"
     return venue or "（待設定）"
+
+
+def has_time_venue(prog: dict) -> bool:
+    start = safe_str(prog.get("start_time"))
+    end = safe_str(prog.get("end_time"))
+    if start or end:
+        return True
+    venue = safe_str(prog.get("venue"))
+    if venue and venue != "其他":
+        return True
+    if venue == "其他" and safe_str(prog.get("venue_other")):
+        return True
+    return False
+
+
+def has_workout_plan(prog: dict) -> bool:
+    from utils.config import normalize_train_type
+
+    tp = normalize_train_type(safe_str(prog.get("type")))
+    if tp in ("休息", "比賽"):
+        return True
+    if tp == "待排課":
+        return False
+    return bool(workout_detail(prog).strip())
+
+
+def program_sync_status(prog: dict) -> str:
+    """complete | need_workout | need_schedule | need_both | rest | empty"""
+    from utils.config import normalize_train_type
+
+    if not prog:
+        return "empty"
+    tp = normalize_train_type(safe_str(prog.get("type")))
+    if tp == "休息":
+        return "rest"
+    tv = has_time_venue(prog)
+    wp = has_workout_plan(prog)
+    if wp and tv:
+        return "complete"
+    if tv and not wp:
+        return "need_workout"
+    if wp and not tv:
+        return "need_schedule"
+    return "need_both"
+
+
+def day_sync_status(prog: dict | None) -> str:
+    """Aggregate sync status for one calendar day (may merge multi-group)."""
+    if not prog:
+        return "empty"
+    progs = prog.get("_programs") or [prog]
+    statuses = [
+        program_sync_status(p)
+        for p in progs
+        if program_sync_status(p) not in ("empty", "rest")
+    ]
+    if not statuses:
+        return "rest" if prog else "empty"
+    if any(s == "need_workout" for s in statuses):
+        return "need_workout"
+    if any(s == "need_schedule" for s in statuses):
+        return "need_schedule"
+    if any(s == "need_both" for s in statuses):
+        return "need_both"
+    return "complete"
+
+
+def sync_status_label(status: str) -> str:
+    return {
+        "need_workout": "⚠️ 時間已定，待寫跑案",
+        "need_schedule": "⚠️ 跑案已寫，待填時間地點",
+        "need_both": "⚠️ 待寫跑案及時間地點",
+        "complete": "✅ 課表完整",
+    }.get(status, "")
+
+
+def sync_status_priority(status: str) -> int:
+    return {
+        "need_workout": 0,
+        "need_schedule": 1,
+        "need_both": 2,
+        "complete": 3,
+        "rest": 4,
+        "empty": 5,
+    }.get(status, 9)
+
+
+def format_time_venue_line(prog: dict) -> str:
+    start = safe_str(prog.get("start_time"))
+    end = safe_str(prog.get("end_time"))
+    time_text = f"{start} – {end}" if start and end else (start or end or "")
+    venue = resolve_venue(prog)
+    parts = [p for p in (time_text, venue) if p and p not in ("（待設定）", "（待通知）")]
+    return " · ".join(parts)
 
 
 def format_train_duration(minutes: int) -> str:
@@ -200,29 +392,105 @@ def format_timetable_date(date_str: str) -> str:
     return f"{d.month}月{d.day}日（{WEEKDAY_SHORT[d.weekday()]}）"
 
 
-def program_calendar_summary(prog: dict) -> tuple[str, str]:
-    """Short title + specs for calendar cells."""
-    tp = safe_str(prog.get("type"))
-    if tp == "比賽":
+def short_group_label(group: str) -> str:
+    from utils.config import group_display_label
+
+    return group_display_label(group)
+
+
+def calendar_cell_bg(prog: dict | None = None, *, progs: list[dict] | None = None) -> str:
+    """Blue = training day, red = competition, gray = rest / empty."""
+    from utils.config import (
+        CALENDAR_BG_COMPETITION,
+        CALENDAR_BG_EMPTY,
+        CALENDAR_BG_REST,
+        CALENDAR_BG_TRAINING,
+        normalize_train_type,
+    )
+
+    items: list[dict] = list(progs) if progs else []
+    if not items and prog:
+        nested = prog.get("_programs")
+        items = list(nested) if nested else [prog]
+    if not items:
+        return CALENDAR_BG_EMPTY
+    types = [normalize_train_type(safe_str(p.get("type"))) for p in items]
+    if any(t == "比賽" for t in types):
+        return CALENDAR_BG_COMPETITION
+    if any(t not in ("休息", "") for t in types):
+        return CALENDAR_BG_TRAINING
+    return CALENDAR_BG_REST
+
+
+def calendar_day_has_training(prog: dict | None = None, *, progs: list[dict] | None = None) -> bool:
+    """True when the day has training or competition (not rest / empty)."""
+    from utils.config import CALENDAR_BG_COMPETITION, CALENDAR_BG_TRAINING
+
+    bg = calendar_cell_bg(prog, progs=progs)
+    return bg in (CALENDAR_BG_TRAINING, CALENDAR_BG_COMPETITION)
+
+
+def merge_programs_calendar_summary(progs: list[dict]) -> tuple[str, str]:
+    """Multi-group day: per-group volume labels (not summed)."""
+    from utils.config import normalize_train_type
+
+    if not progs:
+        return "", ""
+    if len(progs) == 1:
+        return program_calendar_summary(progs[0])
+    types = [normalize_train_type(safe_str(p.get("type"))) for p in progs]
+    if all(t == "休息" for t in types):
+        return "休息", ""
+    if any(t == "比賽" for t in types):
         return "比賽", ""
+    active = [
+        p for p in progs
+        if normalize_train_type(safe_str(p.get("type"))) not in ("休息", "比賽")
+    ]
+    parts: list[str] = []
+    for p in active:
+        gl = short_group_label(p.get("group"))
+        vol = format_meters_short(workout_volume_from_program(p)["total_meters"])
+        parts.append(f"{gl}{vol}" if vol else gl)
+    title = "·".join(parts[:4]) if parts else "訓練"
+    times = [format_time_venue_line(p) for p in active if format_time_venue_line(p)]
+    detail = " · ".join(dict.fromkeys(times[:3]))
+    return title, detail
+
+
+def program_calendar_summary(prog: dict) -> tuple[str, str]:
+    """Calendar cell: group name + per-group volume (no train-type category)."""
+    tp = safe_str(prog.get("type"))
+    group_title = short_group_label(prog.get("group"))
+    if tp == "比賽":
+        return "比賽", group_title
     if tp == "休息":
         return "休息", ""
-    title = safe_str(prog.get("title")) or tp or "—"
-    specs = program_specs(prog)
-    if specs == title or specs == "-":
-        specs = safe_str(prog.get("type"))
-    return title[:12], specs[:18]
+    if tp == "待排課":
+        tv = format_time_venue_line(prog)
+        return group_title or "待寫跑案", tv or "時間已定"
+    vol = format_meters_short(workout_volume_from_program(prog)["total_meters"])
+    detail = workout_detail(prog)
+    spec = detail.split("\n")[0].strip()[:18] if detail else ""
+    if vol:
+        return group_title or "訓練", vol if not spec else f"{vol} · {spec}"
+    if detail:
+        first = detail.split("\n")[0].strip()
+        return group_title or "訓練", first[:18]
+    return group_title or "訓練", spec
 
 
 def whatsapp_program_text(prog: dict, per: dict) -> str:
     from utils.config import APP_NAME, COACH_NAME
     phase = prog.get("phase") or per.get("global_phase", "")
     theme = prog.get("week_theme") or per.get("global_week_theme", "")
+    detail = workout_detail(prog)
+    detail_block = f"\n📝 {detail}\n" if detail else ""
     return (
         f"🏃 {APP_NAME} 訓練課表\n"
         f"📅 {prog['date']}\n"
-        f"📋 {prog.get('title')} ({prog.get('type')})\n"
-        f"👥 {prog.get('group')}\n"
+        f"📋 {prog.get('type')} · {prog.get('group')}\n"
+        f"{detail_block}"
         f"📊 階段:{phase} | 主題:{theme}\n"
         f"💡 {prog.get('tips') or '依教練指示'}\n"
         f"— {COACH_NAME}教練"
