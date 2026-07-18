@@ -205,6 +205,30 @@ def save_program(prog: dict) -> None:
     save_programs(programs)
 
 
+def program_exists(for_date: date | str) -> bool:
+    target = normalize_date_str(for_date.isoformat() if isinstance(for_date, date) else for_date)
+    programs = load_programs()
+    if programs.empty:
+        return False
+    return not programs[programs["date"].astype(str).str[:10] == target].empty
+
+
+def delete_program(for_date: date | str) -> bool:
+    """Remove saved program for a date. Returns True if a row was deleted."""
+    from utils.permissions import enforce_coach_if_logged_in
+
+    enforce_coach_if_logged_in()
+    target = normalize_date_str(for_date.isoformat() if isinstance(for_date, date) else for_date)
+    programs = load_programs()
+    if programs.empty:
+        return False
+    idx = programs.index[programs["date"].astype(str).str[:10] == target].tolist()
+    if not idx:
+        return False
+    save_programs(programs.drop(index=idx).reset_index(drop=True))
+    return True
+
+
 def copy_program(source_date: str, target_date: str, prog: dict | None = None) -> bool:
     from utils.permissions import enforce_coach_if_logged_in
     enforce_coach_if_logged_in()
@@ -1654,6 +1678,69 @@ def get_pb_leaderboard_by_gender(event: str, gender: str) -> list[dict]:
 
 
 # ── Seed ────────────────────────────────────────────────────────────────────
+
+TEST_USERNAMES = frozenset({"student1", "student2", "student3", "parent1"})
+TEST_STUDENT_NAMES = frozenset({"陳大文", "林明美", "張豪傑", "陳家長"})
+
+
+def clear_test_data(*, clear_programs: bool = True) -> dict[str, int]:
+    """Remove demo accounts, their records, and seeded calendar programs."""
+    from utils.production import enable_production_mode
+
+    stats: dict[str, int] = {}
+
+    users = load_users()
+    stats["users_removed"] = int(users["username"].astype(str).isin(TEST_USERNAMES).sum())
+    users = users[~users["username"].astype(str).isin(TEST_USERNAMES)]
+    users = users.drop_duplicates(subset=["username"], keep="first").reset_index(drop=True)
+    save_users(users)
+
+    def _drop_names(df: pd.DataFrame, col: str) -> pd.DataFrame:
+        if df.empty or col not in df.columns:
+            return df
+        return df[~df[col].astype(str).isin(TEST_STUDENT_NAMES)].reset_index(drop=True)
+
+    old_logs = load_logs()
+    logs = _drop_names(old_logs, "student_name")
+    stats["logs_removed"] = len(old_logs) - len(logs)
+    save_logs(logs)
+
+    att = _drop_names(load_attendance(), "athlete_name")
+    save_attendance(att)
+
+    wellness = _drop_names(load_wellness(), "athlete_name")
+    save_wellness(wellness)
+
+    injuries = _drop_names(load_injuries(), "athlete_name")
+    save_injuries(injuries)
+
+    videos = _drop_names(load_videos(), "athlete_name")
+    save_videos(videos)
+
+    pending = _drop_names(load_pending_records(), "athlete_name")
+    save_pending_records(pending)
+
+    pending_sp = load_pending_specialty()
+    if not pending_sp.empty and "username" in pending_sp.columns:
+        pending_sp = pending_sp[~pending_sp["username"].astype(str).isin(TEST_USERNAMES)]
+        save_pending_specialty(pending_sp.reset_index(drop=True))
+
+    race = _drop_names(load_race_records(), "athlete_name")
+    save_race_records(race)
+
+    entries = _drop_names(load_comp_entries(), "athlete_name")
+    save_comp_entries(entries)
+
+    if clear_programs:
+        progs = load_programs()
+        stats["programs_cleared"] = len(progs)
+        save_programs(pd.DataFrame(columns=PROGRAM_COLUMNS))
+    else:
+        stats["programs_cleared"] = 0
+
+    enable_production_mode()
+    return stats
+
 
 def _seed_programs() -> None:
     existing = load_programs()
