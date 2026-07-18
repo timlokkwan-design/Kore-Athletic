@@ -217,6 +217,13 @@ def inject_global_css(theme: str | None = None) -> None:
         {dark_stat_override}
         @media (max-width: 768px) {{
             .ka-stat-grid {{ grid-template-columns: repeat(2, 1fr); }}
+            section.main .block-container {{
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }}
+            div[data-testid="stRadio"] label p {{
+                font-size: 0.85rem !important;
+            }}
         }}
         </style>
         """,

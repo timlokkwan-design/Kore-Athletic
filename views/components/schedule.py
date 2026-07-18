@@ -15,6 +15,7 @@ from utils.data_store import (
     row_to_program,
 )
 from utils.helpers import format_timetable_date, format_train_duration, normalize_date_str, program_specs, resolve_venue, safe_int, safe_str
+from views.components.calendar_list import render_view_mode_toggle
 
 
 def _type_bg(train_type: str) -> str:
@@ -123,6 +124,172 @@ def _render_selected_day_detail(
                 st.info(att_line)
 
 
+def _student_day_cell(
+    ds: str,
+    prog_map: dict[str, dict],
+    student_specialty: str,
+    att_map: dict[str, dict],
+    today: date,
+) -> tuple[str, str, str, str, str]:
+    """Return title, detail, type_label, bg, btn_label for one calendar day."""
+    today_str = today.isoformat()
+    d = date.fromisoformat(ds)
+    is_today = ds == today_str
+    is_future = d > today
+    prog = _student_prog_for_day(prog_map, ds, student_specialty)
+    att = att_map.get(ds)
+    att_line = _attendance_line(att)
+
+    if is_future:
+        if prog:
+            tp = normalize_train_type(safe_str(prog.get("type")))
+            time_part, venue = _time_venue_text(prog)
+            return "未到", f"{time_part} · {venue}", tp, "#f1f5f9", str(d.day)
+        return "未到", "", "—", "#f1f5f9", str(d.day)
+
+    if is_today:
+        if prog:
+            tp = normalize_train_type(safe_str(prog.get("type")))
+            title_line = safe_str(prog.get("title")) or tp
+            time_part, venue = _time_venue_text(prog)
+            detail = f"{time_part} · {venue}"
+            if att_line:
+                detail = f"{detail} · {att_line}" if detail else att_line
+            return f"🔵 {title_line}", detail, tp, _type_bg(tp), f"🔵 {d.day}"
+        detail = att_line or ""
+        return "🔵 休息", detail, "休息", TYPE_CATEGORY_COLORS["rest"], f"🔵 {d.day}"
+
+    if prog:
+        time_part, venue = _time_venue_text(prog)
+        detail = f"{time_part} · {venue}"
+        if att_line:
+            detail = f"{detail} · {att_line}" if detail else att_line
+        tp = normalize_train_type(safe_str(prog.get("type")))
+        if att and att.get("status") == "present":
+            return "✅ 已過", detail, tp, "#dcfce7", str(d.day)
+        return "已過", detail, tp, "#e2e8f0", str(d.day)
+
+    if att_line:
+        title = "已簽到" if att and att.get("status") == "present" else "—"
+        bg = "#dcfce7" if att and att.get("status") == "present" else "#f8fafc"
+        return title, att_line, "—", bg, str(d.day)
+    return "—", "", "休息", "#f8fafc", str(d.day)
+
+
+def _render_student_schedule_grid(
+    year: int,
+    month: int,
+    prog_map: dict[str, dict],
+    student_specialty: str,
+    att_map: dict[str, dict],
+    today: date,
+    today_str: str,
+) -> None:
+    weekdays = ["日", "一", "二", "三", "四", "五", "六"]
+    hdr = st.columns(7)
+    for i, w in enumerate(weekdays):
+        hdr[i].markdown(f"**{w}**")
+
+    cal = calendar.Calendar(firstweekday=6)
+    weeks = cal.monthdayscalendar(year, month)
+
+    for week in weeks:
+        cols = st.columns(7)
+        for i, day in enumerate(week):
+            if day == 0:
+                cols[i].markdown(
+                    "<div style='min-height:64px;background:#f8fafc;border-radius:4px;'></div>",
+                    unsafe_allow_html=True,
+                )
+                continue
+
+            ds = f"{year}-{month:02d}-{day:02d}"
+            title_line, detail_line, _tp, bg, btn_label = _student_day_cell(
+                ds, prog_map, student_specialty, att_map, today
+            )
+            d = date.fromisoformat(ds)
+            is_today = ds == today_str
+            is_future = d > today
+
+            if is_future:
+                border, weight = "1px dashed #cbd5e1", "normal"
+            elif is_today:
+                border, weight = "3px solid #1d4ed8", "bold"
+            else:
+                border, weight = "1px solid #e2e8f0", "normal"
+
+            if cols[i].button(btn_label, key=f"student_sched_{ds}", use_container_width=True):
+                st.session_state.student_sched_selected = ds
+                st.rerun()
+
+            detail_html = (
+                f"<br><span style='color:#64748b;font-size:9px;'>{detail_line}</span>"
+                if detail_line else ""
+            )
+            cols[i].markdown(
+                f"<div style='background:{bg};border:{border};border-radius:4px;padding:3px 4px;"
+                f"min-height:44px;font-size:10px;line-height:1.2;margin-top:-6px;font-weight:{weight};'>"
+                f"<span style='color:#1e3a8a;font-weight:600;'>{title_line}</span>"
+                f"{detail_html}</div>",
+                unsafe_allow_html=True,
+            )
+
+
+def _render_student_schedule_list(
+    year: int,
+    month: int,
+    prog_map: dict[str, dict],
+    student_specialty: str,
+    att_map: dict[str, dict],
+    today: date,
+) -> None:
+    if "student_sched_selected" not in st.session_state:
+        st.session_state.student_sched_selected = today.isoformat()
+
+    cal = calendar.Calendar(firstweekday=6)
+    weeks = cal.monthdayscalendar(year, month)
+    wd_names = ["一", "二", "三", "四", "五", "六", "日"]
+
+    for week in weeks:
+        for day in week:
+            if day == 0:
+                continue
+            ds = f"{year}-{month:02d}-{day:02d}"
+            d = date.fromisoformat(ds)
+            title_line, detail_line, type_label, bg, _btn = _student_day_cell(
+                ds, prog_map, student_specialty, att_map, today
+            )
+            wd_cn = wd_names[d.weekday()]
+            selected = st.session_state.get("student_sched_selected") == ds
+            border = "2px solid #1d4ed8" if selected else "1px solid #e2e8f0"
+
+            type_badge = (
+                f"<span style='background:#e2e8f0;color:#334155;padding:2px 8px;"
+                f"border-radius:999px;font-size:12px;margin-left:8px;'>{type_label}</span>"
+                if type_label and type_label != "—" else ""
+            )
+            detail_html = (
+                f"<div style='font-size:13px;color:#64748b;margin-top:6px;'>{detail_line}</div>"
+                if detail_line else ""
+            )
+
+            label_col, btn_col = st.columns([5, 1])
+            with label_col:
+                st.markdown(
+                    f"<div style='background:{bg};border:{border};border-radius:10px;"
+                    f"padding:12px 14px;margin-bottom:6px;'>"
+                    f"<div style='font-size:15px;font-weight:700;color:#1e3a8a;'>"
+                    f"{month}/{day:02d}（{wd_cn}）{type_badge}</div>"
+                    f"<div style='font-size:14px;font-weight:600;margin-top:4px;'>{title_line}</div>"
+                    f"{detail_html}</div>",
+                    unsafe_allow_html=True,
+                )
+            with btn_col:
+                if st.button("選", key=f"student_sched_list_{ds}", use_container_width=True):
+                    st.session_state.student_sched_selected = ds
+                    st.rerun()
+
+
 def render_student_schedule_calendar(student_specialty: str = "", student_name: str = "") -> None:
     """Month calendar; full content today only; time/venue for all training days."""
     today = date.today()
@@ -153,7 +320,7 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
     mapped = SPECIALTY_TO_GROUP.get(student_specialty, "—")
     st.caption(
         f"顯示 **全體組員** 及 **{mapped}** · "
-        f"🔵 今日顯示完整課表 · 其他日子可看**訓練時間及地點**"
+        f"🔵 今日顯示完整課表 · 手機請用「列表」檢視"
     )
 
     programs = get_programs_for_month(year, month)
@@ -173,93 +340,19 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
             if ds:
                 prog_map[ds] = row_to_program(row)
 
-    weekdays = ["日", "一", "二", "三", "四", "五", "六"]
-    hdr = st.columns(7)
-    for i, w in enumerate(weekdays):
-        hdr[i].markdown(f"**{w}**")
-
-    cal = calendar.Calendar(firstweekday=6)
-    weeks = cal.monthdayscalendar(year, month)
-
-    for week in weeks:
-        cols = st.columns(7)
-        for i, day in enumerate(week):
-            if day == 0:
-                cols[i].markdown(
-                    "<div style='min-height:64px;background:#f8fafc;border-radius:4px;'></div>",
-                    unsafe_allow_html=True,
-                )
-                continue
-
-            ds = f"{year}-{month:02d}-{day:02d}"
-            d = date.fromisoformat(ds)
-            is_today = ds == today_str
-            is_future = d > today
-
-            prog = _student_prog_for_day(prog_map, ds, student_specialty)
-            att = att_map.get(ds)
-            att_line = _attendance_line(att)
-
-            if is_future:
-                if prog:
-                    time_part, venue = _time_venue_text(prog)
-                    detail_line = f"{time_part} · {venue}"
-                    title_line, bg = "未到", "#f1f5f9"
-                else:
-                    title_line, detail_line, bg = "未到", "", "#f1f5f9"
-                border, weight = "1px dashed #cbd5e1", "normal"
-                btn_label = str(day)
-            elif is_today:
-                if prog:
-                    tp = normalize_train_type(safe_str(prog.get("type")))
-                    title_line = safe_str(prog.get("title")) or tp
-                    time_part, venue = _time_venue_text(prog)
-                    detail_line = f"{time_part} · {venue}"
-                    bg = _type_bg(tp)
-                else:
-                    title_line, detail_line, bg = "休息", "", TYPE_CATEGORY_COLORS["rest"]
-                if att_line:
-                    detail_line = f"{detail_line}<br>{att_line}" if detail_line else att_line
-                border, weight = "3px solid #1d4ed8", "bold"
-                btn_label = f"🔵 {day}"
-            else:
-                if prog:
-                    time_part, venue = _time_venue_text(prog)
-                    detail_line = f"{time_part} · {venue}"
-                    if att_line:
-                        detail_line = f"{detail_line}<br>{att_line}"
-                    title_line = "✅ 已過" if att and att.get("status") == "present" else "已過"
-                    bg = "#dcfce7" if att and att.get("status") == "present" else "#e2e8f0"
-                else:
-                    title_line, detail_line, bg = "—", "", "#f8fafc"
-                    if att_line:
-                        detail_line = att_line
-                        title_line = "已簽到" if att and att.get("status") == "present" else "—"
-                        bg = "#dcfce7" if att and att.get("status") == "present" else "#f8fafc"
-                border, weight = "1px solid #e2e8f0", "normal"
-                btn_label = str(day)
-
-            if cols[i].button(btn_label, key=f"student_sched_{ds}", use_container_width=True):
-                st.session_state.student_sched_selected = ds
-                st.rerun()
-
-            detail_html = (
-                f"<br><span style='color:#64748b;font-size:9px;'>{detail_line}</span>"
-                if detail_line else ""
-            )
-            cols[i].markdown(
-                f"<div style='background:{bg};border:{border};border-radius:4px;padding:3px 4px;"
-                f"min-height:44px;font-size:10px;line-height:1.2;margin-top:-6px;font-weight:{weight};'>"
-                f"<span style='color:#1e3a8a;font-weight:600;'>{title_line}</span>"
-                f"{detail_html}</div>",
-                unsafe_allow_html=True,
-            )
+    view_mode = render_view_mode_toggle("student_sched")
+    if view_mode == "list":
+        _render_student_schedule_list(year, month, prog_map, student_specialty, att_map, today)
+    else:
+        _render_student_schedule_grid(
+            year, month, prog_map, student_specialty, att_map, today, today_str
+        )
 
     st.markdown("---")
     selected = st.session_state.get("student_sched_selected", today_str)
     _render_selected_day_detail(selected, prog_map, student_specialty, today, student_name)
 
-    st.caption("💡 點選今日日期可查看完整課表內容。")
+    st.caption("💡 點選日期可查看完整課表；手機建議用「📋 列表」。")
 
 
 def _entry_card(prog: dict, *, highlight: bool = False) -> str:

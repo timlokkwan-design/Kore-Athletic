@@ -31,6 +31,7 @@ from utils.data_store import (
     approve_student,
     attendance_rate,
     copy_program_to_dates,
+    delete_program,
     days_until_competition,
     ensure_program_dict,
     filter_logs,
@@ -56,6 +57,7 @@ from utils.data_store import (
     load_videos,
     log_completion_rate,
     mark_leave,
+    program_exists,
     remove_student,
     reject_specialty_change,
     reset_student_password,
@@ -346,7 +348,15 @@ def render_coach_program() -> None:
             "attempts": attempts,
         })
         st.success("已存範本")
-    with b3:
+    if b3.button("🗑 刪除當日課表", use_container_width=True, key=f"pdelete_{sk}"):
+        if program_exists(selected):
+            delete_program(selected)
+            st.success(f"已刪除 {sk} 的課表")
+            st.rerun()
+        else:
+            st.info("此日沒有已儲存的課表（月曆顯示為預設休息）")
+
+    with st.expander("📱 WhatsApp 課表文案"):
         txt = whatsapp_program_text(
             {
                 **prog,

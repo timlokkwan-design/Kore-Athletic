@@ -15,6 +15,7 @@ from utils.data_store import (
     row_to_program,
 )
 from utils.helpers import normalize_date_str, program_calendar_summary, safe_str
+from views.components.calendar_list import render_month_day_list, render_view_mode_toggle
 
 
 def _sync_selection_to_month(select_key: str, year: int, month: int) -> None:
@@ -45,52 +46,16 @@ def _toggle_copy_target(ds: str, copy_source: str) -> None:
     st.session_state.copy_target_dates = sorted(targets)
 
 
-def render_calendar(select_key: str = "cal_select", show_acwr: bool = False, copy_mode: bool = False) -> date | None:
-    if "cal_year" not in st.session_state:
-        t = date.today()
-        st.session_state.cal_year, st.session_state.cal_month = t.year, t.month
-
-    copy_source = st.session_state.get("copy_source_date", "") if copy_mode else ""
-    copy_targets = set(st.session_state.get("copy_target_dates", [])) if copy_mode else set()
-
-    c1, c2, c3 = st.columns([1, 2, 1])
-    if c1.button("◀ 上月", key=f"{select_key}_prev"):
-        if st.session_state.cal_month == 1:
-            st.session_state.cal_month, st.session_state.cal_year = 12, st.session_state.cal_year - 1
-        else:
-            st.session_state.cal_month -= 1
-        if not copy_mode:
-            _sync_selection_to_month(select_key, st.session_state.cal_year, st.session_state.cal_month)
-        st.rerun()
-    c2.markdown(f"### {st.session_state.cal_year} 年 {st.session_state.cal_month:02d} 月")
-    if c3.button("下月 ▶", key=f"{select_key}_next"):
-        if st.session_state.cal_month == 12:
-            st.session_state.cal_month, st.session_state.cal_year = 1, st.session_state.cal_year + 1
-        else:
-            st.session_state.cal_month += 1
-        if not copy_mode:
-            _sync_selection_to_month(select_key, st.session_state.cal_year, st.session_state.cal_month)
-        st.rerun()
-
-    if copy_mode:
-        st.caption("🟧 橙色=來源 · 🟩 綠色=已選目標（可跨月多選）· 點一下選取/取消")
-    else:
-        st.caption("🟥速度 🟦耐力 🟪技術 🟧肌力 🟩比賽 ⬜休息")
-
-    year, month = st.session_state.cal_year, st.session_state.cal_month
-    if not copy_mode:
-        _sync_selection_to_month(select_key, year, month)
-    programs = get_programs_for_month(year, month)
-    prog_map: dict[str, dict] = {}
-    if not programs.empty:
-        for _, row in programs.iterrows():
-            ds = normalize_date_str(row.get("date"))
-            if ds:
-                prog_map[ds] = row_to_program(row)
-
-    if select_key not in st.session_state:
-        st.session_state[select_key] = date.today().isoformat()
-
+def _render_calendar_grid(
+    select_key: str,
+    year: int,
+    month: int,
+    prog_map: dict[str, dict],
+    show_acwr: bool,
+    copy_mode: bool,
+    copy_source: str,
+    copy_targets: set,
+) -> date:
     weekdays = ["日", "一", "二", "三", "四", "五", "六"]
     hdr = st.columns(7)
     for i, w in enumerate(weekdays):
@@ -159,7 +124,89 @@ def render_calendar(select_key: str = "cal_select", show_acwr: bool = False, cop
                 unsafe_allow_html=True,
             )
 
-    selected = date.fromisoformat(st.session_state[select_key])
+    return date.fromisoformat(st.session_state[select_key])
+
+
+def render_calendar(select_key: str = "cal_select", show_acwr: bool = False, copy_mode: bool = False) -> date | None:
+    if "cal_year" not in st.session_state:
+        t = date.today()
+        st.session_state.cal_year, st.session_state.cal_month = t.year, t.month
+
+    copy_source = st.session_state.get("copy_source_date", "") if copy_mode else ""
+    copy_targets = set(st.session_state.get("copy_target_dates", [])) if copy_mode else set()
+
+    c1, c2, c3 = st.columns([1, 2, 1])
+    if c1.button("◀ 上月", key=f"{select_key}_prev"):
+        if st.session_state.cal_month == 1:
+            st.session_state.cal_month, st.session_state.cal_year = 12, st.session_state.cal_year - 1
+        else:
+            st.session_state.cal_month -= 1
+        if not copy_mode:
+            _sync_selection_to_month(select_key, st.session_state.cal_year, st.session_state.cal_month)
+        st.rerun()
+    c2.markdown(f"### {st.session_state.cal_year} 年 {st.session_state.cal_month:02d} 月")
+    if c3.button("下月 ▶", key=f"{select_key}_next"):
+        if st.session_state.cal_month == 12:
+            st.session_state.cal_month, st.session_state.cal_year = 1, st.session_state.cal_year + 1
+        else:
+            st.session_state.cal_month += 1
+        if not copy_mode:
+            _sync_selection_to_month(select_key, st.session_state.cal_year, st.session_state.cal_month)
+        st.rerun()
+
+    if copy_mode:
+        st.caption("🟧 橙色=來源 · 🟩 綠色=已選目標（可跨月多選）· 點一下選取/取消")
+    else:
+        st.caption("🟥速度 🟦耐力 🟪技術 🟧肌力 🟩比賽 ⬜休息 · 手機請用「列表」檢視")
+
+    year, month = st.session_state.cal_year, st.session_state.cal_month
+    if not copy_mode:
+        _sync_selection_to_month(select_key, year, month)
+    programs = get_programs_for_month(year, month)
+    prog_map: dict[str, dict] = {}
+    if not programs.empty:
+        for _, row in programs.iterrows():
+            ds = normalize_date_str(row.get("date"))
+            if ds:
+                prog_map[ds] = row_to_program(row)
+
+    if select_key not in st.session_state:
+        st.session_state[select_key] = date.today().isoformat()
+
+    view_mode = render_view_mode_toggle(select_key)
+    if view_mode == "list":
+        logs = get_all_logs()
+        athlete_names = get_student_names()
+        acwr_athlete = athlete_names[0] if show_acwr and athlete_names else None
+
+        def _describe(ds: str, prog: dict | None) -> tuple[str, str, str, str]:
+            prog = ensure_program_dict(prog)
+            tp = safe_str(prog.get("type"))
+            cat = TRAIN_TYPES.get(tp, {}).get("category", "rest")
+            bg = TYPE_CATEGORY_COLORS.get(cat, "#f1f5f9")
+            title_line, spec_line = program_calendar_summary(prog) if prog else ("", "")
+            detail = spec_line or ""
+            if show_acwr and acwr_athlete:
+                v, _ = acwr_status(calc_acwr(logs, acwr_athlete, date.fromisoformat(ds)))
+                detail = f"{detail} · ACWR {v}".strip(" · ")
+            return title_line or "—", detail, tp or "休息", bg
+
+        selected = render_month_day_list(
+            year=year,
+            month=month,
+            select_key=select_key,
+            prog_map=prog_map,
+            describe_day=_describe,
+            pick_mode="copy" if copy_mode else None,
+            pick_key="copy_target_dates",
+            copy_source=copy_source,
+            empty_label="休息",
+        )
+    else:
+        selected = _render_calendar_grid(
+            select_key, year, month, prog_map, show_acwr, copy_mode, copy_source, copy_targets
+        )
+
     if copy_mode:
         src_prog = ensure_program_dict(st.session_state.get("copy_source_payload"))
         src_title, src_spec = program_calendar_summary(src_prog) if src_prog else ("", "")

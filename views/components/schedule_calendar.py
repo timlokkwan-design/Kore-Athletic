@@ -8,6 +8,7 @@ import streamlit as st
 from utils.config import TRAIN_TYPES, TYPE_CATEGORY_COLORS, normalize_train_type
 from utils.data_store import get_programs_for_month, is_training_day, row_to_program
 from utils.helpers import normalize_date_str, program_calendar_summary, resolve_venue, safe_str
+from views.components.calendar_list import render_month_day_list, render_view_mode_toggle
 
 
 def _sync_sched_month(select_key: str, year: int, month: int) -> None:
@@ -56,6 +57,83 @@ def _cell_summary(prog: dict | None) -> tuple[str, str, str]:
     return title or tp, detail, tp
 
 
+def _render_schedule_grid(
+    select_key: str,
+    year: int,
+    month: int,
+    prog_map: dict[str, dict],
+    pick_mode: str | None,
+    pick_key: str,
+    copy_source: str,
+    picks: set,
+) -> date:
+    weekdays = ["日", "一", "二", "三", "四", "五", "六"]
+    hdr = st.columns(7)
+    for i, w in enumerate(weekdays):
+        hdr[i].markdown(f"**{w}**")
+
+    cal = calendar.Calendar(firstweekday=6)
+    weeks = cal.monthdayscalendar(year, month)
+
+    for week in weeks:
+        cols = st.columns(7)
+        for i, day in enumerate(week):
+            if day == 0:
+                cols[i].markdown(
+                    "<div style='min-height:78px;background:#f8fafc;border-radius:4px;'></div>",
+                    unsafe_allow_html=True,
+                )
+                continue
+            ds = f"{year}-{month:02d}-{day:02d}"
+            prog = prog_map.get(ds)
+            title_line, detail_line, tp = _cell_summary(prog)
+            cat = TRAIN_TYPES.get(tp, {}).get("category", "rest")
+            bg = TYPE_CATEGORY_COLORS.get(cat, "#f1f5f9")
+            training = is_training_day(ds)
+
+            active = (not pick_mode) and st.session_state[select_key] == ds
+            if pick_mode == "copy" and ds == copy_source:
+                border, weight = "3px solid #f59e0b", "bold"
+            elif pick_mode and ds in picks:
+                border, weight = "3px solid #16a34a", "bold"
+                bg = "#dcfce7"
+            elif pick_mode and training:
+                border, weight = "2px dashed #86efac", "normal"
+            elif active:
+                border, weight = "3px solid #1d4ed8", "bold"
+            else:
+                border, weight = "1px solid #e2e8f0", "normal"
+
+            btn_label = str(day)
+            if pick_mode and training and ds != copy_source:
+                btn_label = f"✓ {day}" if ds in picks else f"+ {day}"
+            elif not pick_mode and tp != "休息":
+                btn_label = f"{day} · {tp[:2]}"
+
+            if cols[i].button(btn_label, key=f"{select_key}_{ds}", use_container_width=True):
+                if pick_mode:
+                    if training:
+                        _toggle_pick(
+                            ds, pick_key, copy_source,
+                            block_source=(pick_mode == "copy"),
+                        )
+                    st.rerun()
+                else:
+                    st.session_state[select_key] = ds
+                    st.rerun()
+
+            detail_html = f"<br><span style='color:#64748b;'>{detail_line}</span>" if detail_line else ""
+            cols[i].markdown(
+                f"<div style='background:{bg};border:{border};border-radius:4px;padding:3px 4px;"
+                f"min-height:48px;font-size:10px;line-height:1.25;margin-top:-6px;font-weight:{weight};'>"
+                f"<span style='color:#1e3a8a;font-weight:600;'>{title_line}</span>"
+                f"{detail_html}</div>",
+                unsafe_allow_html=True,
+            )
+
+    return date.fromisoformat(st.session_state[select_key])
+
+
 def render_schedule_calendar(
     select_key: str = "sched_cal",
     *,
@@ -96,7 +174,7 @@ def render_schedule_calendar(
     elif pick_mode == "bulk":
         st.caption("🟩 綠色=已選 · 點一下選取/取消 · 僅訓練日可套用")
     else:
-        st.caption("有課表=訓練日 · 空白=休息 · 🟥速度 🟦耐力 🟪技術 🟧肌力 🟩比賽")
+        st.caption("有課表=訓練日 · 空白=休息 · 🟥速度 🟦耐力 🟪技術 🟧肌力 🟩比賽 · 手機請用「列表」")
 
     year, month = st.session_state.sched_cal_year, st.session_state.sched_cal_month
     if not pick_mode:
@@ -113,72 +191,32 @@ def render_schedule_calendar(
     if select_key not in st.session_state:
         st.session_state[select_key] = date.today().isoformat()
 
-    weekdays = ["日", "一", "二", "三", "四", "五", "六"]
-    hdr = st.columns(7)
-    for i, w in enumerate(weekdays):
-        hdr[i].markdown(f"**{w}**")
+    view_mode = render_view_mode_toggle(select_key)
 
-    cal = calendar.Calendar(firstweekday=6)
-    weeks = cal.monthdayscalendar(year, month)
+    def _describe(ds: str, prog: dict | None) -> tuple[str, str, str, str]:
+        title_line, detail_line, tp = _cell_summary(prog)
+        cat = TRAIN_TYPES.get(tp, {}).get("category", "rest")
+        bg = TYPE_CATEGORY_COLORS.get(cat, "#f1f5f9")
+        return title_line, detail_line, tp, bg
 
-    for week in weeks:
-        cols = st.columns(7)
-        for i, day in enumerate(week):
-            if day == 0:
-                cols[i].markdown(
-                    "<div style='min-height:78px;background:#f8fafc;border-radius:4px;'></div>",
-                    unsafe_allow_html=True,
-                )
-                continue
-            ds = f"{year}-{month:02d}-{day:02d}"
-            prog = prog_map.get(ds)
-            title_line, detail_line, tp = _cell_summary(prog)
-            cat = TRAIN_TYPES.get(tp, {}).get("category", "rest")
-            bg = TYPE_CATEGORY_COLORS.get(cat, "#f1f5f9")
-            training = is_training_day(ds)
+    if view_mode == "list":
+        selected = render_month_day_list(
+            year=year,
+            month=month,
+            select_key=select_key,
+            prog_map=prog_map,
+            describe_day=_describe,
+            pick_mode=pick_mode,
+            pick_key=pick_key,
+            copy_source=copy_source,
+            empty_label="休息",
+            can_pick=(lambda ds, _p: is_training_day(ds)) if pick_mode else None,
+        )
+    else:
+        selected = _render_schedule_grid(
+            select_key, year, month, prog_map, pick_mode, pick_key, copy_source, picks
+        )
 
-            active = (not pick_mode) and st.session_state[select_key] == ds
-            if pick_mode == "copy" and ds == copy_source:
-                border, weight = "3px solid #f59e0b", "bold"
-            elif pick_mode and ds in picks:
-                border, weight = "3px solid #16a34a", "bold"
-                if pick_mode:
-                    bg = "#dcfce7"
-            elif pick_mode and training:
-                border, weight = "2px dashed #86efac", "normal"
-            elif active:
-                border, weight = "3px solid #1d4ed8", "bold"
-            else:
-                border, weight = "1px solid #e2e8f0", "normal"
-
-            btn_label = str(day)
-            if pick_mode and training and ds != copy_source:
-                btn_label = f"✓ {day}" if ds in picks else f"+ {day}"
-            elif not pick_mode and tp != "休息":
-                btn_label = f"{day} · {tp[:2]}"
-
-            if cols[i].button(btn_label, key=f"{select_key}_{ds}", use_container_width=True):
-                if pick_mode:
-                    if training:
-                        _toggle_pick(
-                            ds, pick_key, copy_source,
-                            block_source=(pick_mode == "copy"),
-                        )
-                    st.rerun()
-                else:
-                    st.session_state[select_key] = ds
-                    st.rerun()
-
-            detail_html = f"<br><span style='color:#64748b;'>{detail_line}</span>" if detail_line else ""
-            cols[i].markdown(
-                f"<div style='background:{bg};border:{border};border-radius:4px;padding:3px 4px;"
-                f"min-height:48px;font-size:10px;line-height:1.25;margin-top:-6px;font-weight:{weight};'>"
-                f"<span style='color:#1e3a8a;font-weight:600;'>{title_line}</span>"
-                f"{detail_html}</div>",
-                unsafe_allow_html=True,
-            )
-
-    selected = date.fromisoformat(st.session_state[select_key])
     picks_list = st.session_state.get(pick_key, [])
 
     if pick_mode == "copy":
