@@ -31,7 +31,7 @@ def render_visitor_view() -> None:
         for line in safe_lines(content.get("join_process", "")):
             st.markdown(line)
         st.markdown("---")
-        st.info("準備好了？請點左側 **「註冊新學員」** 提交資料，或 **「登入」** 進入系統。")
+        st.info("準備好了？請點上方 **「註冊」** 提交資料，或 **「登入」** 進入系統。")
 
     st.caption(f"內部系統 · {COACH_NAME}教練田徑隊 · 訪客無法查看學員資料")
 

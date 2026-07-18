@@ -21,9 +21,14 @@ def render_auth_view() -> None:
                     st.rerun()
                 else:
                     st.error(msg)
+        with st.expander("忘記密碼？"):
+            st.caption(
+                "請聯絡教練，由教練在 **「隊伍管理 → 重設學員密碼」** 協助重設。"
+                "重設後請使用教練提供的新密碼登入。"
+            )
     with col_r:
         st.info(
             "**新學員**\n\n"
-            "請點左側 **「註冊新學員」** 提交資料，"
+            "請點上方 **「註冊」** 提交資料，"
             "待教練核准後即可登入。"
         )

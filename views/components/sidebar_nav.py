@@ -46,6 +46,58 @@ def render_nav_categories(
     return st.session_state[session_key]
 
 
+def _set_main_page(session_key: str, page: str) -> None:
+    st.session_state[session_key] = page
+
+
+def render_main_top_nav(
+    options: list[tuple[str, str]],
+    session_key: str,
+    default: str,
+) -> str:
+    """Compact main-area nav: first item upper-left, others upper-right."""
+    values = [val for _, val in options]
+    if session_key not in st.session_state or st.session_state[session_key] not in values:
+        st.session_state[session_key] = default
+
+    current = st.session_state[session_key]
+    if not options:
+        return current
+
+    left_label, left_val = options[0]
+    right_opts = options[1:]
+
+    st.markdown('<div class="ka-main-nav-wrap">', unsafe_allow_html=True)
+    left_col, _, right_col = st.columns([1.1, 2.8, 1.1])
+
+    with left_col:
+        st.button(
+            left_label,
+            key=f"main_hdr_{left_val}",
+            use_container_width=True,
+            type="primary" if current == left_val else "secondary",
+            on_click=_set_main_page,
+            args=(session_key, left_val),
+        )
+
+    if right_opts:
+        with right_col:
+            rcols = st.columns(len(right_opts))
+            for col, (label, val) in zip(rcols, right_opts):
+                with col:
+                    st.button(
+                        label,
+                        key=f"main_hdr_{val}",
+                        use_container_width=True,
+                        type="primary" if current == val else "secondary",
+                        on_click=_set_main_page,
+                        args=(session_key, val),
+                    )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+    return st.session_state[session_key]
+
+
 def render_top_nav(
     options: list[tuple[str, str]],
     session_key: str,

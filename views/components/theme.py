@@ -80,6 +80,28 @@ def inject_global_css(theme: str | None = None) -> None:
             color: {c["muted"]};
             letter-spacing: 0.04em;
         }}
+        .ka-main-nav-wrap {{
+            margin: 0 0 0.65rem 0;
+            padding: 0;
+        }}
+        .ka-main-nav-wrap [data-testid="column"] {{
+            padding-left: 0.2rem !important;
+            padding-right: 0.2rem !important;
+        }}
+        .ka-main-nav-wrap [data-testid="column"] button {{
+            font-size: 0.82rem !important;
+            font-weight: 600 !important;
+            min-height: 2rem !important;
+            max-height: 2.15rem !important;
+            padding: 0.2rem 0.45rem !important;
+            white-space: nowrap;
+        }}
+        @media (max-width: 768px) {{
+            .ka-main-nav-wrap [data-testid="column"] button {{
+                font-size: 0.76rem !important;
+                padding: 0.15rem 0.3rem !important;
+            }}
+        }}
         .ka-breadcrumb {{
             font-size: 0.82rem;
             color: {c["muted"]};

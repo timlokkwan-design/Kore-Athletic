@@ -23,7 +23,7 @@ from views.auth_view import render_auth_view
 from views.coach_view import COACH_NAV_CATEGORIES, COACH_SECTIONS, render_coach_view
 from views.components.brand import LOGO_PATH, logo_exists, render_brand_header, render_sidebar_brand
 from views.components.coach_pending_alert import render_coach_pending_sidebar
-from views.components.sidebar_nav import render_nav_categories, render_top_nav
+from views.components.sidebar_nav import render_main_top_nav, render_nav_categories, render_top_nav
 from views.components.theme import inject_global_css, render_breadcrumb, render_theme_toggle
 from views.leaderboard_view import render_leaderboard
 from views.parent_view import render_parent_view
@@ -74,10 +74,10 @@ def _visitor_nav() -> list[tuple[str, str]]:
     nav = [
         ("🏠 訪客專區", "訪客專區"),
         ("🔑 登入", "登入"),
-        ("📝 註冊新學員", "註冊新學員"),
+        ("📝 註冊", "註冊新學員"),
     ]
     if is_pb_public():
-        nav.append(("🏆 PB 排行榜", "PB 排行榜"))
+        nav.append(("🏆 PB榜", "PB 排行榜"))
     return nav
 
 
@@ -118,6 +118,13 @@ def main() -> None:
     user = get_current_user()
     role = user["role"] if user else "visitor"
 
+    if role == "visitor":
+        top_options = _visitor_nav()
+        default_page = "訪客專區"
+    else:
+        top_options = TOP_NAV.get(role, _visitor_nav())
+        default_page = top_options[0][1]
+
     with st.sidebar:
         render_sidebar_brand(
             user_name=user["name"] if user else "訪客",
@@ -129,16 +136,14 @@ def main() -> None:
         st.markdown("---")
         if role == "coach":
             render_coach_pending_sidebar()
-        st.markdown("<p class='ka-nav-label'>主選單</p>", unsafe_allow_html=True)
-
-        if role == "visitor":
-            top_options = _visitor_nav()
-            default_page = "訪客專區"
+        if role != "visitor":
+            st.markdown("<p class='ka-nav-label'>主選單</p>", unsafe_allow_html=True)
+            page = render_top_nav(top_options, "main_page", default_page)
         else:
-            top_options = TOP_NAV.get(role, _visitor_nav())
-            default_page = top_options[0][1]
-
-        page = render_top_nav(top_options, "main_page", default_page)
+            page = st.session_state.get("main_page", default_page)
+            if page not in [v for _, v in top_options]:
+                page = default_page
+                st.session_state.main_page = default_page
 
         coach_section = None
         student_section = None
@@ -167,13 +172,16 @@ def main() -> None:
                 logout()
                 st.rerun()
 
+    if role == "visitor":
+        page = render_main_top_nav(top_options, "main_page", default_page)
+
     visitor_public_pages = ("訪客專區", "登入", "註冊新學員")
     if is_pb_public():
         visitor_public_pages = (*visitor_public_pages, "PB 排行榜")
 
     if role == "visitor" and page == "PB 排行榜" and not is_pb_public():
         render_breadcrumb("PB 排行榜")
-        st.warning("PB 排行榜只供登入用戶查看。請登入或使用左側「訪客專區」了解本會資訊。")
+        st.warning("PB 排行榜只供登入用戶查看。請登入或使用上方「訪客專區」了解本會資訊。")
         render_auth_view()
         return
 
