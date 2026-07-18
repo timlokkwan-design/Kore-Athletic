@@ -9,6 +9,7 @@ from utils.config import normalize_train_type
 from utils.data_store import get_programs_for_month, build_day_programs_map
 from utils.helpers import (
     calendar_cell_bg,
+    calendar_day_has_training,
     day_sync_status,
     format_timetable_date,
     normalize_date_str,
@@ -185,14 +186,21 @@ def _sched_compact_style(
             border = "2px solid #ea580c"
         elif sync == "need_both":
             border = "2px dashed #f59e0b"
+
+    if not pick_mode and calendar_day_has_training(progs=progs):
         if len(progs) == 1:
             time_hint = format_time_venue_line(progs[0])
             if time_hint and len(time_hint) <= 10:
                 label = f"{day}·{time_hint[:8]}"
         elif len(progs) > 1:
-            label = f"{day}·{len(progs)}組"
+            active = [
+                p for p in progs
+                if normalize_train_type(safe_str(p.get("type"))) not in ("休息",)
+            ]
+            if len(active) > 1:
+                label = f"{day}·{len(active)}組"
 
-    hint = detail[:24] if detail and not pick_mode else ""
+    hint = detail[:24] if detail and not pick_mode and calendar_day_has_training(progs=progs) else ""
 
     return {"bg": bg, "border": border, "label": label, "disabled": disabled, "hint": hint}
 

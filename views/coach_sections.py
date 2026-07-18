@@ -95,6 +95,7 @@ from utils.helpers import (
 )
 from views.components.calendar import render_calendar
 from views.components.coach_sync import render_month_sync_alerts
+from views.components.coach_workout_compare import render_workout_history_compare
 from views.components.avatar import athlete_card_html, render_person
 
 
@@ -370,6 +371,12 @@ def _render_coach_program_editor() -> None:
     hint = sync_status_label(sync)
     if hint and sync in ("need_workout", "need_schedule", "need_both"):
         (st.warning if sync == "need_workout" else st.info)(hint)
+
+    render_workout_history_compare(
+        selected,
+        highlight_group=edit_group,
+        groups=[cal_group] if cal_group else None,
+    )
 
     cur_type = normalize_train_type(prog["type"])
     status_options = ["訓練", "休息", "比賽"]

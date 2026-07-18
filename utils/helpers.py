@@ -422,6 +422,14 @@ def calendar_cell_bg(prog: dict | None = None, *, progs: list[dict] | None = Non
     return CALENDAR_BG_REST
 
 
+def calendar_day_has_training(prog: dict | None = None, *, progs: list[dict] | None = None) -> bool:
+    """True when the day has training or competition (not rest / empty)."""
+    from utils.config import CALENDAR_BG_COMPETITION, CALENDAR_BG_TRAINING
+
+    bg = calendar_cell_bg(prog, progs=progs)
+    return bg in (CALENDAR_BG_TRAINING, CALENDAR_BG_COMPETITION)
+
+
 def merge_programs_calendar_summary(progs: list[dict]) -> tuple[str, str]:
     """Multi-group day: per-group volume labels (not summed)."""
     from utils.config import normalize_train_type

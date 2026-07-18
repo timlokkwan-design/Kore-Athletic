@@ -20,6 +20,7 @@ from utils.helpers import (
     format_timetable_date,
     format_time_venue_line,
     calendar_cell_bg,
+    calendar_day_has_training,
     normalize_date_str,
     merge_programs_calendar_summary,
     program_calendar_summary,
@@ -134,12 +135,10 @@ def _coach_compact_day_style(
     delete_targets: set,
 ) -> dict:
     today_str = date.today().isoformat()
-    prog = ensure_program_dict(prog_map.get(ds))
     bg = calendar_cell_bg(prog_map.get(ds))
     border = "1px solid #e2e8f0"
     label = f"●{day}" if ds == today_str else str(day)
     disabled = False
-    tp = safe_str(prog.get("type"))
 
     if copy_mode and ds == copy_source:
         border = "3px solid #f59e0b"
@@ -170,21 +169,23 @@ def _coach_compact_day_style(
         border = "2px dashed #f59e0b"
 
     if not copy_mode and not delete_mode:
-        if tp == "比賽":
-            vol_label = "賽"
-        elif tp == "休息":
-            vol_label = ""
-        elif prog.get("_multi") and prog.get("_programs"):
-            vol_label = merge_programs_calendar_summary(prog["_programs"])[0][:12]
-        else:
-            vol = format_meters_short(program_total_meters(prog))
-            gl = short_group_label(prog.get("group"))
-            vol_label = f"{gl}{vol}" if vol and gl else (vol or gl)
-        if vol_label:
-            if label.startswith("●"):
-                label = f"●{day}·{vol_label}"
+        entry = prog_map.get(ds)
+        if entry and calendar_day_has_training(entry):
+            prog = ensure_program_dict(entry)
+            tp = safe_str(prog.get("type"))
+            if tp == "比賽":
+                vol_label = "賽"
+            elif prog.get("_multi") and prog.get("_programs"):
+                vol_label = merge_programs_calendar_summary(prog["_programs"])[0][:12]
             else:
-                label = f"{day}·{vol_label}"
+                vol = format_meters_short(program_total_meters(prog))
+                gl = short_group_label(prog.get("group"))
+                vol_label = f"{gl}{vol}" if vol and gl else (vol or gl)
+            if vol_label:
+                if label.startswith("●"):
+                    label = f"●{day}·{vol_label}"
+                else:
+                    label = f"{day}·{vol_label}"
 
     return {"bg": bg, "border": border, "label": label, "disabled": disabled}
 

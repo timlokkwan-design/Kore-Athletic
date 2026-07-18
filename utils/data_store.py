@@ -480,6 +480,51 @@ def filter_programs_by_group(programs: pd.DataFrame, group: str | None) -> pd.Da
     return programs[mask]
 
 
+def get_group_training_history(
+    for_date: date | str,
+    group: str,
+    *,
+    days_back: int = 14,
+    limit: int = 8,
+) -> list[dict]:
+    """Training sessions for one group in the days before for_date (newest first)."""
+    from utils.helpers import has_workout_plan, workout_detail
+
+    if isinstance(for_date, date):
+        anchor = for_date
+    else:
+        anchor = date.fromisoformat(normalize_date_str(for_date))
+    target_group = normalize_group(group)
+    start = anchor - timedelta(days=days_back)
+    programs = load_programs()
+    if programs.empty:
+        return []
+    found: list[dict] = []
+    for _, row in programs.iterrows():
+        ds = normalize_date_str(row.get("date"))
+        if not ds:
+            continue
+        try:
+            d = date.fromisoformat(ds)
+        except ValueError:
+            continue
+        if d >= anchor or d < start:
+            continue
+        if normalize_group(safe_str(row.get("group"))) != target_group:
+            continue
+        prog = _row_to_program(row)
+        tp = normalize_train_type(safe_str(prog.get("type")))
+        if tp == "休息":
+            continue
+        if tp == "待排課" and not workout_detail(prog).strip():
+            continue
+        if tp not in ("比賽",) and not has_workout_plan(prog) and not workout_detail(prog).strip():
+            continue
+        found.append(prog)
+    found.sort(key=lambda p: p.get("date", ""), reverse=True)
+    return found[:limit]
+
+
 def apply_recovery_template(start_date: date) -> None:
     from utils.permissions import enforce_coach_if_logged_in
     enforce_coach_if_logged_in()
