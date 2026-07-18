@@ -1,0 +1,309 @@
+"""Training timetable — student calendar & coach preview list."""
+
+import calendar
+from datetime import date
+
+import streamlit as st
+
+from utils.config import SPECIALTY_TO_GROUP, TRAIN_TYPES, TYPE_CATEGORY_COLORS, normalize_train_type
+from utils.data_store import (
+    get_attendance_map_for_month,
+    get_attendance_record,
+    get_programs_for_month,
+    get_timetable_entries,
+    program_visible_to_student,
+    row_to_program,
+)
+from utils.helpers import format_timetable_date, format_train_duration, normalize_date_str, program_specs, resolve_venue, safe_int, safe_str
+
+
+def _type_bg(train_type: str) -> str:
+    cat = TRAIN_TYPES.get(train_type, {}).get("category", "rest")
+    return TYPE_CATEGORY_COLORS.get(cat, "#f1f5f9")
+
+
+def _time_venue_text(prog: dict) -> tuple[str, str]:
+    start = safe_str(prog.get("start_time"))
+    end = safe_str(prog.get("end_time"))
+    time_text = f"{start} – {end}" if start and end else (start or end or "時間待通知")
+    return time_text, resolve_venue(prog)
+
+
+def _student_prog_for_day(prog_map: dict[str, dict], ds: str, specialty: str) -> dict | None:
+    prog = prog_map.get(ds)
+    if not prog:
+        return None
+    if not program_visible_to_student(prog, specialty):
+        return None
+    tp = normalize_train_type(safe_str(prog.get("type")))
+    if tp == "休息":
+        return None
+    return prog
+
+
+def _render_time_venue_block(prog: dict, date_label: str, *, bg: str) -> None:
+    time_text, venue = _time_venue_text(prog)
+    st.markdown(
+        f"<div style='background:{bg};border:1px solid #cbd5e1;border-radius:8px;padding:12px 14px;'>"
+        f"<div style='font-size:13px;font-weight:600;color:#334155;'>{date_label}</div>"
+        f"<div style='font-size:14px;margin-top:8px;'>🕐 <b>{time_text}</b></div>"
+        f"<div style='font-size:14px;margin-top:4px;'>📍 <b>{venue}</b></div>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _attendance_line(att: dict | None) -> str:
+    if not att:
+        return ""
+    if att.get("status") == "present":
+        dur = safe_int(att.get("duration_minutes"), 0)
+        if dur > 0:
+            return f"✅ {format_train_duration(dur)}"
+        return "✅ 已簽到"
+    if att.get("status") == "leave":
+        return "📝 請假"
+    return ""
+
+
+def _render_selected_day_detail(
+    selected: str,
+    prog_map: dict[str, dict],
+    student_specialty: str,
+    today: date,
+    student_name: str = "",
+) -> None:
+    today_str = today.isoformat()
+    sel_d = date.fromisoformat(selected)
+    date_label = format_timetable_date(selected)
+    prog = _student_prog_for_day(prog_map, selected, student_specialty)
+
+    if selected == today_str:
+        st.markdown("#### 📍 今日訓練")
+    else:
+        st.markdown(f"#### 📅 {date_label}")
+
+    if not prog:
+        st.info(f"**{date_label}** — 休息或無你的組別訓練。")
+        return
+
+    tp = normalize_train_type(safe_str(prog.get("type")))
+    bg = _type_bg(tp)
+    att = get_attendance_record(student_name, selected) if student_name else None
+    att_line = _attendance_line(att)
+
+    if sel_d > today:
+        st.warning("🔒 此日尚未到，課表內容尚未開放。")
+        st.caption("以下為訓練時間及地點：")
+        _render_time_venue_block(prog, date_label, bg=bg)
+    elif sel_d < today:
+        st.caption("ℹ️ 過往訓練時間安排：")
+        _render_time_venue_block(prog, date_label, bg=bg)
+        if att_line:
+            if att and att.get("status") == "present":
+                st.success(f"{att_line} · {att.get('detail', '')}")
+            elif att and att.get("status") == "leave":
+                st.info(att_line)
+    else:
+        title = safe_str(prog.get("title")) or tp
+        time_text, venue = _time_venue_text(prog)
+        st.markdown(
+            f"<div style='background:{bg};border:2px solid #1d4ed8;border-radius:10px;padding:14px 16px;'>"
+            f"<div style='font-size:14px;font-weight:700;color:#1e3a8a;'>{date_label} · {tp}</div>"
+            f"<div style='font-size:16px;font-weight:800;margin-top:6px;'>{title}</div>"
+            f"<div style='font-size:14px;margin-top:10px;'>🕐 <b>{time_text}</b></div>"
+            f"<div style='font-size:14px;margin-top:6px;'>📍 <b>{venue}</b></div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        if att_line:
+            if att and att.get("status") == "present":
+                st.success(f"{att_line} · {att.get('detail', '')}")
+            elif att and att.get("status") == "leave":
+                st.info(att_line)
+
+
+def render_student_schedule_calendar(student_specialty: str = "", student_name: str = "") -> None:
+    """Month calendar; full content today only; time/venue for all training days."""
+    today = date.today()
+    today_str = today.isoformat()
+
+    if "student_sched_year" not in st.session_state:
+        st.session_state.student_sched_year = today.year
+        st.session_state.student_sched_month = today.month
+
+    year = st.session_state.student_sched_year
+    month = st.session_state.student_sched_month
+
+    c1, c2, c3 = st.columns([1, 2, 1])
+    if c1.button("◀ 上月", key="student_sched_prev"):
+        if month == 1:
+            st.session_state.student_sched_month, st.session_state.student_sched_year = 12, year - 1
+        else:
+            st.session_state.student_sched_month -= 1
+        st.rerun()
+    c2.markdown(f"### {year} 年 {month:02d} 月")
+    if c3.button("下月 ▶", key="student_sched_next"):
+        if month == 12:
+            st.session_state.student_sched_month, st.session_state.student_sched_year = 1, year + 1
+        else:
+            st.session_state.student_sched_month += 1
+        st.rerun()
+
+    mapped = SPECIALTY_TO_GROUP.get(student_specialty, "—")
+    st.caption(
+        f"顯示 **全體組員** 及 **{mapped}** · "
+        f"🔵 今日顯示完整課表 · 其他日子可看**訓練時間及地點**"
+    )
+
+    programs = get_programs_for_month(year, month)
+    att_map = get_attendance_map_for_month(student_name, year, month) if student_name else {}
+    total_minutes = sum(
+        safe_int(v.get("duration_minutes"), 0)
+        for v in att_map.values()
+        if v.get("status") == "present"
+    )
+    if student_name and total_minutes > 0:
+        st.caption(f"本月累計訓練：**{format_train_duration(total_minutes)}**（已簽到日）")
+
+    prog_map: dict[str, dict] = {}
+    if not programs.empty:
+        for _, row in programs.iterrows():
+            ds = normalize_date_str(row.get("date"))
+            if ds:
+                prog_map[ds] = row_to_program(row)
+
+    weekdays = ["日", "一", "二", "三", "四", "五", "六"]
+    hdr = st.columns(7)
+    for i, w in enumerate(weekdays):
+        hdr[i].markdown(f"**{w}**")
+
+    cal = calendar.Calendar(firstweekday=6)
+    weeks = cal.monthdayscalendar(year, month)
+
+    for week in weeks:
+        cols = st.columns(7)
+        for i, day in enumerate(week):
+            if day == 0:
+                cols[i].markdown(
+                    "<div style='min-height:64px;background:#f8fafc;border-radius:4px;'></div>",
+                    unsafe_allow_html=True,
+                )
+                continue
+
+            ds = f"{year}-{month:02d}-{day:02d}"
+            d = date.fromisoformat(ds)
+            is_today = ds == today_str
+            is_future = d > today
+
+            prog = _student_prog_for_day(prog_map, ds, student_specialty)
+            att = att_map.get(ds)
+            att_line = _attendance_line(att)
+
+            if is_future:
+                if prog:
+                    time_part, venue = _time_venue_text(prog)
+                    detail_line = f"{time_part} · {venue}"
+                    title_line, bg = "未到", "#f1f5f9"
+                else:
+                    title_line, detail_line, bg = "未到", "", "#f1f5f9"
+                border, weight = "1px dashed #cbd5e1", "normal"
+                btn_label = str(day)
+            elif is_today:
+                if prog:
+                    tp = normalize_train_type(safe_str(prog.get("type")))
+                    title_line = safe_str(prog.get("title")) or tp
+                    time_part, venue = _time_venue_text(prog)
+                    detail_line = f"{time_part} · {venue}"
+                    bg = _type_bg(tp)
+                else:
+                    title_line, detail_line, bg = "休息", "", TYPE_CATEGORY_COLORS["rest"]
+                if att_line:
+                    detail_line = f"{detail_line}<br>{att_line}" if detail_line else att_line
+                border, weight = "3px solid #1d4ed8", "bold"
+                btn_label = f"🔵 {day}"
+            else:
+                if prog:
+                    time_part, venue = _time_venue_text(prog)
+                    detail_line = f"{time_part} · {venue}"
+                    if att_line:
+                        detail_line = f"{detail_line}<br>{att_line}"
+                    title_line = "✅ 已過" if att and att.get("status") == "present" else "已過"
+                    bg = "#dcfce7" if att and att.get("status") == "present" else "#e2e8f0"
+                else:
+                    title_line, detail_line, bg = "—", "", "#f8fafc"
+                    if att_line:
+                        detail_line = att_line
+                        title_line = "已簽到" if att and att.get("status") == "present" else "—"
+                        bg = "#dcfce7" if att and att.get("status") == "present" else "#f8fafc"
+                border, weight = "1px solid #e2e8f0", "normal"
+                btn_label = str(day)
+
+            if cols[i].button(btn_label, key=f"student_sched_{ds}", use_container_width=True):
+                st.session_state.student_sched_selected = ds
+                st.rerun()
+
+            detail_html = (
+                f"<br><span style='color:#64748b;font-size:9px;'>{detail_line}</span>"
+                if detail_line else ""
+            )
+            cols[i].markdown(
+                f"<div style='background:{bg};border:{border};border-radius:4px;padding:3px 4px;"
+                f"min-height:44px;font-size:10px;line-height:1.2;margin-top:-6px;font-weight:{weight};'>"
+                f"<span style='color:#1e3a8a;font-weight:600;'>{title_line}</span>"
+                f"{detail_html}</div>",
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("---")
+    selected = st.session_state.get("student_sched_selected", today_str)
+    _render_selected_day_detail(selected, prog_map, student_specialty, today, student_name)
+
+    st.caption("💡 點選今日日期可查看完整課表內容。")
+
+
+def _entry_card(prog: dict, *, highlight: bool = False) -> str:
+    tp = safe_str(prog.get("type"))
+    bg = _type_bg(tp)
+    border = "2px solid #1d4ed8" if highlight else "1px solid #e2e8f0"
+    title = safe_str(prog.get("title")) or tp or "訓練"
+    specs = program_specs(prog)
+    start = safe_str(prog.get("start_time"))
+    end = safe_str(prog.get("end_time"))
+    time_text = f"{start} – {end}" if start and end else (start or end or "時間待設定")
+    venue = resolve_venue(prog)
+    group = safe_str(prog.get("group"))
+    specs_html = f"<div style='color:#475569;font-size:11px;margin-top:2px;'>{specs}</div>" if specs else ""
+    return (
+        f"<div style='background:{bg};border:{border};border-radius:8px;padding:10px 12px;margin-bottom:8px;'>"
+        f"<div style='font-size:12px;color:#334155;font-weight:600;'>{format_timetable_date(prog['date'])}"
+        f"{' · 今日' if highlight else ''}</div>"
+        f"<div style='font-size:13px;font-weight:700;color:#1e3a8a;margin-top:4px;'>{tp} · {title}</div>"
+        f"{specs_html}"
+        f"<div style='color:#334155;font-size:12px;margin-top:6px;'>🕐 {time_text}</div>"
+        f"<div style='color:#475569;font-size:12px;margin-top:2px;'>📍 {venue}</div>"
+        f"<div style='color:#64748b;font-size:10px;margin-top:4px;'>👥 {group}</div>"
+        f"</div>"
+    )
+
+
+def render_program_timetable(
+    *,
+    student_specialty: str | None = None,
+    days_ahead: int = 45,
+) -> None:
+    """Coach preview — list upcoming training days with time & venue."""
+    entries = get_timetable_entries(specialty=student_specialty, days_ahead=days_ahead)
+    today = date.today().isoformat()
+
+    if student_specialty:
+        mapped = SPECIALTY_TO_GROUP.get(student_specialty, "—")
+        st.caption(f"顯示 **全體組員** 及 **{mapped}** 的課表（教練預覽）")
+
+    if not entries:
+        st.info("月曆中尚無訓練課表，請先在「週期化課表」排課。")
+        return
+
+    html = "".join(_entry_card(p, highlight=p["date"] == today) for p in entries)
+    st.markdown(html, unsafe_allow_html=True)
+    st.caption("🟥速度 🟦耐力 🟪技術 🟧肌力 🟩比賽")

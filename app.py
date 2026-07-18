@@ -1,43 +1,195 @@
-"""Track & field training management app — main entry point."""
+"""KORE ATHLETIC — V6 full navigation."""
 
 import streamlit as st
 
+from utils.auth import get_current_user, logout
+from utils.config import APP_NAME, APP_VERSION
+from utils.coach_pending import get_coach_pending_total
 from utils.data_store import init_sample_data
-from views.coach_view import render_coach_view
-from views.student_view import render_student_view
+from utils.site_content import is_pb_public
+from views.analysis_view import render_analysis
+from views.auth_view import render_auth_view
+from views.coach_view import COACH_NAV_CATEGORIES, COACH_SECTIONS, render_coach_view
+from views.components.brand import LOGO_PATH, logo_exists, render_brand_header, render_sidebar_brand
+from views.components.coach_pending_alert import render_coach_pending_sidebar
+from views.components.sidebar_nav import render_nav_categories, render_top_nav
+from views.components.theme import inject_global_css, render_breadcrumb, render_theme_toggle
+from views.leaderboard_view import render_leaderboard
+from views.parent_view import render_parent_view
+from views.register_view import render_register_view
+from views.student_view import STUDENT_NAV_CATEGORIES, STUDENT_SECTIONS, render_student_view
+from views.visitor_view import render_visitor_view
 
 st.set_page_config(
-    page_title="田徑隊訓練管理",
-    page_icon="🏃",
+    page_title=f"{APP_NAME} | 田徑訓練管理",
+    page_icon=str(LOGO_PATH) if logo_exists() else "🏃",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# Initialize sample CSV data on first run
 if "initialized" not in st.session_state:
     init_sample_data()
     st.session_state.initialized = True
 
+if "ui_theme" not in st.session_state:
+    st.session_state.ui_theme = "light"
+
+ROLE_LABELS = {"coach": "教練", "student": "學員", "parent": "家長", "visitor": "訪客"}
+
+TOP_NAV = {
+    "coach": [
+        ("🎯 教練平台", "教練平台"),
+        ("🏆 PB 排行榜", "PB 排行榜"),
+        ("📊 成效分析", "成效分析"),
+    ],
+    "student": [
+        ("🏃 學生平台", "學生平台"),
+        ("🏆 PB 排行榜", "PB 排行榜"),
+    ],
+    "parent": [
+        ("👨‍👩‍👧 家長專區", "家長專區"),
+        ("🏆 PB 排行榜", "PB 排行榜"),
+    ],
+}
+
+
+def _visitor_nav() -> list[tuple[str, str]]:
+    nav = [
+        ("🏠 訪客專區", "訪客專區"),
+        ("🔑 登入", "登入"),
+        ("📝 註冊新學員", "註冊新學員"),
+    ]
+    if is_pb_public():
+        nav.append(("🏆 PB 排行榜", "PB 排行榜"))
+    return nav
+
+
+def _category_for_section(categories: list[tuple[str, list[str]]], section: str) -> str | None:
+    for cat_label, items in categories:
+        if section in items:
+            return cat_label
+    return None
+
+
+def _render_page(
+    page: str,
+    role: str,
+    *,
+    coach_section: str | None = None,
+    student_section: str | None = None,
+) -> None:
+    if page == "訪客專區":
+        render_visitor_view()
+    elif page == "登入":
+        render_auth_view()
+    elif page == "註冊新學員":
+        render_register_view()
+    elif page == "教練平台":
+        render_coach_view(coach_section or COACH_SECTIONS[0])
+    elif page == "學生平台":
+        render_student_view(student_section or STUDENT_SECTIONS[0])
+    elif page == "家長專區":
+        render_parent_view()
+    elif page == "PB 排行榜":
+        render_leaderboard()
+    elif page == "成效分析":
+        render_analysis()
+
 
 def main() -> None:
+    inject_global_css()
+    user = get_current_user()
+    role = user["role"] if user else "visitor"
+
     with st.sidebar:
-        st.header("🏃 田徑隊訓練管理")
-        st.markdown("---")
-
-        role = st.radio(
-            "選擇身份",
-            options=["學生端", "教練端"],
-            index=0,
-            help="學生端：記錄訓練數據 · 教練端：查看總覽與圖表",
+        render_sidebar_brand(
+            user_name=user["name"] if user else "訪客",
+            role_label=ROLE_LABELS.get(role, role),
+            username=user.get("username") if user and role == "student" else None,
         )
+        st.markdown("---")
+        render_theme_toggle()
+        st.markdown("---")
+        if role == "coach":
+            render_coach_pending_sidebar()
+        st.markdown("<p class='ka-nav-label'>主選單</p>", unsafe_allow_html=True)
+
+        if role == "visitor":
+            top_options = _visitor_nav()
+            default_page = "訪客專區"
+        else:
+            top_options = TOP_NAV.get(role, _visitor_nav())
+            default_page = top_options[0][1]
+
+        page = render_top_nav(top_options, "main_page", default_page)
+
+        coach_section = None
+        student_section = None
+        if role == "coach" and page == "教練平台":
+            st.markdown("---")
+            pending_total = get_coach_pending_total()
+            nav_badges = {"隊伍管理": pending_total} if pending_total else None
+            coach_section = render_nav_categories(
+                COACH_NAV_CATEGORIES,
+                "coach_section",
+                COACH_SECTIONS[0],
+                badges=nav_badges,
+            )
+        elif role == "student" and page == "學生平台":
+            st.markdown("---")
+            student_section = render_nav_categories(
+                STUDENT_NAV_CATEGORIES,
+                "student_section",
+                STUDENT_SECTIONS[0],
+            )
 
         st.markdown("---")
-        st.caption("數據暫存於本地 CSV 檔案（`data/` 資料夾）")
+        st.caption(f"v{APP_VERSION}")
+        if user:
+            if st.button("登出", use_container_width=True):
+                logout()
+                st.rerun()
 
-    if role == "學生端":
-        render_student_view()
+    visitor_public_pages = ("訪客專區", "登入", "註冊新學員")
+    if is_pb_public():
+        visitor_public_pages = (*visitor_public_pages, "PB 排行榜")
+
+    if role == "visitor" and page == "PB 排行榜" and not is_pb_public():
+        render_breadcrumb("PB 排行榜")
+        st.warning("PB 排行榜只供登入用戶查看。請登入或使用左側「訪客專區」了解本會資訊。")
+        render_auth_view()
+        return
+
+    if role == "visitor" and page not in visitor_public_pages:
+        st.warning("請先登入或使用訪客專區")
+        render_visitor_view()
+        return
+
+    if role == "visitor" and page == "PB 排行榜" and is_pb_public():
+        render_brand_header()
+
+    if user and page == "登入":
+        page = {"coach": "教練平台", "student": "學生平台", "parent": "家長專區"}.get(role, "PB 排行榜")
+
+    if user and page == "教練平台" and coach_section:
+        cat = _category_for_section(COACH_NAV_CATEGORIES, coach_section or "")
+        parts = [page, cat, coach_section] if cat else [page, coach_section or ""]
+        render_breadcrumb(*[p for p in parts if p])
+    elif user and page == "學生平台" and student_section:
+        cat = _category_for_section(STUDENT_NAV_CATEGORIES, student_section or "")
+        parts = [page, cat, student_section] if cat else [page, student_section or ""]
+        render_breadcrumb(*[p for p in parts if p])
+    elif page == "訪客專區":
+        render_breadcrumb("訪客專區")
+    elif user and page not in ("登入", "註冊新學員"):
+        render_breadcrumb(page)
+
+    if role == "coach" and page == "教練平台":
+        _render_page(page, role, coach_section=coach_section or COACH_SECTIONS[0])
+    elif role == "student" and page == "學生平台":
+        _render_page(page, role, student_section=student_section or STUDENT_SECTIONS[0])
     else:
-        render_coach_view()
+        _render_page(page, role)
 
 
 if __name__ == "__main__":

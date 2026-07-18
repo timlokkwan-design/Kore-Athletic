@@ -2,5 +2,22 @@
 gatherUsageStats = false
 
 [server]
-headless = false
-port = 8501
+headless = true
+enableXsrfProtection = true
+fileWatcherType = "poll"
+
+[client]
+showErrorDetails = true
+
+[theme]
+primaryColor = "#64748b"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f1f5f9"
+textColor = "#0f172a"
+
+[theme.sidebar]
+widgetBackgroundColor = "#1a1d24"
+widgetBorderColor = "#334155"
+backgroundColor = "#0f1117"
+secondaryBackgroundColor = "#1a1d24"
+textColor = "#e2e8f0"
