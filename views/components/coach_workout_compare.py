@@ -150,33 +150,51 @@ def render_workout_history_compare(
     highlight_group: str | None = None,
     groups: list[str] | None = None,
     days_back: int = 14,
+    show_heading: bool = True,
 ) -> None:
     """
-    Show past training plans by group in columns (短跑 / 中長跑 / 跨欄).
+    Show past training plans for given group(s).
     Full workout text inline; tap 放大檢視 for dialog.
     """
     show_groups = groups or _COMPARE_GROUPS
     if highlight_group:
         hg = normalize_group(highlight_group)
-        ordered = [hg] + [g for g in show_groups if normalize_group(g) != hg]
-        show_groups = ordered
+        if groups is None:
+            ordered = [hg] + [g for g in show_groups if normalize_group(g) != hg]
+            show_groups = ordered
+        else:
+            show_groups = [g for g in show_groups if normalize_group(g) == hg] or [hg]
 
-    st.markdown("#### 📊 近2週同組別跑案參考")
-    st.caption(
-        f"選定日 **{selected.month}/{selected.day}** · "
-        f"完整跑案可直接對照 · 按 **放大檢視** 可全屏閱讀"
-    )
+    if show_heading:
+        if len(show_groups) == 1:
+            gl = group_display_label(show_groups[0])
+            st.markdown(f"#### 📊 近2週 · {gl} 跑案參考")
+        else:
+            st.markdown("#### 📊 近2週同組別跑案參考")
+        st.caption(
+            f"選定日 **{selected.month}/{selected.day}** · "
+            f"完整跑案可直接對照 · 按 **放大檢視** 可全屏閱讀"
+        )
 
     n = len(show_groups)
-    cols = st.columns(n)
-    for col_idx, (col, grp) in enumerate(zip(cols, show_groups)):
-        with col:
-            _render_group_column(
-                selected,
-                grp,
-                highlight=highlight_group is not None and normalize_group(grp) == normalize_group(highlight_group),
-                col_idx=col_idx,
-                days_back=days_back,
-            )
+    if n == 1:
+        _render_group_column(
+            selected,
+            show_groups[0],
+            highlight=True,
+            col_idx=0,
+            days_back=days_back,
+        )
+    else:
+        cols = st.columns(n)
+        for col_idx, (col, grp) in enumerate(zip(cols, show_groups)):
+            with col:
+                _render_group_column(
+                    selected,
+                    grp,
+                    highlight=highlight_group is not None and normalize_group(grp) == normalize_group(highlight_group),
+                    col_idx=col_idx,
+                    days_back=days_back,
+                )
 
     _open_history_dialog()

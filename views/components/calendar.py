@@ -20,6 +20,7 @@ from utils.helpers import (
     format_timetable_date,
     format_time_venue_line,
     calendar_cell_bg,
+    calendar_cell_tone,
     calendar_day_has_training,
     normalize_date_str,
     merge_programs_calendar_summary,
@@ -135,41 +136,38 @@ def _coach_compact_day_style(
     delete_targets: set,
 ) -> dict:
     today_str = date.today().isoformat()
-    bg = calendar_cell_bg(prog_map.get(ds))
+    entry = prog_map.get(ds)
+    tone = calendar_cell_tone(entry)
     border = "1px solid #e2e8f0"
+    sync_outline = ""
     label = f"●{day}" if ds == today_str else str(day)
     disabled = False
 
     if copy_mode and ds == copy_source:
-        border = "3px solid #f59e0b"
+        sync_outline = "copy-source"
     elif copy_mode and ds in copy_targets:
-        border = "3px solid #16a34a"
-        bg = "#dcfce7"
+        tone = "picked"
         label = f"✓{day}"
     elif copy_mode and ds != copy_source:
         label = f"+{day}"
     elif delete_mode and ds in delete_targets:
-        border = "3px solid #dc2626"
-        bg = "#fee2e2"
+        tone = "picked"
         label = f"✓{day}"
     elif delete_mode and ds not in prog_map:
-        bg = "#f8fafc"
+        tone = "disabled"
         disabled = True
     elif delete_mode:
         border = "2px dashed #fca5a5"
-    elif st.session_state.get(select_key) == ds:
-        border = "2px solid #1d4ed8"
 
-    sync = day_sync_status(prog_map.get(ds)) if not copy_mode and not delete_mode else ""
+    sync = day_sync_status(entry) if not copy_mode and not delete_mode else ""
     if sync == "need_workout":
-        border = "2px solid #f59e0b"
+        sync_outline = "workout"
     elif sync == "need_schedule":
-        border = "2px solid #ea580c"
+        sync_outline = "schedule"
     elif sync == "need_both":
-        border = "2px dashed #f59e0b"
+        sync_outline = "both"
 
     if not copy_mode and not delete_mode:
-        entry = prog_map.get(ds)
         if entry and calendar_day_has_training(entry):
             prog = ensure_program_dict(entry)
             tp = safe_str(prog.get("type"))
@@ -187,7 +185,14 @@ def _coach_compact_day_style(
                 else:
                     label = f"{day}·{vol_label}"
 
-    return {"bg": bg, "border": border, "label": label, "disabled": disabled}
+    return {
+        "tone": tone,
+        "bg": calendar_cell_bg(entry),
+        "border": border,
+        "sync": sync_outline,
+        "label": label,
+        "disabled": disabled,
+    }
 
 
 def _render_coach_compact_grid(

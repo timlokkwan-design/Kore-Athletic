@@ -24,6 +24,7 @@ from utils.data_store import (
 )
 from utils.helpers import (
     calendar_cell_bg,
+    calendar_cell_tone,
     format_timetable_date,
     format_train_duration,
     normalize_date_str,
@@ -193,22 +194,28 @@ def _student_compact_style(
         label = str(day)
 
     if prog:
-        tp = normalize_train_type(safe_str(prog.get("type")))
-        bg = CALENDAR_BG_COMPETITION if tp == "比賽" else CALENDAR_BG_TRAINING
+        tone = calendar_cell_tone(prog)
         hint = _time_hint(prog)
         if att and att.get("status") == "present" and d < today:
             border = "2px solid #16a34a"
     elif att and att.get("status") == "present":
-        bg = "#dcfce7"
+        tone = "attended"
         hint = ""
     elif d > today:
-        bg = CALENDAR_BG_REST
+        tone = "rest"
         hint = ""
     else:
-        bg = CALENDAR_BG_EMPTY
+        tone = "empty"
         hint = ""
 
-    return {"bg": bg, "border": border, "label": label, "disabled": False, "hint": hint}
+    return {
+        "tone": tone,
+        "bg": calendar_cell_bg(prog),
+        "border": border,
+        "label": label,
+        "disabled": False,
+        "hint": hint,
+    }
 
 
 def _render_student_schedule_compact(
@@ -269,7 +276,7 @@ def _student_day_cell(
         if att_line:
             detail = f"{detail} · {att_line}" if detail else att_line
         tp = normalize_train_type(safe_str(prog.get("type")))
-        bg = CALENDAR_BG_COMPETITION if tp == "比賽" else CALENDAR_BG_TRAINING
+        bg = calendar_cell_bg(prog)
         title = "比賽" if tp == "比賽" else "訓練"
         if is_today:
             return f"🔵 {title}", detail, title, bg, f"🔵 {d.day}"

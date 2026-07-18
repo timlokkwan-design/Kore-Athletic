@@ -9,6 +9,7 @@ from utils.config import normalize_train_type
 from utils.data_store import get_programs_for_month, build_day_programs_map
 from utils.helpers import (
     calendar_cell_bg,
+    calendar_cell_tone,
     calendar_day_has_training,
     day_sync_status,
     format_timetable_date,
@@ -161,31 +162,28 @@ def _sched_compact_style(
     progs = day_map.get(ds, [])
     title, detail, tp = _cell_summary(progs)
     sync = day_sync_status(_merged_for_sync(progs))
-    bg = calendar_cell_bg(progs=progs)
-    border = "1px solid #e2e8f0"
+    tone = calendar_cell_tone(progs=progs)
+    sync_outline = ""
     label = f"●{day}" if ds == today_str else str(day)
     disabled = False
 
     if pick_mode == "copy" and ds == copy_source:
-        border = "3px solid #f59e0b"
+        sync_outline = "copy-source"
     elif pick_mode and ds in picks:
-        border = "3px solid #16a34a"
-        bg = "#dcfce7"
+        tone = "picked"
         label = f"✓{day}"
     elif pick_mode == "copy" and ds != copy_source:
         label = f"+{day}"
     elif pick_mode:
         label = f"+{day}" if ds not in picks else f"✓{day}"
-    elif st.session_state.get(select_key) == ds:
-        border = "2px solid #1d4ed8"
 
     if not pick_mode:
         if sync == "need_workout":
-            border = "2px solid #f59e0b"
+            sync_outline = "workout"
         elif sync == "need_schedule":
-            border = "2px solid #ea580c"
+            sync_outline = "schedule"
         elif sync == "need_both":
-            border = "2px dashed #f59e0b"
+            sync_outline = "both"
 
     if not pick_mode and calendar_day_has_training(progs=progs):
         if len(progs) == 1:
@@ -202,7 +200,14 @@ def _sched_compact_style(
 
     hint = detail[:24] if detail and not pick_mode and calendar_day_has_training(progs=progs) else ""
 
-    return {"bg": bg, "border": border, "label": label, "disabled": disabled, "hint": hint}
+    return {
+        "tone": tone,
+        "bg": calendar_cell_bg(progs=progs),
+        "sync": sync_outline,
+        "label": label,
+        "disabled": disabled,
+        "hint": hint,
+    }
 
 
 def _render_sched_compact_grid(

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import calendar
+import html
 from datetime import date
 from typing import Callable
 
@@ -11,12 +12,33 @@ import streamlit as st
 _CELL_MIN = 40
 _CELL_MAX = 56
 
+_TONE_STYLES = {
+    "training": ("#dbeafe", "#1e40af", "#93c5fd"),
+    "competition": ("#fee2e2", "#991b1b", "#fca5a5"),
+    "rest": ("#f1f5f9", "#64748b", "#e2e8f0"),
+    "empty": ("#f8fafc", "#64748b", "#e2e8f0"),
+    "picked": ("#dcfce7", "#166534", "#86efac"),
+    "attended": ("#dcfce7", "#166534", "#86efac"),
+    "disabled": ("#f8fafc", "#cbd5e1", "#f1f5f9"),
+}
+
 
 def inject_compact_calendar_css() -> None:
+    tone_rules = []
+    for tone, (bg, fg, border) in _TONE_STYLES.items():
+        tone_rules.append(
+            f'div[data-testid="column"]:has(.ka-ccell-marker[data-tone="{tone}"]) '
+            f'[data-testid="stButton"] button {{'
+            f"background-color: {bg} !important;"
+            f"color: {fg} !important;"
+            f"border: 1px solid {border} !important;"
+            f"}}"
+        )
+    tone_css = "\n".join(tone_rules)
+
     st.markdown(
         f"""
         <style>
-        /* Scope via marker div (.ka-ccell) inside each Streamlit column block */
         div[data-testid="stHorizontalBlock"]:has(.ka-ccell-marker) {{
             gap: 2px !important;
         }}
@@ -28,12 +50,6 @@ def inject_compact_calendar_css() -> None:
         }}
         div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stVerticalBlock"] {{
             gap: 0 !important;
-        }}
-        div[data-testid="column"]:has(.ka-ccell-marker) .ka-ccell-strip {{
-            height: 4px;
-            min-height: 4px;
-            border-radius: 2px 2px 0 0;
-            margin: 0;
         }}
         div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stButton"] {{
             margin-top: 0 !important;
@@ -55,8 +71,24 @@ def inject_compact_calendar_css() -> None:
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
-            border-radius: 0 0 4px 4px !important;
+            border-radius: 4px !important;
         }}
+        div[data-testid="column"]:has(.ka-ccell-marker[data-selected="1"]) [data-testid="stButton"] button {{
+            box-shadow: inset 0 0 0 2px #1d4ed8 !important;
+        }}
+        div[data-testid="column"]:has(.ka-ccell-marker[data-sync="workout"]) [data-testid="stButton"] button {{
+            box-shadow: inset 0 0 0 2px #f59e0b !important;
+        }}
+        div[data-testid="column"]:has(.ka-ccell-marker[data-sync="schedule"]) [data-testid="stButton"] button {{
+            box-shadow: inset 0 0 0 2px #ea580c !important;
+        }}
+        div[data-testid="column"]:has(.ka-ccell-marker[data-sync="both"]) [data-testid="stButton"] button {{
+            box-shadow: inset 0 0 0 2px #f59e0b, inset 0 0 0 3px #ea580c !important;
+        }}
+        div[data-testid="column"]:has(.ka-ccell-marker[data-sync="copy-source"]) [data-testid="stButton"] button {{
+            box-shadow: inset 0 0 0 3px #f59e0b !important;
+        }}
+        {tone_css}
         div[data-testid="column"]:has(.ka-ccell-empty) .ka-ccell-empty {{
             aspect-ratio: 1 / 1;
             width: 100%;
@@ -115,8 +147,9 @@ def render_compact_month_grid(
     firstweekday: int = 6,
 ) -> None:
     """
-    Render minimal 7-column calendar. Each cell = color strip + day button (fixed square).
-    day_style(ds, day) -> {bg, border, label, disabled, hint (ignored in grid)}
+    Render minimal 7-column calendar. Each cell = colored day button (fixed square).
+    day_style(ds, day) -> {tone, border, label, disabled, bg (legacy)}
+    tone: training | competition | rest | empty | picked | attended | disabled
     """
     inject_compact_calendar_css()
 
@@ -144,26 +177,27 @@ def render_compact_month_grid(
                     continue
                 ds = f"{year}-{month:02d}-{day:02d}"
                 style = day_style(ds, day)
-                bg = style.get("bg", "#f8fafc")
-                border = style.get("border", "1px solid #e2e8f0")
+                tone = style.get("tone", "empty")
+                sync = style.get("sync", "")
+                border = style.get("border", "")
                 label = _compact_label(style.get("label", str(day)), day)
                 disabled = bool(style.get("disabled"))
                 is_sel = selected == ds
+                border_attr = html.escape(border) if border else ""
 
                 st.markdown(
-                    "<div class='ka-ccell-marker'>"
-                    f"<div class='ka-ccell-strip' style='background:{bg};"
-                    f"border:{border};border-bottom:none;'></div>"
-                    "</div>",
+                    f'<div class="ka-ccell-marker" data-tone="{html.escape(tone)}" '
+                    f'data-selected="{"1" if is_sel else "0"}" '
+                    f'data-sync="{html.escape(sync)}" '
+                    f'data-border="{border_attr}"></div>',
                     unsafe_allow_html=True,
                 )
-                btn_type = "primary" if is_sel else "secondary"
                 st.button(
                     label,
                     key=f"compact_{select_key}_{ds}",
                     use_container_width=True,
                     disabled=disabled,
-                    type=btn_type,
+                    type="secondary",
                     on_click=on_pick if on_pick else _open_dialog_state,
                     args=(ds,) if on_pick else (dialog_key, select_key, ds),
                 )

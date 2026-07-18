@@ -398,36 +398,66 @@ def short_group_label(group: str) -> str:
     return group_display_label(group)
 
 
+def _calendar_items(prog: dict | None = None, *, progs: list[dict] | None = None) -> list[dict]:
+    items: list[dict] = list(progs) if progs else []
+    if not items and prog:
+        nested = prog.get("_programs")
+        items = list(nested) if nested else [prog]
+    return items
+
+
+def _program_calendar_tone(prog: dict) -> str:
+    """Per program: competition | training | rest | empty."""
+    from utils.config import normalize_train_type
+
+    if not prog:
+        return "empty"
+    tp = normalize_train_type(safe_str(prog.get("type")))
+    if tp == "休息":
+        return "rest"
+    if tp == "比賽":
+        return "competition"
+    if has_time_venue(prog) or bool(workout_detail(prog).strip()):
+        return "training"
+    return "empty"
+
+
+def calendar_cell_tone(prog: dict | None = None, *, progs: list[dict] | None = None) -> str:
+    """Button tone: competition | training | rest | empty."""
+    items = _calendar_items(prog, progs=progs)
+    if not items:
+        return "empty"
+    tones = [_program_calendar_tone(p) for p in items]
+    if "competition" in tones:
+        return "competition"
+    if "training" in tones:
+        return "training"
+    if all(t == "rest" for t in tones):
+        return "rest"
+    return "empty"
+
+
 def calendar_cell_bg(prog: dict | None = None, *, progs: list[dict] | None = None) -> str:
-    """Blue = training day, red = competition, gray = rest / empty."""
+    """Blue = training (time or content), red = competition, gray = rest / empty."""
     from utils.config import (
         CALENDAR_BG_COMPETITION,
         CALENDAR_BG_EMPTY,
         CALENDAR_BG_REST,
         CALENDAR_BG_TRAINING,
-        normalize_train_type,
     )
 
-    items: list[dict] = list(progs) if progs else []
-    if not items and prog:
-        nested = prog.get("_programs")
-        items = list(nested) if nested else [prog]
-    if not items:
-        return CALENDAR_BG_EMPTY
-    types = [normalize_train_type(safe_str(p.get("type"))) for p in items]
-    if any(t == "比賽" for t in types):
-        return CALENDAR_BG_COMPETITION
-    if any(t not in ("休息", "") for t in types):
-        return CALENDAR_BG_TRAINING
-    return CALENDAR_BG_REST
+    tone = calendar_cell_tone(prog, progs=progs)
+    return {
+        "competition": CALENDAR_BG_COMPETITION,
+        "training": CALENDAR_BG_TRAINING,
+        "rest": CALENDAR_BG_REST,
+        "empty": CALENDAR_BG_EMPTY,
+    }.get(tone, CALENDAR_BG_EMPTY)
 
 
 def calendar_day_has_training(prog: dict | None = None, *, progs: list[dict] | None = None) -> bool:
     """True when the day has training or competition (not rest / empty)."""
-    from utils.config import CALENDAR_BG_COMPETITION, CALENDAR_BG_TRAINING
-
-    bg = calendar_cell_bg(prog, progs=progs)
-    return bg in (CALENDAR_BG_TRAINING, CALENDAR_BG_COMPETITION)
+    return calendar_cell_tone(prog, progs=progs) in ("training", "competition")
 
 
 def merge_programs_calendar_summary(progs: list[dict]) -> tuple[str, str]:
