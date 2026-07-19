@@ -92,6 +92,20 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         section.main {{
             background-color: {c["main_bg"]};
         }}
+        /* Hide Streamlit chrome that overlaps our mobile bottom dock */
+        .stDeployButton,
+        [data-testid="stAppDeployButton"],
+        [data-testid="stStatusWidget"],
+        [data-testid="stToolbar"],
+        [data-testid="stDecoration"],
+        header [data-testid="stHeaderActionElements"],
+        div[data-testid="stAppToolbar"] {{
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }}
+        #MainMenu {{ visibility: hidden; }}
+        footer {{ visibility: hidden; }}
         hr {{ margin: 0.75rem 0; border-color: {c["border"]}; }}
         section.main [data-testid="stMarkdownContainer"] h1,
         section.main [data-testid="stMarkdownContainer"] h2,
