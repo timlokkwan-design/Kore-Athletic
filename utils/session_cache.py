@@ -63,13 +63,6 @@ def soft_refresh_data() -> None:
     import streamlit as st
 
     invalidate_data_cache()
-    try:
-        from utils.session_persist import refresh_persisted_login
-
-        st.session_state._auth_persist_touch = 0
-        refresh_persisted_login()
-    except Exception:
-        pass
     st.rerun()
 
 

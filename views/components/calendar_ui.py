@@ -59,53 +59,24 @@ def render_calendar_month_nav(
     def _toggle_picker():
         st.session_state[picker_key] = not st.session_state.get(picker_key, False)
 
-    with stylable_container(
-        key=f"{prev_key}_nav_row",
-        css_styles="""
-        {
-            background: transparent;
-            border: none;
-            padding: 0;
-            margin-bottom: 0.35rem;
-        }
-        div[data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            align-items: center !important;
-            gap: 0.35rem !important;
-        }
-        div[data-testid="stHorizontalBlock"] > div {
-            flex: 0 0 auto !important;
-        }
-        div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
-            flex: 1 1 auto !important;
-            min-width: 0 !important;
-        }
-        button {
-            min-height: 2.6rem !important;
-            font-weight: 700 !important;
-            border-radius: 10px !important;
-        }
-        """,
-    ):
-        st.markdown(
-            f'<div class="ka-cal-month-nav-marker" data-prev="{prev_key}" data-next="{next_key}"></div>',
-            unsafe_allow_html=True,
+    # Keep CSS minimal — do NOT force flex on all horizontal blocks (breaks calendar).
+    st.markdown(
+        f'<div class="ka-cal-month-nav-marker" data-prev="{prev_key}" data-next="{next_key}"></div>',
+        unsafe_allow_html=True,
+    )
+    c1, c2, c3 = st.columns([1, 3.2, 1], gap="small")
+    with c1:
+        st.button("◀", key=prev_key, on_click=on_prev, args=prev_args, use_container_width=True)
+    with c2:
+        st.button(
+            f"{year} 年 {month:02d} 月 ▾",
+            key=f"{prev_key}_title_btn",
+            on_click=_toggle_picker,
+            use_container_width=True,
+            type="secondary",
         )
-        c1, c2, c3 = st.columns([1, 3.2, 1])
-        with c1:
-            st.button("◀", key=prev_key, on_click=on_prev, args=prev_args, use_container_width=True)
-        with c2:
-            st.button(
-                f"{year} 年 {month:02d} 月 ▾",
-                key=f"{prev_key}_title_btn",
-                on_click=_toggle_picker,
-                use_container_width=True,
-                type="secondary",
-            )
-        with c3:
-            st.button("▶", key=next_key, on_click=on_next, args=next_args, use_container_width=True)
+    with c3:
+        st.button("▶", key=next_key, on_click=on_next, args=next_args, use_container_width=True)
 
     can_pick = bool(on_pick) or (year_state_key and month_state_key)
     if st.session_state.get(picker_key) and can_pick:
@@ -138,12 +109,14 @@ def render_calendar_month_nav(
                 st.session_state[picker_key] = False
                 st.rerun()
 
-    # Swipe left/right on calendar area → click ◀ / ▶
+    # Swipe left/right on calendar iframe / grid → click ◀ / ▶
     try:
         st.html(
             """
             <script>
             (function () {
+              if (window.__kaCalSwipeBound) return;
+              window.__kaCalSwipeBound = true;
               function findBtn(label) {
                 var buttons = document.querySelectorAll('button');
                 for (var i = 0; i < buttons.length; i++) {
@@ -174,7 +147,6 @@ def render_calendar_month_nav(
                 }, { passive: true });
               }
               function attach() {
-                document.querySelectorAll('.fc, .ka-cal-shell-marker').forEach(wire);
                 document.querySelectorAll('iframe').forEach(function (frame) {
                   try {
                     var doc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
@@ -188,8 +160,7 @@ def render_calendar_month_nav(
                 });
               }
               attach();
-              setTimeout(attach, 300);
-              setTimeout(attach, 900);
+              setTimeout(attach, 400);
             })();
             </script>
             """,
