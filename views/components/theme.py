@@ -327,10 +327,14 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             section.main .block-container {{
                 padding-bottom: 5.5rem !important;
             }}
-            /* Pin the dock container to the viewport bottom */
+            /* Pin the dock container to the viewport bottom (student + coach) */
             div[data-testid="stVerticalBlock"]:has(> div > .ka-bottom-tabbar-marker),
             div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker),
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) {{
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker),
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker),
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker),
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker),
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) {{
                 position: fixed !important;
                 left: 0 !important;
                 right: 0 !important;
@@ -345,7 +349,9 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.10) !important;
             }}
             /* Marker itself must not become a fixed full-width strip */
-            div[data-testid="element-container"]:has(.ka-bottom-tabbar-marker) {{
+            div[data-testid="element-container"]:has(.ka-bottom-tabbar-marker),
+            div[data-testid="element-container"]:has(.ka-student-dock-marker),
+            div[data-testid="element-container"]:has(.ka-coach-dock-marker) {{
                 position: absolute !important;
                 width: 0 !important;
                 height: 0 !important;
@@ -358,7 +364,11 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             }}
             /* CRITICAL: keep tabs in a single horizontal row (Streamlit may wrap columns) */
             div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] {{
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] {{
                 display: flex !important;
                 flex-direction: row !important;
                 flex-wrap: nowrap !important;
@@ -369,18 +379,34 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 margin: 0 !important;
             }}
             div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div,
             div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="column"],
             div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stColumn"],
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="column"],
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stColumn"],
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="column"],
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stColumn"],
             div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div,
             div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="column"],
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stColumn"] {{
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stColumn"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="column"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stColumn"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="column"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stColumn"] {{
                 flex: 1 1 0 !important;
                 min-width: 0 !important;
                 max-width: none !important;
                 width: auto !important;
             }}
             div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button {{
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) button,
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) button,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) button,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) button {{
                 min-height: 3.1rem !important;
                 width: 100% !important;
                 white-space: pre-line !important;
@@ -393,12 +419,20 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 box-shadow: none !important;
             }}
             div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button:active,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button:active {{
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) button:active,
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) button:active,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button:active,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) button:active,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) button:active {{
                 transform: scale(0.88) !important;
                 filter: brightness(0.9) !important;
             }}
             div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button:focus-visible,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button:focus-visible {{
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) button:focus-visible,
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) button:focus-visible,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button:focus-visible,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) button:focus-visible,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) button:focus-visible {{
                 outline: 2px solid {c["text"]}55 !important;
                 outline-offset: 2px !important;
             }}

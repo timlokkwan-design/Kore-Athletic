@@ -56,12 +56,17 @@ def _render_bottom_tabbar(
     active_aliases: map dock section → other sections that should also light up the tile
     """
     # Reinforce layout every render (Streamlit mobile CSS can wrap columns).
+    # Applies to BOTH student (.ka-student-dock-marker) and coach (.ka-coach-dock-marker).
     st.markdown(
         """
         <style>
         @media (max-width: 768px) {
           div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] {
+          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: nowrap !important;
@@ -69,27 +74,40 @@ def _render_bottom_tabbar(
             gap: 0.18rem !important;
           }
           div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div,
           div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="column"],
           div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stColumn"],
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="column"],
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stColumn"] {
+          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="column"],
+          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stColumn"],
+          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="column"],
+          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stColumn"] {
             flex: 1 1 0 !important;
             min-width: 0 !important;
             width: auto !important;
             max-width: none !important;
           }
         }
-        /* Desktop: keep dock as one compact row too (not stacked full-width) */
         @media (min-width: 769px) {
           div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] {
+          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: nowrap !important;
           }
           div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div {
+          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div {
             flex: 1 1 0 !important;
             min-width: 0 !important;
           }
