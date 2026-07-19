@@ -7,12 +7,14 @@ import streamlit as st
 
 from utils.data_store import (
     delete_comp_entry,
+    ensure_youth_age_group_v_registrations,
     get_best_performance_last_year,
     get_student_competitions,
     resolve_event_pb,
     submit_comp_entry,
 )
 from utils.helpers import format_birth_display, format_timetable_date, safe_str
+from views.components.comp_roster import render_successful_registration_roster
 
 
 def _profile_complete(user: dict) -> bool:
@@ -112,8 +114,12 @@ def _render_comp_signup(user: dict, comp: dict) -> None:
                 f"（{pb.get('comp_name') or '—'} · {pb.get('date') or '—'}）"
             )
 
+    st.markdown("---")
+    render_successful_registration_roster(comp_id)
+
 
 def render_student_comp_registration(user: dict) -> None:
+    ensure_youth_age_group_v_registrations()
     st.markdown("#### 🏅 比賽報名")
     st.caption("選擇參賽項目；如已有申報成績紀錄會自動帶入，否則請填寫該項目最佳成績。詳細個人資料請至「個人資料」分頁。")
 
@@ -127,8 +133,14 @@ def render_student_comp_registration(user: dict) -> None:
         return
 
     today = date.today().isoformat()
-    upcoming = [c for c in comps if safe_str(c.get("date")) >= today]
-    past = [c for c in comps if safe_str(c.get("date")) < today]
+    # 僅顯示已設定開放項目的比賽（純預告見「賽事時間表」）
+    open_for_signup = [c for c in comps if c.get("events")]
+    upcoming = [c for c in open_for_signup if safe_str(c.get("date")) >= today]
+    past = [c for c in open_for_signup if safe_str(c.get("date")) < today]
+
+    if not open_for_signup:
+        st.info("暫無可報名比賽。賽事日期預告請見「賽事時間表」。")
+        return
 
     if upcoming:
         st.markdown("##### 可報名比賽")

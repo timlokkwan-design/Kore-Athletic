@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 import streamlit as st
 
@@ -11,6 +11,9 @@ from utils.config import normalize_train_type
 from utils.helpers import safe_str
 from views.components.calendar_theme import get_calendar_tones, inject_calendar_theme
 from views.components.theme import get_ui_theme
+
+# App audience is Hong Kong — FullCalendar often emits UTC midnight for day clicks.
+_APP_TZ = timezone(timedelta(hours=8))
 
 
 def _parse_time_hm(raw: str) -> tuple[int, int] | None:
@@ -22,6 +25,40 @@ def _parse_time_hm(raw: str) -> tuple[int, int] | None:
         return int(parts[0]), int(parts[1][:2])
     except ValueError:
         return None
+
+
+def parse_fullcalendar_clicked_date(
+    *,
+    date_str: str | None = None,
+    raw_date: str | None = None,
+    extended_date: str | None = None,
+) -> str | None:
+    """Normalize FullCalendar click payloads to YYYY-MM-DD in local (HKT) calendar.
+
+    streamlit-calendar / FullCalendar frequently returns UTC ISO strings such as
+    ``2026-07-23T16:00:00.000Z`` when the user taps the 24th in Hong Kong (UTC+8).
+    Taking ``[:10]`` then wrongly selects the 23rd.
+    """
+    for candidate in (extended_date, date_str):
+        text = safe_str(candidate).strip()
+        if len(text) >= 10 and text[4] == "-" and text[7] == "-":
+            return text[:10]
+
+    text = safe_str(raw_date).strip()
+    if not text:
+        return None
+    if len(text) >= 10 and "T" not in text and text[4] == "-" and text[7] == "-":
+        return text[:10]
+
+    try:
+        normalized = text.replace("Z", "+00:00") if text.endswith("Z") else text
+        dt = datetime.fromisoformat(normalized)
+        if dt.tzinfo is None:
+            # Naive datetime: trust the calendar date part (local wall time).
+            return text[:10]
+        return dt.astimezone(_APP_TZ).date().isoformat()
+    except ValueError:
+        return text[:10] if len(text) >= 10 else None
 
 
 def _prog_to_fc_event(ds: str, prog: dict, *, title: str, tone_key: str) -> dict:
@@ -191,14 +228,18 @@ def render_fullcalendar(
         callback = state.get("callback")
         if callback == "eventClick":
             ev = (state.get("eventClick") or {}).get("event") or {}
-            start = safe_str(ev.get("start"))
-            selected = start[:10] if start else None
             ext = ev.get("extendedProps") or {}
-            selected = safe_str(ext.get("date")) or selected
+            selected = parse_fullcalendar_clicked_date(
+                extended_date=safe_str(ext.get("date")),
+                date_str=safe_str(ev.get("startStr") or ev.get("dateStr")),
+                raw_date=safe_str(ev.get("start")),
+            )
         elif callback == "dateClick":
             dc = state.get("dateClick") or {}
-            start = safe_str(dc.get("date"))
-            selected = start[:10] if start else None
+            selected = parse_fullcalendar_clicked_date(
+                date_str=safe_str(dc.get("dateStr")),
+                raw_date=safe_str(dc.get("date")),
+            )
 
     if selected:
         st.session_state[select_key] = selected

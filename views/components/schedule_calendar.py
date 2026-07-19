@@ -26,6 +26,13 @@ from views.components.calendar_compact import open_dialog_if_requested, render_c
 from views.components.calendar_fullcalendar import build_coach_schedule_fc_events, render_fullcalendar
 from views.components.calendar_list import render_month_day_list, render_view_mode_toggle
 from views.components.calendar_ui import render_calendar_month_nav
+from utils.coach_calendar_state import (
+    DATE_KEY as SHARED_DATE_KEY,
+    ensure_coach_calendar_state,
+    get_coach_calendar_year_month,
+    set_coach_calendar_date,
+    set_coach_calendar_month,
+)
 
 
 def _sync_sched_month(select_key: str, year: int, month: int) -> None:
@@ -38,9 +45,12 @@ def _sync_sched_month(select_key: str, year: int, month: int) -> None:
         return
     today = date.today()
     if today.year == year and today.month == month:
+        set_coach_calendar_date(today.isoformat())
         st.session_state[select_key] = today.isoformat()
     else:
-        st.session_state[select_key] = f"{year}-{month:02d}-01"
+        ds = f"{year}-{month:02d}-01"
+        set_coach_calendar_date(ds)
+        st.session_state[select_key] = ds
 
 
 def _toggle_pick(ds: str, pick_key: str, source: str = "", *, block_source: bool = False) -> None:
@@ -61,21 +71,25 @@ def _sched_pick_day(ds: str, pick_key: str, copy_source: str, pick_mode: str | N
 
 
 def _sched_prev_month(select_key: str, pick_mode: str | None) -> None:
-    if st.session_state.sched_cal_month == 1:
-        st.session_state.sched_cal_month, st.session_state.sched_cal_year = 12, st.session_state.sched_cal_year - 1
+    year, month = get_coach_calendar_year_month()
+    if month == 1:
+        year, month = year - 1, 12
     else:
-        st.session_state.sched_cal_month -= 1
+        month -= 1
+    set_coach_calendar_month(year, month)
     if not pick_mode:
-        _sync_sched_month(select_key, st.session_state.sched_cal_year, st.session_state.sched_cal_month)
+        _sync_sched_month(select_key, year, month)
 
 
 def _sched_next_month(select_key: str, pick_mode: str | None) -> None:
-    if st.session_state.sched_cal_month == 12:
-        st.session_state.sched_cal_month, st.session_state.sched_cal_year = 1, st.session_state.sched_cal_year + 1
+    year, month = get_coach_calendar_year_month()
+    if month == 12:
+        year, month = year + 1, 1
     else:
-        st.session_state.sched_cal_month += 1
+        month += 1
+    set_coach_calendar_month(year, month)
     if not pick_mode:
-        _sync_sched_month(select_key, st.session_state.sched_cal_year, st.session_state.sched_cal_month)
+        _sync_sched_month(select_key, year, month)
 
 
 def _normalize_progs(progs: list[dict] | dict | None) -> list[dict]:
@@ -270,7 +284,7 @@ def _render_sched_compact_grid(
 
 
 def render_schedule_calendar(
-    select_key: str = "sched_cal",
+    select_key: str = SHARED_DATE_KEY,
     *,
     pick_mode: str | None = None,
     pick_key: str = "sched_pick_dates",
@@ -278,16 +292,16 @@ def render_schedule_calendar(
 ) -> date:
     """
     pick_mode: None | 'copy' | 'bulk'
-    """
-    if "sched_cal_year" not in st.session_state:
-        t = date.today()
-        st.session_state.sched_cal_year, st.session_state.sched_cal_month = t.year, t.month
 
+    Uses the same year/month/date cursor as 設定課表 so both calendars stay in sync.
+    """
+    ensure_coach_calendar_state()
     picks = set(st.session_state.get(pick_key, []))
+    year, month = get_coach_calendar_year_month()
 
     render_calendar_month_nav(
-        year=st.session_state.sched_cal_year,
-        month=st.session_state.sched_cal_month,
+        year=year,
+        month=month,
         prev_key=f"{select_key}_prev",
         next_key=f"{select_key}_next",
         on_prev=_sched_prev_month,
@@ -303,7 +317,6 @@ def render_schedule_calendar(
     else:
         st.caption("🔵 藍色=訓練 · 🔴 紅色=比賽 · 🟨 框線=待同步 · 可預先排定任意日期")
 
-    year, month = st.session_state.sched_cal_year, st.session_state.sched_cal_month
     if not pick_mode:
         _sync_sched_month(select_key, year, month)
 
@@ -314,7 +327,7 @@ def render_schedule_calendar(
     }
 
     if select_key not in st.session_state:
-        st.session_state[select_key] = date.today().isoformat()
+        st.session_state[select_key] = st.session_state.get(SHARED_DATE_KEY, date.today().isoformat())
 
     view_mode = render_view_mode_toggle(
         select_key,
@@ -355,12 +368,15 @@ def render_schedule_calendar(
             select_key=select_key,
             fc_key_prefix=f"coach_sched_{select_key}",
         )
-        selected = date.fromisoformat(st.session_state[select_key])
+        selected = date.fromisoformat(str(st.session_state[select_key]))
     else:
         _render_sched_compact_grid(
             select_key, year, month, day_map, pick_mode, pick_key, copy_source, picks
         )
-        selected = date.fromisoformat(st.session_state[select_key])
+        selected = date.fromisoformat(str(st.session_state[select_key]))
+
+    # Mirror selection into shared cursor after any click
+    set_coach_calendar_date(str(st.session_state[select_key]))
 
     picks_list = st.session_state.get(pick_key, [])
 

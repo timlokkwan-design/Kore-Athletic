@@ -1,6 +1,8 @@
 """Read/write pandas tables via Supabase PostgreSQL."""
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 
 from utils.supabase_config import get_supabase_client
@@ -20,6 +22,9 @@ CSV_TO_TABLE: dict[str, str] = {
     "pending_records.csv": "ka_pending_records",
     "pending_specialty.csv": "ka_pending_specialty",
     "race_records.csv": "ka_race_records",
+    "race_records.csv": "ka_race_records",
+    "student_goals.csv": "ka_student_goals",
+    "announcements.csv": "ka_announcements",
 }
 
 INTERNAL_COLUMNS = {"row_id"}
@@ -78,6 +83,28 @@ def read_csv_table(filename: str, columns: list[str]) -> pd.DataFrame:
 
 
 def write_csv_table(filename: str, df: pd.DataFrame, columns: list[str]) -> None:
+    """Replace-table write. For users.csv prefer protected_save_users / upsert_users_table."""
+    if filename == "users.csv":
+        # Safety net: never clear-replace users through the generic path.
+        from utils.user_protection import protected_save_users
+
+        protected_save_users(df, columns, reason="write_csv_table-users")
+        return
+    write_csv_table_replace(filename, df, columns)
+
+
+def write_csv_table_replace(filename: str, df: pd.DataFrame, columns: list[str]) -> None:
+    """Raw clear-then-insert (used after merge-protect for users, or for other tables)."""
+    from utils.supabase_config import is_supabase_enabled
+
+    if not is_supabase_enabled():
+        from utils.config import DATA_DIR
+
+        root = Path(__file__).resolve().parent.parent / DATA_DIR
+        root.mkdir(parents=True, exist_ok=True)
+        _ensure_cols(df.copy(), columns).to_csv(root / filename, index=False, encoding="utf-8-sig")
+        return
+
     table = _table_for_file(filename)
     client = get_supabase_client()
     client.rpc("ka_clear_table", {"tname": table}).execute()
@@ -87,6 +114,35 @@ def write_csv_table(filename: str, df: pd.DataFrame, columns: list[str]) -> None
     for i in range(0, len(records), INSERT_BATCH):
         client.table(table).insert(records[i : i + INSERT_BATCH]).execute()
 
+
+def upsert_users_table(df: pd.DataFrame, columns: list[str]) -> None:
+    """Upsert ka_users by username when a unique constraint exists.
+
+    Falls back to caller if PostgREST rejects on_conflict.
+    """
+    table = _table_for_file("users.csv")
+    client = get_supabase_client()
+    records = _sanitize_records(_df_to_records(df, columns))
+    if not records:
+        return
+    for i in range(0, len(records), INSERT_BATCH):
+        chunk = records[i : i + INSERT_BATCH]
+        client.table(table).upsert(chunk, on_conflict="username").execute()
+
+
+def delete_users_by_username(usernames: list[str]) -> int:
+    """Hard-delete specific usernames only (test-account cleanup)."""
+    names = [str(u).strip() for u in usernames if str(u).strip()]
+    if not names:
+        return 0
+    from utils.supabase_config import is_supabase_enabled
+
+    if not is_supabase_enabled():
+        return 0
+    table = _table_for_file("users.csv")
+    client = get_supabase_client()
+    client.table(table).delete().in_("username", names).execute()
+    return len(names)
 
 def read_app_setting(key: str) -> dict | None:
     client = get_supabase_client()

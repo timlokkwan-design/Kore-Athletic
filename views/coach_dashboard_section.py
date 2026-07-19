@@ -1,12 +1,14 @@
 """Coach dashboard — at-a-glance overview."""
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import date
 
 import streamlit as st
 
 from utils.acwr import calc_acwr, needs_rest
 from utils.coach_pending import get_coach_pending_summary
+from utils.config import GROUP_OPTIONS, SPECIALTY_TO_GROUP, group_display_label, normalize_group
 from utils.data_store import (
     get_all_logs,
     get_attendance_today,
@@ -16,6 +18,42 @@ from utils.data_store import (
 from utils.helpers import safe_str
 from views.components.coach_pending_alert import navigate_to_coach_pending
 from views.components.theme import render_stat_cards
+
+_GROUP_ORDER = [group_display_label(g) for g in GROUP_OPTIONS if g != "全體組員"] + ["未分類"]
+
+
+def _group_label_for_student(student: dict) -> str:
+    specialty = safe_str(student.get("specialty"))
+    mapped = SPECIALTY_TO_GROUP.get(specialty, "")
+    if mapped:
+        return group_display_label(normalize_group(mapped))
+    return specialty or "未分類"
+
+
+def _render_absent_by_group(students: list[dict], att) -> None:
+    """List students not checked in today, grouped by training group."""
+    missing_by_group: dict[str, list[str]] = defaultdict(list)
+    for student in students:
+        name = safe_str(student.get("name"))
+        if not name:
+            continue
+        if att.empty or att[att["athlete_name"].astype(str) == name].empty:
+            missing_by_group[_group_label_for_student(student)].append(name)
+
+    if not missing_by_group:
+        return
+
+    st.markdown("##### ❌ 今日尚未簽到")
+    total = sum(len(v) for v in missing_by_group.values())
+    st.caption(f"共 {total} 人 · 已按組別分類")
+
+    ordered = [g for g in _GROUP_ORDER if g in missing_by_group]
+    ordered += sorted(g for g in missing_by_group if g not in _GROUP_ORDER)
+
+    for group_label in ordered:
+        names = missing_by_group[group_label]
+        with st.expander(f"👥 {group_label}（{len(names)}）", expanded=True):
+            st.write("、".join(names))
 
 
 def render_coach_dashboard() -> None:
@@ -82,11 +120,5 @@ def render_coach_dashboard() -> None:
             navigate_to_coach_pending()
             st.rerun()
 
-    if absent and student_names:
-        missing = []
-        for name in student_names:
-            if att.empty or att[att["athlete_name"].astype(str) == name].empty:
-                missing.append(name)
-        if missing:
-            st.markdown("##### ❌ 今日尚未簽到")
-            st.write("、".join(missing[:12]) + ("…" if len(missing) > 12 else ""))
+    if absent:
+        _render_absent_by_group(students, att)

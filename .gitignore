@@ -1,0 +1,8 @@
+# Local / runtime data — never commit real student accounts
+data/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.streamlit/secrets.toml
+.venv/
+venv/

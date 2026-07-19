@@ -18,13 +18,18 @@ from utils.config import APP_NAME, APP_VERSION
 from utils.coach_pending import get_coach_pending_total
 from utils.data_store import init_sample_data
 from utils.nav_persist import clear_nav_state, save_nav_state, try_restore_nav_state
-from utils.session_persist import try_restore_session
+from utils.session_cache import soft_refresh_data
+from utils.session_persist import refresh_persisted_login, try_restore_session
 from utils.site_content import is_pb_public
 from views.analysis_view import render_analysis
 from views.auth_view import render_auth_view
 from views.coach_view import COACH_NAV_CATEGORIES, COACH_SECTIONS, render_coach_view
 from views.components.brand import LOGO_PATH, logo_exists, render_brand_header, render_sidebar_brand
-from views.components.coach_pending_alert import render_coach_pending_sidebar
+from views.components.coach_pending_alert import (
+    maybe_show_coach_pending_popup,
+    render_coach_pending_mobile_banner,
+    render_coach_pending_sidebar,
+)
 from views.components.sidebar_nav import render_nav_categories, render_top_nav
 from views.components.pwa import inject_pwa_head, render_pwa_install_hint
 from views.components.mobile_nav import render_visitor_sidebar_nav
@@ -177,12 +182,20 @@ def main() -> None:
         if role == "coach":
             st.caption(f"v{APP_VERSION}")
         if user:
+            if st.button("🔄 重新整理", use_container_width=True, key="soft_refresh_btn"):
+                soft_refresh_data()
             if st.button("登出", use_container_width=True):
                 logout()
                 st.rerun()
 
     if role in ("visitor", "student"):
         render_pwa_install_hint()
+
+    if role == "coach":
+        # Popup first (covers login / new pending); banner stays visible on phone
+        # even after "稍後處理", since the sidebar is collapsed by default.
+        maybe_show_coach_pending_popup()
+        render_coach_pending_mobile_banner()
 
     visitor_public_pages = ("訪客專區", "登入", "註冊新學員")
     if is_pb_public():
@@ -234,6 +247,8 @@ def main() -> None:
             coach_section=coach_section,
             student_section=student_section,
         )
+        # Keep cookie / localStorage alive so pull-to-refresh does not log out
+        refresh_persisted_login()
 
     st.session_state.pop("_fresh_login", None)
 

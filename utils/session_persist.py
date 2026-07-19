@@ -231,12 +231,35 @@ def persist_login(username: str) -> None:
     exp = int(time.time()) + session_max_age_seconds()
     token = make_auth_token(name, exp)
     _persist_client_storage(token, name, exp)
+    st.session_state._auth_token_username = name
+    st.session_state._auth_token_exp = exp
+
+
+def refresh_persisted_login() -> None:
+    """Re-write cookie/localStorage for the current user (survives pull-to-refresh)."""
+    user = st.session_state.get("user")
+    if not user:
+        return
+    username = str(user.get("username") or "").strip()
+    if not username:
+        return
+    # Avoid flooding components.html every widget interaction — refresh at most every 10 min
+    now = int(time.time())
+    last = int(st.session_state.get("_auth_persist_touch", 0) or 0)
+    exp = int(st.session_state.get("_auth_token_exp", 0) or 0)
+    if last and (now - last) < 600 and exp > now + 3600:
+        return
+    persist_login(username)
+    st.session_state._auth_persist_touch = now
 
 
 def clear_persisted_login() -> None:
     _clear_client_storage()
     st.session_state.pop("_cookie_restore_done", None)
     st.session_state.pop("_storage_bridge_done", None)
+    st.session_state.pop("_auth_persist_touch", None)
+    st.session_state.pop("_auth_token_username", None)
+    st.session_state.pop("_auth_token_exp", None)
 
 
 def _restore_user(username: str) -> bool:
@@ -281,3 +304,8 @@ def try_restore_session() -> None:
 
     if _restore_user(username):
         st.session_state._cookie_restore_done = True
+        st.session_state._auth_token_username = username
+        # Force refresh_persisted_login to renew cookie/localStorage soon
+        st.session_state._auth_persist_touch = 0
+        return
+    clear_persisted_login()
