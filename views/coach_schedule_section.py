@@ -25,6 +25,7 @@ from utils.helpers import (
     sync_status_label,
     workout_detail,
 )
+from utils.coach_calendar_state import set_coach_calendar_date, get_coach_calendar_year_month
 from views.components.coach_sync import render_month_sync_alerts
 from views.components.schedule import render_program_timetable
 from views.components.schedule_calendar import render_schedule_calendar
@@ -66,7 +67,7 @@ def _render_sched_pick_ui(pick_mode: str) -> None:
     copy_source = st.session_state.get("sched_copy_source", "")
 
     render_schedule_calendar(
-        "sched_cal",
+        "coach_cal",
         pick_mode=pick_mode,
         pick_key="sched_pick_dates",
         copy_source=copy_source if pick_mode == "copy" else "",
@@ -87,10 +88,7 @@ def _render_sched_pick_ui(pick_mode: str) -> None:
                 _clear_pick_state()
                 st.session_state["sched_flash"] = ("success", f"已複製全隊時間地點至 {n} 日")
                 if targets:
-                    st.session_state["sched_cal"] = targets[-1]
-                    d = date.fromisoformat(targets[-1])
-                    st.session_state.sched_cal_year = d.year
-                    st.session_state.sched_cal_month = d.month
+                    set_coach_calendar_date(targets[-1])
                 st.rerun()
         with b2:
             st.button(
@@ -146,7 +144,7 @@ def _render_sched_pick_ui(pick_mode: str) -> None:
 
 @st.fragment
 def _render_sched_editor_ui() -> None:
-    selected = render_schedule_calendar("sched_cal", pick_mode=None)
+    selected = render_schedule_calendar("coach_cal", pick_mode=None)
     sk = selected.isoformat()
     day_programs = get_programs_for_date(selected)
     prog = _unified_day_prog(day_programs, sk)
@@ -239,8 +237,7 @@ def render_coach_schedule() -> None:
 
     if not pick_mode:
         st.caption("💡 選日期 → 填時間地點 → 儲存（全隊同步）")
-        year = st.session_state.get("sched_cal_year", date.today().year)
-        month = st.session_state.get("sched_cal_month", date.today().month)
+        year, month = get_coach_calendar_year_month()
         sched_map = build_coach_prog_map(get_programs_for_month(year, month))
         render_month_sync_alerts(sched_map, page="sched")
 
