@@ -242,9 +242,17 @@ def render_fullcalendar(
             )
 
     if selected:
+        prev = st.session_state.get(select_key)
         st.session_state[select_key] = selected
         if goto_edit_session_key:
+            already_edit = (
+                st.session_state.get(goto_edit_session_key) == "edit"
+                and prev == selected
+            )
             st.session_state[goto_edit_session_key] = "edit"
+            # Screen is read before calendar render — force a second pass into edit UI
+            if not already_edit:
+                st.rerun()
     return selected or st.session_state.get(select_key)
 
 
