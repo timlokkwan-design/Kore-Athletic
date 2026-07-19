@@ -7,7 +7,13 @@ from datetime import date, timedelta
 import streamlit as st
 
 from utils.acwr import acwr_status, calc_acwr, calc_load, estimate_workout_minutes
-from utils.config import GROUP_OPTIONS, default_program, group_display_label, normalize_train_type
+from utils.config import (
+    GROUP_OPTIONS,
+    default_program,
+    group_display_label,
+    normalize_group,
+    normalize_train_type,
+)
 from utils.data_store import (
     apply_template,
     delete_program,
@@ -74,10 +80,44 @@ def inject_coach_editor_css() -> None:
     st.markdown(
         """
         <style>
+        /* Keep coach editor button rows on one line (mobile otherwise stacks columns) */
+        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+        [data-testid="stVerticalBlock"]:has(.ka-prog-grp-marker) > [data-testid="stHorizontalBlock"],
+        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+        [data-testid="stVerticalBlock"]:has(.ka-prog-status-marker) > [data-testid="stHorizontalBlock"],
+        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+        [data-testid="stVerticalBlock"]:has(.ka-prog-save-marker) > [data-testid="stHorizontalBlock"],
+        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+        [data-testid="stVerticalBlock"]:has(.ka-prog-more-marker) > [data-testid="stHorizontalBlock"],
+        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+        [data-testid="stVerticalBlock"]:has(.ka-prog-copy-marker) > [data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 0.35rem !important;
+            width: 100% !important;
+        }
+        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+        [data-testid="stVerticalBlock"]:has(.ka-prog-grp-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"],
+        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+        [data-testid="stVerticalBlock"]:has(.ka-prog-status-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"],
+        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+        [data-testid="stVerticalBlock"]:has(.ka-prog-save-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"],
+        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+        [data-testid="stVerticalBlock"]:has(.ka-prog-more-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"],
+        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+        [data-testid="stVerticalBlock"]:has(.ka-prog-copy-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+            min-width: 0 !important;
+            flex: 1 1 0 !important;
+        }
         div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-status-marker) button,
         div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-grp-marker) button {
             min-height: 2.5rem !important;
             font-weight: 700 !important;
+            font-size: clamp(0.68rem, 2.9vw, 0.9rem) !important;
+            padding-left: 0.2rem !important;
+            padding-right: 0.2rem !important;
+            white-space: nowrap !important;
         }
         div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-save-marker) button[kind="primary"] {
             min-height: 2.75rem !important;
@@ -85,12 +125,12 @@ def inject_coach_editor_css() -> None:
             font-weight: 800 !important;
         }
         @media (max-width: 768px) {
-            div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-save-marker) button {
-                min-height: 2.85rem !important;
-            }
-            div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-more-marker) [data-testid="column"] {
-                flex: 1 1 48% !important;
-                min-width: 48% !important;
+            div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-save-marker) button,
+            div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-more-marker) button,
+            div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-copy-marker) button {
+                min-height: 2.75rem !important;
+                font-size: clamp(0.72rem, 3.2vw, 0.9rem) !important;
+                white-space: nowrap !important;
             }
         }
         </style>
@@ -108,45 +148,50 @@ def _set_day_status(sk: str, group: str, status: str) -> None:
 
 
 def _render_group_picker(day_programs: list[dict], sk: str) -> tuple[int, dict, str]:
-    if not day_programs:
-        edit_group = st.selectbox(
-            "組別",
-            GROUP_OPTIONS,
-            format_func=group_display_label,
-            key=f"pgroup_new_{sk}",
-        )
-        prog = default_program(sk)
-        prog["group"] = edit_group
-        st.caption("此日尚無課表，選擇組別後填寫跑案並儲存。")
-        return -1, prog, edit_group
-
-    group_labels = [group_display_label(p.get("group")) for p in day_programs]
+    """Always show 短跑 / 中長跑 / 跨欄 / 全部學員 on one row."""
+    by_group = {
+        normalize_group(p.get("group")): ensure_program_dict(p) for p in day_programs
+    }
     pick_key = f"pgroup_pick_{sk}"
     if pick_key not in st.session_state:
-        st.session_state[pick_key] = 0
+        # Prefer first group that already has a saved program
+        default_idx = 0
+        for i, g in enumerate(GROUP_OPTIONS):
+            if g in by_group:
+                default_idx = i
+                break
+        st.session_state[pick_key] = default_idx
     cur = int(st.session_state[pick_key])
-    if cur >= len(day_programs):
+    if cur < 0 or cur >= len(GROUP_OPTIONS):
         cur = 0
         st.session_state[pick_key] = 0
 
-    if len(day_programs) == 1:
-        st.markdown(f"**👥 {group_labels[0]}**")
+    st.caption("切換要編輯的組別")
+    st.markdown(
+        '<div class="ka-prog-grp-marker ka-inline-row-marker"></div>',
+        unsafe_allow_html=True,
+    )
+    cols = st.columns(len(GROUP_OPTIONS), gap="small")
+    for i, (col, group) in enumerate(zip(cols, GROUP_OPTIONS)):
+        with col:
+            st.button(
+                group_display_label(group),
+                key=f"pgbtn_{sk}_{i}",
+                use_container_width=True,
+                type="primary" if i == cur else "secondary",
+                on_click=_set_edit_group_idx,
+                args=(sk, i),
+            )
+
+    edit_group = GROUP_OPTIONS[cur]
+    if edit_group in by_group:
+        prog = by_group[edit_group]
     else:
-        st.caption("切換要編輯的組別")
-        st.markdown('<div class="ka-prog-grp-marker"></div>', unsafe_allow_html=True)
-        cols = st.columns(len(day_programs))
-        for i, (col, label) in enumerate(zip(cols, group_labels)):
-            with col:
-                st.button(
-                    label,
-                    key=f"pgbtn_{sk}_{i}",
-                    use_container_width=True,
-                    type="primary" if i == cur else "secondary",
-                    on_click=_set_edit_group_idx,
-                    args=(sk, i),
-                )
-    prog = ensure_program_dict(day_programs[cur])
-    return cur, prog, safe_str(prog.get("group"))
+        prog = default_program(sk)
+        prog["group"] = edit_group
+        if not day_programs:
+            st.caption("此日尚無課表，填寫跑案後按儲存即可。")
+    return cur, prog, edit_group
 
 
 def _render_day_status_picker(sk: str, edit_group: str, prog: dict) -> str:
@@ -164,8 +209,11 @@ def _render_day_status_picker(sk: str, edit_group: str, prog: dict) -> str:
         st.session_state[state_key] = current
 
     st.caption("當日安排")
-    st.markdown('<div class="ka-prog-status-marker"></div>', unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
+    st.markdown(
+        '<div class="ka-prog-status-marker ka-inline-row-marker"></div>',
+        unsafe_allow_html=True,
+    )
+    c1, c2, c3 = st.columns(3, gap="small")
     with c1:
         st.button(
             "🏃 訓練",
@@ -248,8 +296,6 @@ def render_coach_day_editor(selected: date) -> None:
     st.markdown(f"### ✏️ {format_timetable_date(sk)}")
 
     day_programs = get_programs_for_date(selected)
-    existing_groups = {safe_str(p.get("group")) for p in day_programs}
-    available_groups = [g for g in GROUP_OPTIONS if g not in existing_groups]
 
     _edit_idx, prog, edit_group = _render_group_picker(day_programs, sk)
 
@@ -261,23 +307,6 @@ def render_coach_day_editor(selected: date) -> None:
             "此日未在「訓練時間表」排定時間／地點，或為休息日。"
             "請先到 **訓練時間表** 設定，或返回日曆選擇其他日子。"
         )
-
-    if available_groups:
-        with st.expander("➕ 新增其他組別訓練", expanded=False):
-            new_group = st.selectbox(
-                "組別",
-                available_groups,
-                format_func=group_display_label,
-                key=f"padd_grp_{sk}",
-            )
-            if st.button("新增組別", key=f"padd_btn_{sk}", use_container_width=True):
-                draft = default_program(sk)
-                draft["group"] = new_group
-                draft["type"] = "休息"
-                draft["title"] = "休息"
-                save_program(draft)
-                st.success(f"已新增 {short_group_label(new_group)} 課表")
-                st.rerun()
 
     sync = day_sync_status(prog if day_programs else None)
     tv_line = format_time_venue_line(prog) if day_programs else ""
@@ -306,18 +335,22 @@ def render_coach_day_editor(selected: date) -> None:
         title = group_display_label(edit_group)
 
     def _render_save_actions() -> None:
-        if st.button(
-            "← 返回日曆",
-            use_container_width=True,
-            key=f"pback_{sk}_{edit_group}",
-        ):
-            st.session_state.coach_prog_screen = "cal"
-            st.rerun()
-        st.markdown('<div class="ka-prog-save-marker"></div>', unsafe_allow_html=True)
-        s1, s2 = st.columns([2, 1])
-        with s1:
+        st.markdown(
+            '<div class="ka-prog-save-marker ka-inline-row-marker"></div>',
+            unsafe_allow_html=True,
+        )
+        back_col, save_col, tpl_col = st.columns([1.1, 1.4, 1], gap="small")
+        with back_col:
             if st.button(
-                "💾 儲存課表",
+                "← 返回",
+                use_container_width=True,
+                key=f"pback_{sk}_{edit_group}",
+            ):
+                st.session_state.coach_prog_screen = "cal"
+                st.rerun()
+        with save_col:
+            if st.button(
+                "💾 儲存",
                 type="primary",
                 use_container_width=True,
                 key=f"psave_{sk}_{edit_group}",
@@ -336,8 +369,8 @@ def render_coach_day_editor(selected: date) -> None:
                 st.session_state.coach_prog_screen = "cal"
                 st.session_state["prog_save_flash"] = f"已儲存 {short_group_label(edit_group)} 課表"
                 st.rerun()
-        with s2:
-            if st.button("📁 存範本", use_container_width=True, key=f"ptpl_{sk}_{edit_group}"):
+        with tpl_col:
+            if st.button("📁 範本", use_container_width=True, key=f"ptpl_{sk}_{edit_group}"):
                 tpl_vol = (
                     parse_workout_volume(workout_text)
                     if day_status == "訓練"
@@ -365,26 +398,34 @@ def render_coach_day_editor(selected: date) -> None:
                 st.success("已存範本")
 
     if day_status == "訓練":
-        render_workout_history_compare(
-            selected,
-            highlight_group=edit_group,
-            groups=[edit_group],
-        )
         flash_key = f"pcopy_flash_{sk}_{edit_group}"
         flash = st.session_state.pop(flash_key, None)
         if flash:
             kind, msg = flash
             (st.success if kind == "success" else st.warning)(msg)
 
-        st.markdown('<div class="ka-prog-copy-marker"></div>', unsafe_allow_html=True)
-        if st.button(
-            "📋 複製上週同天跑案",
-            key=f"pcopy_week_{sk}_{edit_group}",
-            use_container_width=True,
-            help="帶入 7 天前同一星期幾的跑案、備註與 RPE",
-        ):
-            _copy_last_week_same_day(sk, edit_group, selected)
+        # Apply「複製」from a history card into this editor
+        apply_key = f"pcopy_apply_{sk}_{edit_group}"
+        pending_copy = st.session_state.pop(apply_key, None)
+        if isinstance(pending_copy, dict):
+            _apply_workout_copy(sk, edit_group, pending_copy)
+            st.session_state[flash_key] = ("success", "已帶入該日跑案，請確認後儲存")
             st.rerun()
+
+        def _on_copy_week() -> None:
+            _copy_last_week_same_day(sk, edit_group, selected)
+
+        def _on_copy_prog(source: dict) -> None:
+            st.session_state[apply_key] = dict(source)
+
+        render_workout_history_compare(
+            selected,
+            highlight_group=edit_group,
+            groups=[edit_group],
+            on_copy_week=_on_copy_week,
+            copy_week_key=f"pcopy_week_{sk}_{edit_group}",
+            on_copy_program=_on_copy_prog,
+        )
 
         workout_key = f"pworkout_{sk}_{edit_group}"
         tips_key = f"ptips_{sk}_{edit_group}"
@@ -437,10 +478,13 @@ def render_coach_day_editor(selected: date) -> None:
         vol_note = f"{run_vol['total_meters']:,} m" if run_vol["total_meters"] else "—"
         st.caption(f"加權負荷 {load} · 跑量 {vol_note} · ACWR {acwr_v}")
 
-    st.markdown('<div class="ka-prog-more-marker"></div>', unsafe_allow_html=True)
-    m1, m2 = st.columns(2)
+    st.markdown(
+        '<div class="ka-prog-more-marker ka-inline-row-marker"></div>',
+        unsafe_allow_html=True,
+    )
+    m1, m2 = st.columns(2, gap="small")
     with m1:
-        if st.button("🗑 刪除此組別", use_container_width=True, key=f"pdelete_grp_{sk}_{edit_group}"):
+        if st.button("🗑 刪除此組", use_container_width=True, key=f"pdelete_grp_{sk}_{edit_group}"):
             if program_exists(selected):
                 if delete_program(selected, group=edit_group):
                     st.success(f"已刪除 {short_group_label(edit_group)} 課表")
@@ -449,7 +493,7 @@ def render_coach_day_editor(selected: date) -> None:
             else:
                 st.info("此日沒有已儲存的課表")
     with m2:
-        if st.button("🗑 刪除當日全部", use_container_width=True, key=f"pdelete_all_{sk}"):
+        if st.button("🗑 刪除全日", use_container_width=True, key=f"pdelete_all_{sk}"):
             if program_exists(selected):
                 delete_program(selected)
                 st.success(f"已刪除 {sk} 全部課表")

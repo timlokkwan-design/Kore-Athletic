@@ -141,12 +141,16 @@ def _coach_calendar_pick_ui(copy_mode: bool, delete_mode: bool) -> None:
 
     _render_calendar_impl("coach_cal", show_acwr=False, copy_mode=copy_mode, delete_mode=delete_mode)
 
+    from views.components.coach_mobile_ui import inject_coach_mobile_css, mark_force_row
+
+    inject_coach_mobile_css()
     if delete_mode:
         targets = st.session_state.get("delete_target_dates", [])
-        c1, c2, c3 = st.columns(3)
+        mark_force_row()
+        c1, c2, c3 = st.columns(3, gap="small")
         with c1:
             if st.button(
-                f"🗑 確認刪除 {len(targets)} 個課表",
+                f"🗑 刪除 {len(targets)}",
                 key="prog_delete_confirm",
                 type="primary",
                 disabled=len(targets) == 0,
@@ -159,23 +163,24 @@ def _coach_calendar_pick_ui(copy_mode: bool, delete_mode: bool) -> None:
                 st.rerun()
         with c2:
             st.button(
-                "↺ 清除已選",
+                "↺ 清除",
                 key="prog_delete_clear",
                 disabled=len(targets) == 0,
                 use_container_width=True,
                 on_click=_clear_delete_targets,
             )
         with c3:
-            if st.button("✖ 取消刪除", key="prog_delete_cancel", use_container_width=True):
+            if st.button("✖ 取消", key="prog_delete_cancel", use_container_width=True):
                 st.session_state.delete_mode = False
                 st.session_state.pop("delete_target_dates", None)
                 st.rerun()
     elif copy_mode:
         targets = st.session_state.get("copy_target_dates", [])
-        c1, c2, c3 = st.columns(3)
+        mark_force_row()
+        c1, c2, c3 = st.columns(3, gap="small")
         with c1:
             if st.button(
-                f"✅ 確認複製到 {len(targets)} 個日期",
+                f"✅ 複製 {len(targets)}",
                 key="prog_copy_confirm",
                 type="primary",
                 disabled=len(targets) == 0,
@@ -197,14 +202,14 @@ def _coach_calendar_pick_ui(copy_mode: bool, delete_mode: bool) -> None:
                 st.rerun()
         with c2:
             st.button(
-                "↺ 清除已選",
+                "↺ 清除",
                 key="prog_copy_clear",
                 disabled=len(targets) == 0,
                 use_container_width=True,
                 on_click=_clear_copy_targets,
             )
         with c3:
-            if st.button("✖ 取消複製", key="prog_copy_cancel", use_container_width=True):
+            if st.button("✖ 取消", key="prog_copy_cancel", use_container_width=True):
                 st.session_state.copy_mode = False
                 st.session_state.pop("copy_source_date", None)
                 st.session_state.pop("copy_source_payload", None)
@@ -285,15 +290,47 @@ def _render_coach_log_filter() -> None:
         )
 
 
+def _render_calendar_group_filter() -> tuple[str, str | None]:
+    """Compact one-row group filter (replaces selectbox on mobile)."""
+    from views.components.coach_mobile_ui import inject_coach_mobile_css, mark_force_row
+
+    inject_coach_mobile_css()
+    labels = [label for label, _ in CALENDAR_GROUP_FILTERS]
+    values = [value for _, value in CALENDAR_GROUP_FILTERS]
+    key = "coach_cal_group_filter_idx"
+    if key not in st.session_state:
+        # Migrate legacy selectbox label if present
+        legacy = st.session_state.get("coach_cal_group_filter")
+        if legacy in labels:
+            st.session_state[key] = labels.index(legacy)
+        else:
+            st.session_state[key] = 0
+    cur = int(st.session_state[key])
+    if cur < 0 or cur >= len(labels):
+        cur = 0
+        st.session_state[key] = 0
+
+    st.caption("選擇組別")
+    mark_force_row()
+    cols = st.columns(len(labels), gap="small")
+    for i, (col, label) in enumerate(zip(cols, labels)):
+        with col:
+            if st.button(
+                label.replace("全部組別", "全部"),
+                key=f"coach_cal_grp_{i}",
+                use_container_width=True,
+                type="primary" if i == cur else "secondary",
+            ):
+                st.session_state[key] = i
+                st.rerun()
+    return labels[cur], values[cur]
+
+
 def _render_coach_program_editor() -> None:
-    filter_labels = [label for label, _ in CALENDAR_GROUP_FILTERS]
-    filter_map = {label: value for label, value in CALENDAR_GROUP_FILTERS}
-    cal_group_label = st.selectbox(
-        "選擇組別",
-        filter_labels,
-        key="coach_cal_group_filter",
-    )
-    cal_group = filter_map[cal_group_label]
+    from views.components.coach_mobile_ui import inject_coach_mobile_css, mark_force_row
+
+    inject_coach_mobile_css()
+    cal_group_label, cal_group = _render_calendar_group_filter()
 
     cal_year, cal_month = get_coach_calendar_year_month()
     alert_map = build_coach_prog_map(
@@ -315,13 +352,10 @@ def _render_coach_program_editor() -> None:
             schedule_only=True,
         )
         with st.container():
-            st.markdown(
-                '<div class="ka-inline-row-marker"></div>',
-                unsafe_allow_html=True,
-            )
-            b_copy, b_delete = st.columns(2)
+            mark_force_row()
+            b_copy, b_delete = st.columns(2, gap="small")
             with b_copy:
-                if st.button("📋 複製課表到其他日期", key="prog_copy_btn", use_container_width=True):
+                if st.button("📋 複製課表", key="prog_copy_btn", use_container_width=True):
                     src = st.session_state.get("coach_cal", selected.isoformat())
                     st.session_state.copy_mode = True
                     st.session_state.delete_mode = False
@@ -330,7 +364,7 @@ def _render_coach_program_editor() -> None:
                     st.session_state.copy_target_dates = []
                     st.rerun()
             with b_delete:
-                if st.button("🗑 多選刪除課表", key="prog_delete_btn", use_container_width=True):
+                if st.button("🗑 多選刪除", key="prog_delete_btn", use_container_width=True):
                     st.session_state.delete_mode = True
                     st.session_state.copy_mode = False
                     st.session_state.delete_target_dates = []
@@ -347,9 +381,6 @@ def _render_coach_program_editor() -> None:
         except ValueError:
             edit_date = date.today()
         st.caption(f"編輯 **{format_timetable_date(sk)}** · 組別篩選：{cal_group_label}")
-        if st.button("← 返回日曆", use_container_width=True, key="coach_back_cal"):
-            st.session_state.coach_prog_screen = "cal"
-            st.rerun()
         render_coach_day_editor(edit_date)
 
     with st.expander("📊 訓練日誌篩選", expanded=False):
