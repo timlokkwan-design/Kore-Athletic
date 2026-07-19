@@ -249,13 +249,16 @@ def render_coach_program() -> None:
     copy_mode = st.session_state.get("copy_mode", False)
     delete_mode = st.session_state.get("delete_mode", False)
     flash = st.session_state.pop("copy_flash", None) or st.session_state.pop("sched_flash", None)
+    prog_flash = st.session_state.pop("prog_save_flash", None)
     if flash:
         kind, msg = flash
         (st.success if kind == "success" else st.error)(msg)
+    if prog_flash:
+        st.success(prog_flash)
 
     if not copy_mode and not delete_mode:
         st.caption(
-            "只顯示訓練時間表已排程的日子 · 列表預設 · 點選日期直接編輯跑案"
+            "只顯示訓練時間表已排程的日子 · 日曆預設 · 點選日期直接編輯跑案"
         )
 
     if copy_mode or delete_mode:
@@ -351,7 +354,7 @@ def _render_coach_program_editor() -> None:
         except ValueError:
             edit_date = date.today()
         st.caption(f"編輯 **{format_timetable_date(sk)}** · 組別篩選：{cal_group_label}")
-        if st.button("← 返回月曆", use_container_width=True, key="coach_back_cal"):
+        if st.button("← 返回日曆", use_container_width=True, key="coach_back_cal"):
             st.session_state.coach_prog_screen = "cal"
             st.rerun()
         render_coach_day_editor(edit_date)

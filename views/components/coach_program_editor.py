@@ -259,7 +259,7 @@ def render_coach_day_editor(selected: date) -> None:
     if not is_coach_plan_day(prog if day_programs else None) and not has_schedule_slot(sk):
         st.warning(
             "此日未在「訓練時間表」排定時間／地點，或為休息日。"
-            "請先到 **訓練時間表** 設定，或返回月曆選擇其他日子。"
+            "請先到 **訓練時間表** 設定，或返回日曆選擇其他日子。"
         )
 
     if available_groups:
@@ -296,7 +296,7 @@ def render_coach_day_editor(selected: date) -> None:
     title = "休息"
 
     if day_status == "比賽":
-        st.info("🏁 比賽日 — 儲存後月曆顯示「比賽」")
+        st.info("🏁 比賽日 — 儲存後日曆顯示「比賽」")
         train_type = title = "比賽"
     elif day_status == "休息":
         st.info("休息日 — 無訓練安排")
@@ -306,6 +306,13 @@ def render_coach_day_editor(selected: date) -> None:
         title = group_display_label(edit_group)
 
     def _render_save_actions() -> None:
+        if st.button(
+            "← 返回日曆",
+            use_container_width=True,
+            key=f"pback_{sk}_{edit_group}",
+        ):
+            st.session_state.coach_prog_screen = "cal"
+            st.rerun()
         st.markdown('<div class="ka-prog-save-marker"></div>', unsafe_allow_html=True)
         s1, s2 = st.columns([2, 1])
         with s1:
@@ -326,7 +333,8 @@ def render_coach_day_editor(selected: date) -> None:
                     train_type=train_type,
                     title=title,
                 )
-                st.success(f"已儲存 {short_group_label(edit_group)} 課表")
+                st.session_state.coach_prog_screen = "cal"
+                st.session_state["prog_save_flash"] = f"已儲存 {short_group_label(edit_group)} 課表"
                 st.rerun()
         with s2:
             if st.button("📁 存範本", use_container_width=True, key=f"ptpl_{sk}_{edit_group}"):
