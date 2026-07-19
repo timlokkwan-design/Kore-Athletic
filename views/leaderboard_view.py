@@ -51,11 +51,11 @@ def _render_event_board(event: str, gender: str, *, show_names: bool) -> None:
             <div style="flex:1;min-width:120px;">
                 {name_html}
                 <div style="font-size:1.25rem;font-weight:800;">{r['best_score']}</div>
-                <div style="font-size:0.82rem;color:#64748b;">
+                <div style="font-size:0.82rem;" class="ka-lb-meta">
                 {r['best_date']} · 等級 {r['grade'] or '—'}
                 </div>
             </div>
-            <div style="font-size:0.78rem;color:#64748b;text-align:right;">
+            <div style="font-size:0.78rem;text-align:right;" class="ka-lb-meta">
                 首記 {first}<br>{improve}
             </div>
             </div></div>""",
