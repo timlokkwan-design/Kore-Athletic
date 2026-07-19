@@ -297,6 +297,42 @@ def has_workout_plan(prog: dict) -> bool:
     return bool(workout_detail(prog).strip())
 
 
+def is_coach_plan_day(prog: dict | None, group: str | None = None) -> bool:
+    """True if day appears in 週期化課表：已排時間／地點，且非休息。"""
+    from utils.config import normalize_group, normalize_train_type
+
+    if not prog:
+        return False
+    target = normalize_group(group) if group else None
+
+    def _ok(p: dict) -> bool:
+        if target and normalize_group(safe_str(p.get("group"))) != target:
+            return False
+        tp = normalize_train_type(safe_str(p.get("type")))
+        if tp == "休息":
+            return False
+        return has_time_venue(p)
+
+    multi = prog.get("_programs")
+    if isinstance(multi, list):
+        return any(_ok(p) for p in multi)
+    return _ok(prog)
+
+
+def saved_workout_text(prog: dict) -> str:
+    """Return stored workout text only (no template defaults)."""
+    from utils.config import normalize_train_type
+
+    tp = normalize_train_type(safe_str(prog.get("type")))
+    if tp in ("休息", "比賽"):
+        return ""
+    return safe_str(prog.get("rest"))
+
+
+def saved_coach_tips(prog: dict) -> str:
+    return safe_str(prog.get("tips"))
+
+
 def program_sync_status(prog: dict) -> str:
     """complete | need_workout | need_schedule | need_both | rest | empty"""
     from utils.config import normalize_train_type

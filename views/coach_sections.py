@@ -255,7 +255,7 @@ def render_coach_program() -> None:
 
     if not copy_mode and not delete_mode:
         st.caption(
-            "點選月曆日期直接編輯 · 列表模式可一次看清整月課表"
+            "只顯示訓練時間表已排程的日子 · 列表預設 · 點選日期直接編輯跑案"
         )
 
     if copy_mode or delete_mode:
@@ -321,6 +321,7 @@ def _render_coach_program_editor() -> None:
             delete_mode=False,
             group_filter=cal_group,
             goto_edit_on_select=True,
+            schedule_only=True,
         )
         b_copy, b_delete = st.columns(2)
         with b_copy:

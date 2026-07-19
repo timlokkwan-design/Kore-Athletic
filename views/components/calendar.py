@@ -30,6 +30,7 @@ from utils.helpers import (
     sync_status_label,
     sync_status_priority,
     workout_detail,
+    is_coach_plan_day,
 )
 from views.components.calendar_compact import open_dialog_if_requested
 from views.components.calendar_timetree import render_timetree_month_grid
@@ -135,6 +136,8 @@ def _coach_compact_day_style(
     copy_source: str,
     copy_targets: set,
     delete_targets: set,
+    schedule_only: bool = False,
+    plan_group: str | None = None,
 ) -> dict:
     entry = prog_map.get(ds)
     tone = calendar_cell_tone(entry)
@@ -156,6 +159,18 @@ def _coach_compact_day_style(
         tone = "disabled"
         disabled = True
         chips, extra = [], 0
+
+    if schedule_only and not copy_mode and not delete_mode:
+        if not is_coach_plan_day(entry, plan_group):
+            return {
+                "tone": "empty",
+                "bg": "#f8fafc",
+                "sync": "",
+                "chips": [],
+                "extra_count": 0,
+                "disabled": True,
+                "pick_label": "",
+            }
 
     if not copy_mode and not delete_mode:
         sync = day_sync_status(entry)
@@ -197,6 +212,8 @@ def _render_coach_compact_grid(
     delete_targets: set,
     *,
     goto_edit_on_select: bool = False,
+    schedule_only: bool = False,
+    plan_group: str | None = None,
 ) -> None:
     dialog_key = f"{select_key}_dialog"
 
@@ -211,6 +228,8 @@ def _render_coach_compact_grid(
             copy_source=copy_source,
             copy_targets=copy_targets,
             delete_targets=delete_targets,
+            schedule_only=schedule_only,
+            plan_group=plan_group,
         )
 
     if copy_mode:
@@ -258,10 +277,12 @@ def render_calendar(
     group_filter: str | None = None,
     *,
     goto_edit_on_select: bool = False,
+    schedule_only: bool = False,
 ) -> date | None:
     return _render_calendar_impl(
         select_key, show_acwr, copy_mode, delete_mode, group_filter,
         goto_edit_on_select=goto_edit_on_select,
+        schedule_only=schedule_only,
     )
 
 
@@ -273,6 +294,7 @@ def _render_calendar_impl(
     group_filter: str | None = None,
     *,
     goto_edit_on_select: bool = False,
+    schedule_only: bool = False,
 ) -> date | None:
     if "cal_year" not in st.session_state:
         t = date.today()
@@ -305,6 +327,8 @@ def _render_calendar_impl(
         st.caption("🟥 紅色=已選刪除 · 虛線=有課表可選 · 灰底=無課表 · 可跨月多選")
     else:
         render_calendar_legend()
+        if schedule_only:
+            st.caption("只顯示 **訓練時間表** 已排時間／地點的日子 · 休息日不顯示")
 
     year, month = st.session_state.cal_year, st.session_state.cal_month
     if not copy_mode and not delete_mode:
@@ -316,7 +340,7 @@ def _render_calendar_impl(
     if select_key not in st.session_state:
         st.session_state[select_key] = date.today().isoformat()
 
-    default_mode = "grid"
+    default_mode = "list" if schedule_only else "grid"
     view_mode = render_view_mode_toggle(
         select_key,
         force_grid=copy_mode or delete_mode,
@@ -356,12 +380,19 @@ def _render_calendar_impl(
             hide_past_days=not copy_mode and not delete_mode,
             day_priority=lambda ds, p: sync_status_priority(day_sync_status(prog_map.get(ds))),
             goto_edit_on_select=goto_edit_on_select and not copy_mode and not delete_mode,
+            day_filter=(
+                (lambda ds, _p: is_coach_plan_day(prog_map.get(ds), group_filter))
+                if schedule_only and not copy_mode and not delete_mode
+                else None
+            ),
         )
     else:
         _render_coach_compact_grid(
             select_key, year, month, prog_map,
             copy_mode, delete_mode, copy_source, copy_targets, delete_targets,
             goto_edit_on_select=goto_edit_on_select and not copy_mode and not delete_mode,
+            schedule_only=schedule_only and not copy_mode and not delete_mode,
+            plan_group=group_filter,
         )
         selected = date.fromisoformat(st.session_state[select_key])
 

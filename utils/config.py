@@ -6,7 +6,7 @@ from utils.grades import U18_GRADES, WIND_EVENTS
 
 APP_NAME = "KORE ATHLETIC"
 APP_SUBTITLE = "關添樂教練田徑訓練與成績管理系統"
-APP_VERSION = "2026.07.19-89"
+APP_VERSION = "2026.07.19-91"
 COACH_NAME = "關添樂"
 EMAIL_DOMAIN = "@kore-athletic.app"
 
@@ -154,7 +154,7 @@ def default_program(for_date: str | None = None) -> dict:
     return {
         "date": d, "type": "間歇跑", "title": "",
         "group": "短跑組", "sets": 0, "reps": 0, "dist": 0,
-        "rest": "6×200m @ 30\"  走200m\n4×400m @ 70\"  休息3分", "duration": 0, "rpe": 7,
+        "rest": "", "duration": 0, "rpe": 7,
         "tips": "", "phase": "", "week_theme": "",
         "target_seconds": 65.0, "load": 630,
         "exercises": "", "tech_focus": "", "field_event": "跳遠", "attempts": 10,

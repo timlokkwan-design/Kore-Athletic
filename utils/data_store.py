@@ -445,6 +445,16 @@ def build_coach_prog_map(programs: pd.DataFrame) -> dict[str, dict]:
     return result
 
 
+def get_group_program_for_date(for_date: date | str, group: str) -> dict | None:
+    """Single program row for a date + training group."""
+    target = normalize_date_str(for_date.isoformat() if isinstance(for_date, date) else for_date)
+    grp = normalize_group(group)
+    for prog in get_programs_for_date(target):
+        if normalize_group(safe_str(prog.get("group"))) == grp:
+            return prog
+    return None
+
+
 def build_student_prog_map(programs: pd.DataFrame, specialty: str) -> dict[str, dict]:
     """One program per date, matched to student specialty."""
     if programs.empty:

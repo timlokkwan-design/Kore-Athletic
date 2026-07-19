@@ -232,6 +232,7 @@ def render_month_day_list(
     hide_past_days: bool = False,
     day_priority: Callable[[str, dict | None], int] | None = None,
     goto_edit_on_select: bool = False,
+    day_filter: Callable[[str, dict | None], bool] | None = None,
 ) -> date:
     """
     Vertical list of days in month.
@@ -253,7 +254,12 @@ def render_month_day_list(
             if day == 0:
                 continue
             ds = f"{year}-{month:02d}-{day:02d}"
+            if day_filter and not day_filter(ds, prog_map.get(ds)):
+                continue
             entries.append((ds, day, date.fromisoformat(ds)))
+
+    if day_filter and not entries:
+        st.info("本月沒有已排 **訓練時間表** 的日子（休息日已隱藏）。請先到「訓練時間表」設定時間／地點。")
 
     def _row(ds: str, day: int, d: date) -> None:
         _render_list_day_row(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import streamlit as st
 
@@ -14,6 +14,7 @@ from utils.data_store import (
     delete_template,
     ensure_program_dict,
     get_all_logs,
+    get_group_program_for_date,
     get_programs_for_date,
     get_student_names,
     load_periodization,
@@ -30,11 +31,43 @@ from utils.helpers import (
     safe_int,
     safe_str,
     short_group_label,
+    saved_workout_text,
+    saved_coach_tips,
     sync_status_label,
     whatsapp_program_text,
-    workout_detail,
 )
 from views.components.coach_workout_compare import render_workout_history_compare
+
+
+def _apply_workout_copy(sk: str, edit_group: str, source: dict) -> None:
+    """Fill editor widgets from a source program (after rerun)."""
+    st.session_state[f"pworkout_{sk}_{edit_group}"] = saved_workout_text(source)
+    st.session_state[f"ptips_{sk}_{edit_group}"] = saved_coach_tips(source)
+    st.session_state[f"prpe_{sk}_{edit_group}"] = max(1, safe_int(source.get("rpe"), 7))
+    st.session_state[f"pstatus_{sk}_{edit_group}"] = "訓練"
+
+
+def _copy_last_week_same_day(sk: str, edit_group: str, selected: date) -> None:
+    src_date = selected - timedelta(days=7)
+    source = get_group_program_for_date(src_date, edit_group)
+    if not source:
+        st.session_state[f"pcopy_flash_{sk}_{edit_group}"] = (
+            "warn",
+            f"上週同天（{format_timetable_date(src_date.isoformat())}）尚無 {short_group_label(edit_group)} 課表",
+        )
+        return
+    body = saved_workout_text(source)
+    if not body:
+        st.session_state[f"pcopy_flash_{sk}_{edit_group}"] = (
+            "warn",
+            f"上週同天（{format_timetable_date(src_date.isoformat())}）沒有跑案文字",
+        )
+        return
+    _apply_workout_copy(sk, edit_group, source)
+    st.session_state[f"pcopy_flash_{sk}_{edit_group}"] = (
+        "success",
+        f"已複製 {format_timetable_date(src_date.isoformat())} 的跑案，請確認後儲存",
+    )
 
 
 def inject_coach_editor_css() -> None:
@@ -220,6 +253,15 @@ def render_coach_day_editor(selected: date) -> None:
 
     _edit_idx, prog, edit_group = _render_group_picker(day_programs, sk)
 
+    from utils.data_store import has_schedule_slot
+    from utils.helpers import is_coach_plan_day
+
+    if not is_coach_plan_day(prog if day_programs else None, edit_group) and not has_schedule_slot(sk, edit_group):
+        st.warning(
+            "此日未在「訓練時間表」排定時間／地點，或為休息日。"
+            "請先到 **訓練時間表** 設定，或返回月曆選擇其他日子。"
+        )
+
     if available_groups:
         with st.expander("➕ 新增其他組別訓練", expanded=False):
             new_group = st.selectbox(
@@ -320,31 +362,52 @@ def render_coach_day_editor(selected: date) -> None:
             highlight_group=edit_group,
             groups=[edit_group],
         )
+        flash_key = f"pcopy_flash_{sk}_{edit_group}"
+        flash = st.session_state.pop(flash_key, None)
+        if flash:
+            kind, msg = flash
+            (st.success if kind == "success" else st.warning)(msg)
+
+        st.markdown('<div class="ka-prog-copy-marker"></div>', unsafe_allow_html=True)
+        if st.button(
+            "📋 複製上週同天跑案",
+            key=f"pcopy_week_{sk}_{edit_group}",
+            use_container_width=True,
+            help="帶入 7 天前同一星期幾的跑案、備註與 RPE",
+        ):
+            _copy_last_week_same_day(sk, edit_group, selected)
+            st.rerun()
+
+        workout_key = f"pworkout_{sk}_{edit_group}"
+        tips_key = f"ptips_{sk}_{edit_group}"
+        rpe_key = f"prpe_{sk}_{edit_group}"
+        if workout_key not in st.session_state:
+            st.session_state[workout_key] = saved_workout_text(prog) if day_programs else ""
+        if tips_key not in st.session_state:
+            st.session_state[tips_key] = saved_coach_tips(prog) if day_programs else ""
+        if rpe_key not in st.session_state:
+            st.session_state[rpe_key] = max(1, safe_int(prog.get("rpe"), 7))
+
         workout_text = st.text_area(
             "跑案詳情",
-            value=workout_detail(prog),
             height=150,
             placeholder=(
                 "每行一段，例如：\n"
                 "A. 6×200m @ 30\"  走200m恢復\n"
                 "B. 4×400m @ 70\"  休息3分鐘"
             ),
-            key=f"pworkout_{sk}_{edit_group}",
+            key=workout_key,
         )
-        rpe = st.number_input(
-            "預期 RPE",
-            1,
-            10,
-            rpe,
-            key=f"prpe_{sk}_{edit_group}",
-        )
+        rpe = st.number_input("預期 RPE", 1, 10, key=rpe_key)
         tips = st.text_area(
             "教練備註",
-            value=safe_str(prog.get("tips")) if day_programs else "",
             height=80,
             placeholder="選填",
-            key=f"ptips_{sk}_{edit_group}",
+            key=tips_key,
         )
+        workout_text = st.session_state[workout_key]
+        tips = st.session_state[tips_key]
+        rpe = int(st.session_state[rpe_key])
         run_vol = parse_workout_volume(workout_text)
         if run_vol["total_meters"] > 0:
             est = estimate_workout_minutes(run_vol["total_meters"], train_type)
