@@ -1,7 +1,5 @@
 """Shared KORE ATHLETIC training announcement board."""
 
-from datetime import date, datetime
-
 import streamlit as st
 
 from utils.config import APP_NAME, COACH_NAME
@@ -13,7 +11,14 @@ from utils.data_store import (
     load_periodization,
     log_completion_rate,
 )
-from utils.helpers import program_specs, safe_str, short_group_label, workout_detail
+from utils.helpers import (
+    app_today,
+    is_workout_content_unlocked,
+    program_specs,
+    safe_str,
+    short_group_label,
+    student_visible_workout_detail,
+)
 from views.components.brand import render_brand_header as _render_brand_header
 
 
@@ -26,13 +31,16 @@ def render_training_board(show_specs: bool = True, specialty: str | None = None)
     prog = ensure_program_dict(get_program(specialty=specialty))
     per = load_periodization()
     countdown = days_until_competition()
-    today_label = datetime.now().strftime("%Y年%m月%d日 %A")
+    today = app_today()
+    today_label = today.strftime("%Y年%m月%d日")
+    unlocked = is_workout_content_unlocked(prog.get("date") or today)
 
     phase = safe_str(prog.get("phase")) or safe_str(per.get("global_phase"))
     theme = safe_str(prog.get("week_theme")) or safe_str(per.get("global_week_theme"))
-    specs = program_specs(prog)
-    detail = workout_detail(prog)
+    specs = program_specs(prog) if unlocked else ""
+    detail = student_visible_workout_detail(prog, prog.get("date") or today)
     detail_block = detail.replace("\n", "<br>") if detail else specs
+    tips = safe_str(prog.get("tips"), "依教練指示完成") if unlocked else "跑案於當日 00:00（香港時間）開放"
 
     st.markdown("##### 📋 訓練計劃看板")
     st.caption(today_label)
@@ -54,13 +62,13 @@ def render_training_board(show_specs: bool = True, specialty: str | None = None)
         {"<p style='margin:0.5rem 0 0;font-size:0.85rem;line-height:1.5;'>" + detail_block + "</p>" if detail_block and detail_block != "-" else ""}
         {"<p style='margin:0.5rem 0 0;font-size:0.85rem;font-family:monospace;'>規格：" + specs + "</p>" if show_specs and specs and specs != detail_block else ""}
         <p style="margin:0.75rem 0 0;font-size:0.9rem;font-style:italic;">
-        <strong>教練提示（{COACH_NAME}）：</strong>{safe_str(prog.get('tips'), '依教練指示完成')}</p>
+        <strong>教練提示（{COACH_NAME}）：</strong>{tips}</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    rate = log_completion_rate(date.today())
+    rate = log_completion_rate(today)
     st.caption(f"今日訓練回報完成率：{rate}%")
 
 

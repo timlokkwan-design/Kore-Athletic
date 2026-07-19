@@ -37,7 +37,17 @@ from utils.config import (
     normalize_train_type,
     schedule_placeholder_program,
 )
-from utils.helpers import format_birth_display, get_grade, is_missing, is_wind_valid, normalize_date_str, safe_float, safe_int, safe_str
+from utils.helpers import (
+    app_today,
+    format_birth_display,
+    get_grade,
+    is_missing,
+    is_wind_valid,
+    normalize_date_str,
+    safe_float,
+    safe_int,
+    safe_str,
+)
 
 PROGRAM_COLUMNS = [
     "date", "type", "title", "group", "sets", "reps", "dist", "rest",
@@ -237,7 +247,7 @@ def get_program(
     group: str | None = None,
     specialty: str | None = None,
 ) -> dict:
-    target = normalize_date_str((for_date or date.today()).isoformat())
+    target = normalize_date_str((for_date or app_today()).isoformat())
     day_programs = get_programs_for_date(target)
     if group:
         for p in day_programs:
@@ -256,9 +266,22 @@ def get_program(
 
 
 def get_today_menu(for_date: date | None = None, specialty: str | None = None) -> dict:
-    from utils.helpers import program_specs
+    from utils.helpers import is_workout_content_unlocked, program_specs
+
     p = get_program(for_date, specialty=specialty)
-    return {**p, "event": p.get("title") or p.get("type", ""), "description": program_specs(p), "notes": p.get("tips", "")}
+    day = for_date or app_today()
+    if is_workout_content_unlocked(day):
+        description = program_specs(p) or safe_str(p.get("type"), "")
+        notes = safe_str(p.get("tips"))
+    else:
+        description = safe_str(p.get("type"), "") or "訓練"
+        notes = ""
+    return {
+        **p,
+        "event": p.get("title") or p.get("type", ""),
+        "description": description,
+        "notes": notes,
+    }
 
 
 def save_program(prog: dict) -> None:

@@ -12,7 +12,15 @@ from utils.data_store import (
     get_wellness, get_attendance_record, load_attendance, mark_leave,
     submit_pending_record, submit_wellness, load_race_records, days_until_competition,
 )
-from utils.helpers import format_train_duration, needs_wind, parse_time, program_specs, safe_int, safe_str
+from utils.helpers import (
+    app_today,
+    format_train_duration,
+    needs_wind,
+    parse_time,
+    safe_int,
+    safe_str,
+    student_visible_program_specs,
+)
 from views.components.announcements import (
     render_latest_announcement_banner,
     render_student_announcements,
@@ -77,7 +85,7 @@ def render_student_view(section: str) -> None:
 def _tab_schedule(user: dict) -> None:
     specialty = user.get("specialty") or ""
     prog = get_program(specialty=specialty)
-    today = date.today().isoformat()
+    today = app_today().isoformat()
     att = get_attendance_record(user["name"], today)
     checked_in = att and att.get("status") == "present"
     countdown = days_until_competition()
@@ -85,9 +93,13 @@ def _tab_schedule(user: dict) -> None:
     checkin_label = "已簽到" if checked_in else "未簽到"
     checkin_tone = "success" if checked_in else "warn"
     countdown_label = f"{countdown} 天" if countdown is not None else "—"
+    today_specs = (
+        student_visible_program_specs(prog, today)[:12]
+        or safe_str(prog.get("type"), "—")[:12]
+    )
 
     render_stat_cards([
-        ("今日課表", program_specs(prog)[:12] or safe_str(prog.get("type"), "—")[:12], "normal"),
+        ("今日課表", today_specs, "normal"),
         ("簽到", checkin_label, checkin_tone),
         ("距離比賽", countdown_label, "normal"),
     ])

@@ -2,11 +2,46 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 from utils.grades import U18_GRADES, WIND_EVENTS
+
+# App calendar day for unlock rules (training content, attendance “today”, etc.)
+APP_TZ = ZoneInfo("Asia/Hong_Kong")
+
+
+def app_now() -> datetime:
+    """Current time in Hong Kong."""
+    return datetime.now(APP_TZ)
+
+
+def app_today() -> date:
+    """Calendar date in Hong Kong (changes at local 00:00)."""
+    return app_now().date()
+
+
+def _as_date(day: str | date | None) -> date | None:
+    if day is None:
+        return None
+    if isinstance(day, date) and not isinstance(day, datetime):
+        return day
+    text = str(day).strip()[:10]
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def is_workout_content_unlocked(day: str | date | None, *, as_of: date | None = None) -> bool:
+    """跑案於訓練當日 00:00（香港時間）起開放；當日及之後可見。"""
+    d = _as_date(day)
+    if d is None:
+        return False
+    today = as_of or app_today()
+    return d <= today
 
 
 def to_scalar(v):
@@ -252,6 +287,21 @@ def workout_detail(prog: dict) -> str:
     return safe_str(prog.get("tech_focus"))
 
 
+def student_visible_workout_detail(
+    prog: dict,
+    day: str | date | None = None,
+    *,
+    reveal_all: bool = False,
+) -> str:
+    """Workout text students may see (empty before unlock unless reveal_all)."""
+    if reveal_all:
+        return workout_detail(prog)
+    unlock_day = day if day is not None else (prog or {}).get("date")
+    if not is_workout_content_unlocked(unlock_day):
+        return ""
+    return workout_detail(prog)
+
+
 def program_specs(p: dict) -> str:
     tp = safe_str(p.get("type"))
     if tp in ("比賽", "休息"):
@@ -264,6 +314,21 @@ def program_specs(p: dict) -> str:
     if tips:
         return tips[:48]
     return safe_str(p.get("title"), "-")
+
+
+def student_visible_program_specs(
+    p: dict,
+    day: str | date | None = None,
+    *,
+    reveal_all: bool = False,
+) -> str:
+    """First-line workout summary for students (empty before unlock)."""
+    if reveal_all:
+        return program_specs(p)
+    unlock_day = day if day is not None else (p or {}).get("date")
+    if not is_workout_content_unlocked(unlock_day):
+        return ""
+    return program_specs(p)
 
 
 def resolve_venue(prog: dict) -> str:

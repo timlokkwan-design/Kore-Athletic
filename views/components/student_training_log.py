@@ -13,12 +13,16 @@ from utils.data_store import (
     get_today_menu,
 )
 from utils.helpers import (
+    app_today,
     format_time_venue_line,
     format_timetable_date,
+    is_workout_content_unlocked,
     program_specs,
     safe_float,
     safe_int,
     safe_str,
+    student_visible_program_specs,
+    student_visible_workout_detail,
     workout_detail,
 )
 from views.components.theme import render_empty_state
@@ -41,11 +45,13 @@ def _logs_on_date(name: str, ds: str):
 
 
 def _render_program_card(prog: dict, *, title: str = "當日課表") -> None:
+    day = safe_str(prog.get("date")) or None
     tp = normalize_train_type(safe_str(prog.get("type")))
-    specs = program_specs(prog) or tp or "—"
+    unlocked = is_workout_content_unlocked(day)
+    specs = (student_visible_program_specs(prog, day) or tp or "—") if unlocked else (tp or "訓練")
     tv = format_time_venue_line(prog)
-    detail = workout_detail(prog)
-    tips = safe_str(prog.get("tips"))
+    detail = student_visible_workout_detail(prog, day)
+    tips = safe_str(prog.get("tips")) if unlocked else ""
     st.markdown(f"**{title}** · {tp}")
     st.caption(specs)
     if tv:
@@ -53,6 +59,8 @@ def _render_program_card(prog: dict, *, title: str = "當日課表") -> None:
     if detail:
         with st.expander("跑案內容", expanded=True):
             st.markdown(detail)
+    elif day and not unlocked:
+        st.info("跑案內容於訓練當日 **00:00（香港時間）** 開放。")
     if tips:
         st.caption(f"教練備註：{tips}")
 
@@ -81,7 +89,7 @@ def _render_log_card(row) -> None:
 
 def _render_record_form(user: dict) -> None:
     specialty = user.get("specialty") or "短跑"
-    today = date.today()
+    today = app_today()
     log_date = st.date_input(
         "記錄日期",
         value=today,
@@ -93,8 +101,10 @@ def _render_record_form(user: dict) -> None:
     prog = get_program(log_date, specialty=specialty)
     menu = get_today_menu(log_date, specialty=specialty)
     train_type = normalize_train_type(safe_str(prog.get("type"), "間歇跑"))
+    day_key = log_date.isoformat() if hasattr(log_date, "isoformat") else str(log_date)[:10]
+    summary = student_visible_program_specs(prog, day_key) or train_type
 
-    st.info(f"**{format_timetable_date(log_date.isoformat())}** 課表：{program_specs(prog) or train_type}")
+    st.info(f"**{format_timetable_date(day_key)}** 課表：{summary}")
     _render_program_card(prog, title="對照課表")
 
     existing = _logs_on_date(user["name"], log_date.isoformat())
@@ -220,7 +230,7 @@ def _render_history(user: dict) -> None:
 
 def _recent_program_dates(specialty: str, *, days_back: int = 45) -> list[str]:
     """Dates in the past window that have a non-empty / non-rest program for this specialty."""
-    today = date.today()
+    today = app_today()
     out: list[str] = []
     for i in range(1, days_back + 1):
         d = today - timedelta(days=i)
