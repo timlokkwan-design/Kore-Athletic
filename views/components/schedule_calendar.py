@@ -308,6 +308,7 @@ def render_schedule_calendar(
         on_next=_sched_next_month,
         prev_args=(select_key, pick_mode),
         next_args=(select_key, pick_mode),
+        on_pick=set_coach_calendar_month,
     )
 
     if pick_mode == "copy":

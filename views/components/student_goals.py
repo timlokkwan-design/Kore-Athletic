@@ -28,15 +28,22 @@ def render_student_goals(user: dict) -> None:
     if not username or not name:
         return
 
-    st.markdown("#### 我的目標")
     try:
         goals = get_active_goals_for_user(username)
     except Exception:
         st.caption("目標功能暫時未能載入。若剛更新，請教練於 Supabase 執行 schema_patch_v202.sql。")
         return
 
+    st.markdown(
+        '<div class="ka-goal-wrap"><p class="ka-goal-title">🎯 我的目標</p>',
+        unsafe_allow_html=True,
+    )
+
     if goals.empty:
-        st.caption("尚未訂立目標 — 揀項目、輸入目標時間，幫自己定方向。")
+        st.markdown(
+            '<p class="ka-goal-empty">尚未訂立目標 — 揀項目、輸入目標時間，幫自己定方向。</p>',
+            unsafe_allow_html=True,
+        )
     else:
         for _, row in goals.iterrows():
             event = safe_str(row.get("event"))
@@ -45,20 +52,24 @@ def render_student_goals(user: dict) -> None:
             pb_score = safe_str(pb.get("score"))
             unit = "米" if event in FIELD_EVENTS else ""
             label = "目標成績" if event in FIELD_EVENTS else "目標時間"
-            pb_line = f" · 目前 PB：{pb_score}{unit}" if pb_score else " · 尚無 PB"
-            c1, c2 = st.columns([5, 1])
-            with c1:
-                st.markdown(f"**{event}** — {label} **{target}{unit}**{pb_line}")
-            with c2:
-                if st.button("移除", key=f"stu_goal_rm_{row.get('id')}", use_container_width=True):
-                    ok, msg = deactivate_student_goal(safe_str(row.get("id")), username)
-                    if ok:
-                        st.success(msg)
-                        st.rerun()
-                    else:
-                        st.error(msg)
+            pb_line = f"目前 PB：{pb_score}{unit}" if pb_score else "尚無 PB"
+            goal_id = safe_str(row.get("id"))
+            st.markdown(
+                f'<div class="ka-goal-card">'
+                f'<div><div class="ka-goal-event">{event}</div>'
+                f'<div class="ka-goal-meta">{label} <b>{target}{unit}</b> · {pb_line}</div></div>'
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+            if st.button("移除目標", key=f"stu_goal_rm_{goal_id}", use_container_width=True):
+                ok, msg = deactivate_student_goal(goal_id, username)
+                if ok:
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
 
-    with st.expander("新增／更新目標", expanded=goals.empty):
+    with st.expander("➕ 新增／更新目標", expanded=goals.empty):
         event = st.selectbox("項目", EVENTS, key="stu_goal_event")
         is_field = event in FIELD_EVENTS
         label = "目標成績" if is_field else "目標時間"
@@ -80,3 +91,5 @@ def render_student_goals(user: dict) -> None:
                 st.rerun()
             else:
                 st.error(msg)
+
+    st.markdown("</div>", unsafe_allow_html=True)
