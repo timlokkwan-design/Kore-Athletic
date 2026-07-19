@@ -12,6 +12,8 @@ from urllib.parse import unquote
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.browser_storage import browser_storage_js, clear_browser_cookie_js, set_browser_cookie_js
+
 COOKIE_NAME = "ka_auth"
 LS_KEY = "ka_auth_session"
 DEFAULT_SESSION_DAYS = 30
@@ -100,10 +102,7 @@ def verify_auth_token(token: str) -> str | None:
 
 
 def _parent_js() -> str:
-    return """
-    const _kaDoc = window.parent.document;
-    const _kaLs = window.parent.localStorage;
-    """
+    return browser_storage_js()
 
 
 def _inject_storage_bridge() -> None:
@@ -145,8 +144,8 @@ def _inject_storage_bridge() -> None:
                 Math.floor((data.expiresAt - Date.now()) / 1000) || {max_age}
             );
             _kaDoc.cookie = COOKIE + "=" + encodeURIComponent(token)
-                + "; path=/; max-age=" + maxAge + "; SameSite=Lax";
-            window.parent.location.reload();
+                + "; path=/; max-age=" + maxAge + "; SameSite=Lax" + _kaSecure;
+            try { window.top.location.reload(); } catch (e) { window.parent.location.reload(); }
         }})();
         </script>
         """,
@@ -169,14 +168,9 @@ def _persist_client_storage(token: str, username: str, exp: int) -> None:
         f"""
         <script>
         (function() {{
-            {_parent_js()}
-            const COOKIE = {json.dumps(COOKIE_NAME)};
-            const LS = {json.dumps(LS_KEY)};
-            const token = {json.dumps(token)};
-            const lsPayload = {json.dumps(ls_payload)};
-            _kaDoc.cookie = COOKIE + "=" + encodeURIComponent(token)
-                + "; path=/; max-age={max_age}; SameSite=Lax";
-            _kaLs.setItem(LS, lsPayload);
+            {set_browser_cookie_js(COOKIE_NAME, token, max_age)}
+            {browser_storage_js()}
+            _kaLs.setItem({json.dumps(LS_KEY)}, {json.dumps(ls_payload)});
         }})();
         </script>
         """,
@@ -190,11 +184,9 @@ def _clear_client_storage() -> None:
         f"""
         <script>
         (function() {{
-            {_parent_js()}
-            const COOKIE = {json.dumps(COOKIE_NAME)};
-            const LS = {json.dumps(LS_KEY)};
-            _kaDoc.cookie = COOKIE + "=; path=/; max-age=0; SameSite=Lax";
-            _kaLs.removeItem(LS);
+            {clear_browser_cookie_js(COOKIE_NAME)}
+            {browser_storage_js()}
+            _kaLs.removeItem({json.dumps(LS_KEY)});
         }})();
         </script>
         """,
@@ -276,10 +268,6 @@ def try_restore_session() -> None:
 
     _inject_storage_bridge()
 
-    if st.session_state.get("_cookie_restore_done"):
-        return
-
-    st.session_state._cookie_restore_done = True
     raw = _read_request_cookies().get(COOKIE_NAME, "")
     if not raw:
         return
@@ -289,5 +277,5 @@ def try_restore_session() -> None:
         clear_persisted_login()
         return
 
-    if not _restore_user(username):
-        return
+    if _restore_user(username):
+        st.session_state._cookie_restore_done = True

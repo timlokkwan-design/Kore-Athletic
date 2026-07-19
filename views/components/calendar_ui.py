@@ -151,24 +151,24 @@ def render_calendar_view_toggle(
     return st.session_state.get(mode_key, mode)
 
 
-STUDENT_VIEW_MODES = ("list", "grid", "fullcalendar")
+STUDENT_VIEW_MODES = ("list", "fullcalendar")
 
 
 def render_student_schedule_view_toggle(
     key: str,
     *,
-    default_mode: str = "list",
+    default_mode: str = "fullcalendar",
 ) -> str:
-    """Three-way toggle: list / grid / FullCalendar. Returns mode string."""
+    """Two-way toggle: FullCalendar / list. Returns mode string."""
     mode_key = f"{key}_view_mode"
     raw = st.session_state.get(mode_key)
     if raw not in STUDENT_VIEW_MODES:
-        if raw == "grid" or raw == "list":
-            st.session_state[mode_key] = raw
-        elif isinstance(raw, str) and raw.startswith("📋"):
+        if raw == "grid":
+            st.session_state[mode_key] = "fullcalendar"
+        elif raw == "list" or (isinstance(raw, str) and raw.startswith("📋")):
             st.session_state[mode_key] = "list"
         else:
-            st.session_state[mode_key] = default_mode if default_mode in STUDENT_VIEW_MODES else "list"
+            st.session_state[mode_key] = default_mode if default_mode in STUDENT_VIEW_MODES else "fullcalendar"
 
     mode = st.session_state[mode_key]
     inject_calendar_theme()
@@ -183,7 +183,7 @@ def render_student_schedule_view_toggle(
     st.markdown('<div class="ka-cal-view-marker"></div>', unsafe_allow_html=True)
 
     with stylable_container(
-        key=f"{key}_view_toggle3",
+        key=f"{key}_view_toggle2",
         css_styles=f"""
         {{
             background: {p['cell_empty_bg']};
@@ -201,30 +201,12 @@ def render_student_schedule_view_toggle(
         }}
         """,
     ):
-        c1, c2, c3 = st.columns(3)
+        c1, c2 = st.columns(2)
 
         def _pick(m: str):
             st.session_state[mode_key] = m
 
         with c1:
-            st.button(
-                "📋 列表",
-                key=f"{key}_vm_list",
-                use_container_width=True,
-                type="primary" if mode == "list" else "secondary",
-                on_click=_pick,
-                args=("list",),
-            )
-        with c2:
-            st.button(
-                "📅 月曆",
-                key=f"{key}_vm_grid",
-                use_container_width=True,
-                type="primary" if mode == "grid" else "secondary",
-                on_click=_pick,
-                args=("grid",),
-            )
-        with c3:
             st.button(
                 "🗓 日曆",
                 key=f"{key}_vm_fc",
@@ -232,6 +214,15 @@ def render_student_schedule_view_toggle(
                 type="primary" if mode == "fullcalendar" else "secondary",
                 on_click=_pick,
                 args=("fullcalendar",),
+            )
+        with c2:
+            st.button(
+                "📋 列表",
+                key=f"{key}_vm_list",
+                use_container_width=True,
+                type="primary" if mode == "list" else "secondary",
+                on_click=_pick,
+                args=("list",),
             )
 
     return st.session_state.get(mode_key, mode)

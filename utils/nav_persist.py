@@ -8,15 +8,15 @@ from urllib.parse import unquote
 import streamlit as st
 import streamlit.components.v1 as components
 
+from utils.browser_storage import browser_storage_js
+
 LS_NAV_KEY = "ka_nav_state"
 BRIDGE_COOKIE = "ka_nav_bridge"
+AUTH_PAGES = frozenset({"登入", "註冊新學員", "訪客專區"})
 
 
 def _parent_js() -> str:
-    return """
-    const _kaDoc = window.parent.document;
-    const _kaLs = window.parent.localStorage;
-    """
+    return browser_storage_js()
 
 
 def _read_request_cookies() -> dict[str, str]:
@@ -50,7 +50,7 @@ def _clear_nav_bridge_cookie() -> None:
         <script>
         (function() {{
             {_parent_js()}
-            _kaDoc.cookie = {json.dumps(BRIDGE_COOKIE)} + "=; path=/; max-age=0; SameSite=Lax";
+            _kaDoc.cookie = {json.dumps(BRIDGE_COOKIE)} + "=; path=/; max-age=0; SameSite=Lax" + _kaSecure;
         }})();
         </script>
         """,
@@ -74,8 +74,8 @@ def _inject_nav_bridge() -> None:
             const raw = _kaLs.getItem(LS);
             if (!raw) return;
             _kaDoc.cookie = BRIDGE + "=" + encodeURIComponent(raw)
-                + "; path=/; max-age=120; SameSite=Lax";
-            window.parent.location.reload();
+                + "; path=/; max-age=120; SameSite=Lax" + _kaSecure;
+            try {{ window.top.location.reload(); }} catch (e) {{ window.parent.location.reload(); }}
         }})();
         </script>
         """,
@@ -89,7 +89,9 @@ def _apply_nav_payload(data: dict, role: str) -> None:
         return
     main_page = data.get("main_page")
     if isinstance(main_page, str) and main_page.strip():
-        st.session_state.main_page = main_page.strip()
+        mp = main_page.strip()
+        if role == "visitor" or mp not in AUTH_PAGES:
+            st.session_state.main_page = mp
     if role == "coach":
         from views.coach_view import COACH_SECTIONS
 

@@ -123,13 +123,26 @@ def _render_day_detail_content(
         st.info(f"**{date_label}** — 休息或無你的組別訓練。")
         return
 
-    detail = workout_detail(prog)
     time_text, venue = _time_venue_text(prog)
     att = get_attendance_record(student_name, selected) if student_name else None
     att_line = _attendance_line(att)
+    is_future = sel_d > today
 
     if sel_d < today:
         st.caption("ℹ️ 過往訓練")
+    elif is_future:
+        st.caption("ℹ️ 未到訓練日 — 僅顯示時間與地點")
+
+    if is_future:
+        tp = normalize_train_type(safe_str(prog.get("type")))
+        label = "比賽" if tp == "比賽" else "訓練"
+        st.markdown(f"**{label}**")
+        st.markdown(f"🕐 **{time_text}**")
+        st.markdown(f"📍 **{venue}**")
+        st.info("跑案內容於訓練當日開放，請當日再查看。")
+        return
+
+    detail = workout_detail(prog)
 
     if detail:
         st.markdown("**跑案內容**")
@@ -404,7 +417,7 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
     mapped = SPECIALTY_TO_GROUP.get(student_specialty, "—")
     st.caption(
         f"顯示 **全體組員** 及 **{mapped}** · "
-        f"🔵 藍色=訓練 · 🔴 紅色=比賽 · 點選查看跑案、時間與地點"
+        f"🔵 藍色=訓練 · 🔴 紅色=比賽 · 點選查看時間與地點（跑案內容於訓練當日開放）"
     )
 
     programs = get_programs_for_month(year, month)
@@ -419,17 +432,18 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
 
     prog_map = build_student_prog_map(programs, student_specialty)
 
-    view_mode = render_student_schedule_view_toggle("student_sched", default_mode="list")
+    view_mode = render_student_schedule_view_toggle("student_sched", default_mode="fullcalendar")
     if view_mode == "list":
         _render_student_schedule_list(year, month, prog_map, student_specialty, att_map, today)
         st.markdown("---")
         selected = st.session_state.get("student_sched_selected", today_str)
         _render_selected_day_detail(selected, prog_map, student_specialty, today, student_name)
-    elif view_mode == "fullcalendar":
+    else:
         events = build_student_fullcalendar_events(
             prog_map,
             student_specialty=student_specialty,
             visible_day_fn=_student_prog_for_day,
+            today=today,
         )
         render_student_fullcalendar(
             year=year,
@@ -439,12 +453,7 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
         st.markdown("---")
         selected = st.session_state.get("student_sched_selected", today_str)
         _render_selected_day_detail(selected, prog_map, student_specialty, today, student_name)
-        st.caption("💡 點擊色塊或空白日期查看詳情；🗓 為 FullCalendar 互動月曆。")
-    else:
-        _render_student_schedule_compact(
-            year, month, prog_map, student_specialty, att_map, today, student_name
-        )
-        st.caption("💡 月曆為 7 格一列；🔵 藍色=訓練、🔴 紅色=比賽；點方格查看完整跑案。")
+        st.caption("💡 點擊色塊或空白日期查看詳情；未到訓練日僅顯示時間與地點。")
 
 
 def _entry_card(prog: dict, *, highlight: bool = False) -> str:

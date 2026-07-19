@@ -36,6 +36,10 @@ def get_current_role() -> str:
     return user["role"] if user else "visitor"
 
 
+def _home_page_for_role(role: str) -> str:
+    return {"coach": "教練平台", "student": "學生平台", "parent": "家長專區"}.get(role, "PB 排行榜")
+
+
 def login(username: str, password: str) -> tuple[bool, str]:
     name = username.strip()
     user = get_user(name)
@@ -52,7 +56,14 @@ def login(username: str, password: str) -> tuple[bool, str]:
         set_user_password(name, password)
         user = get_user(name) or user
     st.session_state.user = _public_user(user)
+    role = safe_str(user.get("role"))
+    st.session_state.main_page = _home_page_for_role(role)
+    for key in ("_nav_restored", "_nav_bridge_injected", "_cookie_restore_done", "_storage_bridge_done"):
+        st.session_state.pop(key, None)
     persist_login(name)
+    from utils.nav_persist import save_nav_state
+
+    save_nav_state(role, main_page=st.session_state.main_page)
     return True, ""
 
 

@@ -28,8 +28,12 @@ def build_student_fullcalendar_events(
     *,
     student_specialty: str,
     visible_day_fn,
+    today: date | None = None,
 ) -> list[dict]:
     """Convert student-visible programs to FullCalendar event objects."""
+    if today is None:
+        today = date.today()
+    today_str = today.isoformat()
     tones = get_calendar_tones()
     events: list[dict] = []
     for ds in sorted(prog_map.keys()):
@@ -39,7 +43,12 @@ def build_student_fullcalendar_events(
         tp = normalize_train_type(safe_str(prog.get("type")))
         tone_key = "competition" if tp == "比賽" else "training"
         tone = tones.get(tone_key, tones["training"])
-        title = "比賽" if tp == "比賽" else (safe_str(prog.get("title")) or "訓練")
+        if tp == "比賽":
+            title = "比賽"
+        elif ds > today_str:
+            title = "訓練"
+        else:
+            title = safe_str(prog.get("title")) or "訓練"
         start_raw = safe_str(prog.get("start_time"))
         end_raw = safe_str(prog.get("end_time"))
         start_hm = _parse_time_hm(start_raw)
