@@ -34,24 +34,19 @@ def _render_date_action_row(
     *,
     key_prefix: str,
     on_pick,
-    limit: int = 8,
+    limit: int = 9,
 ) -> None:
-    """Compact tappable date chips — one tap → edit (via on_click, no extra delay)."""
+    """Compact tappable date chips — up to 3 per row, side-by-side on mobile."""
     import streamlit as st
+
+    from views.components.coach_mobile_ui import force_button_row
 
     if not dates:
         return
     shown = dates[:limit]
-    st.caption("👉 點日期即時進入編輯")
-    # Rows of up to 3 chips so mobile keeps them side-by-side
     for row_i in range(0, len(shown), 3):
         chunk = shown[row_i : row_i + 3]
-        with st.container():
-            st.markdown(
-                '<div class="ka-inline-row-marker"></div>',
-                unsafe_allow_html=True,
-            )
-            cols = st.columns(len(chunk), gap="small")
+        with force_button_row(key=f"{key_prefix}_r{row_i}", n_cols=len(chunk)) as cols:
             for col, ds in zip(cols, chunk):
                 with col:
                     st.button(
@@ -79,16 +74,22 @@ def render_month_sync_alerts(prog_map: dict[str, dict], *, page: str) -> None:
         elif status == "need_schedule":
             need_schedule.append(ds)
 
+    if not need_workout and not need_schedule:
+        return
+
+    # One short hint for the whole block — avoid repeating per section.
+    st.caption("👉 點日期即時進入編輯")
+
     if page == "prog":
         if need_workout:
-            st.warning("📌 **訓練時間表已設定時間**，以下日期待寫跑案（點日期即編輯）：")
+            st.warning("📌 **訓練時間表已設定時間**，以下日期待寫跑案：")
             _render_date_action_row(
                 need_workout,
                 key_prefix="sync_prog_wo",
                 on_pick=_goto_program_edit,
             )
         if need_schedule:
-            st.info("📌 以下日期**跑案已寫**，請至「訓練時間表」填時間地點（點日期即前往）：")
+            st.info("📌 以下日期**跑案已寫**，請至「訓練時間表」填時間地點：")
             _render_date_action_row(
                 need_schedule,
                 key_prefix="sync_prog_sc",
@@ -96,14 +97,14 @@ def render_month_sync_alerts(prog_map: dict[str, dict], *, page: str) -> None:
             )
     else:
         if need_workout:
-            st.info("📌 以下日期**時間已定**，請至「設定課表」填寫跑案（點日期即編輯）：")
+            st.info("📌 以下日期**時間已定**，請至「設定課表」填寫跑案：")
             _render_date_action_row(
                 need_workout,
                 key_prefix="sync_sched_wo",
                 on_pick=_goto_program_edit,
             )
         if need_schedule:
-            st.warning("📌 **設定課表已有跑案**，以下日期待填時間地點（點日期即編輯）：")
+            st.warning("📌 **設定課表已有跑案**，以下日期待填時間地點：")
             _render_date_action_row(
                 need_schedule,
                 key_prefix="sync_sched_sc",

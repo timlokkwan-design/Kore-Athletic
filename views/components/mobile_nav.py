@@ -173,7 +173,40 @@ def _find_innermost_vertical_block_js() -> str:
                 document.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function (row) {
                   if (row.closest('.ka-bottom-dock-host') || row.closest('.ka-top-subtab-host')) return;
                   if (row.classList && row.classList.contains('ka-inline-row-forced')) return;
+                  if (row.classList && row.classList.contains('ka-cal-grid-forced')) return;
+                  if (row.querySelector && (
+                    row.querySelector('.ka-tt-marker')
+                    || row.querySelector('.ka-tt-empty')
+                    || row.querySelector('.ka-tt-hdr')
+                    || row.querySelector('.ka-ccell-marker')
+                    || row.querySelector('.ka-ccell-hdr')
+                    || row.querySelector('.ka-cal-week-marker')
+                  )) return;
                   clearRowInline(row);
+                });
+              }
+              function pinCalendarGrids() {
+                // Force 7-across calendar weeks even when Streamlit stacks columns.
+                document.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function (row) {
+                  var n = row.children ? row.children.length : 0;
+                  if (n < 5 || n > 8) return;
+                  var hit = row.querySelector(
+                    '.ka-tt-marker, .ka-tt-empty, .ka-tt-hdr, .ka-ccell-marker, .ka-ccell-hdr, .ka-cal-week-marker'
+                  );
+                  if (!hit) return;
+                  row.classList.add('ka-cal-grid-forced');
+                  row.style.setProperty('display', 'grid', 'important');
+                  row.style.setProperty('grid-template-columns', 'repeat(7, minmax(0, 1fr))', 'important');
+                  row.style.setProperty('flex-wrap', 'nowrap', 'important');
+                  row.style.setProperty('width', '100%', 'important');
+                  row.style.setProperty('max-width', '100%', 'important');
+                  Array.prototype.forEach.call(row.children, function (col) {
+                    if (!col || !col.style) return;
+                    col.style.setProperty('min-width', '0', 'important');
+                    col.style.setProperty('max-width', 'none', 'important');
+                    col.style.setProperty('width', 'auto', 'important');
+                    col.style.setProperty('flex', 'unset', 'important');
+                  });
                 });
               }
               function findChromeRow(marker) {
@@ -231,11 +264,12 @@ def _find_innermost_vertical_block_js() -> str:
                 if (el.querySelector('[data-testid="stExpander"]')) return true;
                 if (el.querySelector('[data-testid="stDataFrame"]')) return true;
                 if (el.querySelector('section.main')) return true;
+                // Calendar chrome inside host ⇒ not the dock/subtab host
                 if (el.querySelector('.ka-cal-month-nav-marker')) return true;
                 if (el.querySelector('.ka-cal-view-marker')) return true;
                 if (el.querySelector('.ka-cal-shell-marker')) return true;
-                if (el.querySelector('.ka-inline-row-marker')) return true;
                 if (el.querySelector('.ka-coach-screen-marker')) return true;
+                // Do NOT reject .ka-inline-row-marker — chip rows use it.
                 var rows = directRows(el);
                 if (rows.length !== 1) return true;
                 var h = el.getBoundingClientRect().height;
@@ -347,6 +381,8 @@ def _pin_innermost_dock_host() -> None:
                 }});
                 // Month nav / view toggles / paired action buttons — one row on mobile
                 pinInlineChrome();
+                // Calendar weeks: keep 日–六 / day cells side-by-side on phones
+                pinCalendarGrids();
                 placeTopHost();
                 unlockScroll();
               }}
@@ -477,13 +513,11 @@ def _render_top_subtabbar(
     session_key: str,
     key_prefix: str,
 ) -> None:
-    """Fixed top sub-tabs — same horizontal tile style as the bottom dock.
-
-    items: (icon, short_label, section_value)
-    Pinned with position:fixed (sticky fails inside Streamlit layout).
-    """
+    """Fixed top sub-tabs — 檢視｜時間｜設定 (etc.) always one comfortable row."""
     if current_section not in {s for _, _, s in items}:
         return
+
+    from views.components.coach_mobile_ui import force_button_row
 
     st.markdown(
         """
@@ -499,7 +533,7 @@ def _render_top_subtabbar(
           flex-direction: row !important;
           flex-wrap: nowrap !important;
           width: 100% !important;
-          gap: 0.18rem !important;
+          gap: 0.35rem !important;
         }
         .ka-top-subtab-host [data-testid="stHorizontalBlock"] > div,
         .ka-top-subtab-host [data-testid="column"],
@@ -514,12 +548,14 @@ def _render_top_subtabbar(
         unsafe_allow_html=True,
     )
 
-    with st.container(border=False):
-        st.markdown(
-            '<div class="ka-top-subtab-marker" aria-hidden="true"></div>',
-            unsafe_allow_html=True,
-        )
-        cols = st.columns(len(items), gap="small")
+    # force_button_row keeps 檢視｜時間｜設定 side-by-side even before JS pins.
+    with force_button_row(
+        key=f"{key_prefix}_topbar",
+        n_cols=len(items),
+        marker_extra="ka-top-subtab-marker",
+        pin_inline=False,
+        variant="bare",
+    ) as cols:
         for col, (icon, label, section) in zip(cols, items):
             is_active = current_section == section
             with col:

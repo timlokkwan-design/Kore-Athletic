@@ -255,22 +255,58 @@ div[data-testid="stVerticalBlock"]:has(.ka-cal-shell-marker) > div[data-testid="
     background: {p['cell_bg']} !important;
 }}
 
-/* ── Month grid layout ── */
+/* ── Weekday header (pure HTML — never uses st.columns) ── */
+.ka-cal-weekday-row {{
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: 3px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 0 4px 0 !important;
+    padding: 3px !important;
+    box-sizing: border-box !important;
+    background: {p['grid_gutter']} !important;
+    border-radius: 12px !important;
+    box-shadow: inset 0 1px 0 {p['inset_highlight']};
+}}
+.ka-cal-weekday-row .ka-tt-hdr p,
+.ka-cal-weekday-row .ka-ccell-hdr p {{
+    text-align: center !important; font-size: 0.7rem !important;
+    margin: 0 !important; padding: 5px 0 !important;
+    color: {p['text_secondary']} !important; font-weight: 800 !important;
+    background: {p['cell_bg']}; border-radius: 6px;
+}}
+
+/* ── Month grid layout (backup; week rows also use scoped stylable_container) ── */
+div[data-testid="stVerticalBlock"]:has(> div .ka-cal-week-marker) > [data-testid="stHorizontalBlock"],
 div[data-testid="stHorizontalBlock"]:has(.ka-tt-grid-marker),
-div[data-testid="stHorizontalBlock"]:has(.ka-tt-hdr) {{
+div[data-testid="stHorizontalBlock"]:has(.ka-tt-hdr),
+div[data-testid="stHorizontalBlock"]:has(.ka-tt-marker),
+div[data-testid="stHorizontalBlock"]:has(.ka-tt-empty),
+div[data-testid="stHorizontalBlock"].ka-cal-grid-forced {{
     display: grid !important;
     grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
     gap: 3px !important;
     flex-wrap: nowrap !important;
     width: 100% !important;
+    max-width: 100% !important;
     background: {p['grid_gutter']} !important;
     border-radius: 12px !important;
     padding: 3px !important;
     box-shadow: inset 0 1px 0 {p['inset_highlight']};
 }}
+div[data-testid="stVerticalBlock"]:has(> div .ka-cal-week-marker) > [data-testid="stHorizontalBlock"] > div,
 div[data-testid="stHorizontalBlock"]:has(.ka-tt-grid-marker) > div[data-testid="column"],
-div[data-testid="stHorizontalBlock"]:has(.ka-tt-hdr) > div[data-testid="column"] {{
-    padding: 0 !important; margin: 0 !important; min-width: 0 !important; flex: unset !important;
+div[data-testid="stHorizontalBlock"]:has(.ka-tt-grid-marker) > div[data-testid="stColumn"],
+div[data-testid="stHorizontalBlock"]:has(.ka-tt-hdr) > div[data-testid="column"],
+div[data-testid="stHorizontalBlock"]:has(.ka-tt-hdr) > div[data-testid="stColumn"],
+div[data-testid="stHorizontalBlock"]:has(.ka-tt-marker) > div[data-testid="column"],
+div[data-testid="stHorizontalBlock"]:has(.ka-tt-marker) > div[data-testid="stColumn"],
+div[data-testid="stHorizontalBlock"]:has(.ka-tt-empty) > div[data-testid="column"],
+div[data-testid="stHorizontalBlock"]:has(.ka-tt-empty) > div[data-testid="stColumn"],
+div[data-testid="stHorizontalBlock"].ka-cal-grid-forced > div {{
+    padding: 0 !important; margin: 0 !important; min-width: 0 !important;
+    max-width: none !important; width: auto !important; flex: unset !important;
 }}
 
 div[data-testid="column"]:has(.ka-tt-marker) {{

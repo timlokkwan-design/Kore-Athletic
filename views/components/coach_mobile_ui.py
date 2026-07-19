@@ -17,31 +17,6 @@ def inject_coach_mobile_css() -> None:
     st.markdown(
         """
         <style>
-        /*
-         * Force paired action buttons onto one row — SCOPED to the small
-         * vertical block that directly contains .ka-force-row (must wrap
-         * marker + columns in st.container()). Never use bare :has(.ka-force-row)
-         * on page-root blocks — that leaks into the calendar grid.
-         */
-        [data-testid="stVerticalBlock"]:has(> div .ka-force-row) > [data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 0.35rem !important;
-            width: 100% !important;
-        }
-        [data-testid="stVerticalBlock"]:has(> div .ka-force-row) > [data-testid="stHorizontalBlock"] > [data-testid="column"] {
-            min-width: 0 !important;
-            flex: 1 1 0 !important;
-        }
-        [data-testid="stVerticalBlock"]:has(> div .ka-force-row) > [data-testid="stHorizontalBlock"] button {
-            white-space: nowrap !important;
-            font-size: clamp(0.62rem, 2.7vw, 0.88rem) !important;
-            min-height: 2.5rem !important;
-            font-weight: 700 !important;
-            padding-left: 0.15rem !important;
-            padding-right: 0.15rem !important;
-        }
         @media (max-width: 768px) {
             html, body, .stApp,
             [data-testid="stAppViewContainer"],
@@ -52,10 +27,6 @@ def inject_coach_mobile_css() -> None:
                 max-width: 100% !important;
                 -webkit-overflow-scrolling: touch !important;
             }
-            div[data-testid="stVerticalBlock"]:has(.ka-coach-screen-marker) [data-testid="stHorizontalBlock"] button {
-                min-height: 2.85rem !important;
-                font-weight: 700 !important;
-            }
         }
         </style>
         """,
@@ -64,11 +35,7 @@ def inject_coach_mobile_css() -> None:
 
 
 def mark_force_row() -> None:
-    """Place inside st.container() immediately before st.columns(...).
-
-    Do not add ka-inline-row-marker here — that JS pin only supports ≤4
-    columns and can latch onto the wrong calendar chrome row.
-    """
+    """Deprecated: prefer force_button_row()."""
     st.markdown(
         '<div class="ka-force-row" aria-hidden="true"></div>',
         unsafe_allow_html=True,
@@ -76,53 +43,160 @@ def mark_force_row() -> None:
 
 
 @contextmanager
-def force_button_row(*, key: str, n_cols: int = 2) -> Iterator[list]:
+def force_button_row(
+    *,
+    key: str,
+    n_cols: int = 2,
+    weights: list[float] | None = None,
+    marker_extra: str = "",
+    pin_inline: bool = True,
+    variant: str = "chip",
+) -> Iterator[list]:
     """Reliable one-row chip/button strip (stylable_container + scoped CSS).
 
-    Prefer this for 2–5 equal action chips on mobile. Yields ``st.columns(n_cols)``.
+    variant:
+      - ``chip``: bordered strip (default for in-page options)
+      - ``bare``: no chrome (top sub-tabs / docks)
     """
     inject_coach_mobile_css()
     inject_calendar_theme()
     p = get_calendar_palette()
-    # JS pin supports up to 5 chip columns (see mobile_nav pinInlineChrome)
-    marker_cls = "ka-force-row-host ka-inline-row-marker" if n_cols <= 5 else "ka-force-row-host"
-    with stylable_container(
-        key=key,
-        css_styles=f"""
+    if weights is not None and len(weights) != n_cols:
+        weights = None
+
+    marker_cls = "ka-force-row-host"
+    if pin_inline and n_cols <= 5:
+        marker_cls += " ka-inline-row-marker"
+    if marker_extra:
+        marker_cls = f"{marker_cls} {marker_extra}".strip()
+
+    if weights:
+        flex_rules = "\n".join(
+            f"""
+            div[data-testid="stHorizontalBlock"] > div:nth-child({i + 1}) {{
+                flex: {w} 1 0 !important;
+                min-width: 0 !important;
+                max-width: none !important;
+                width: auto !important;
+            }}
+            """
+            for i, w in enumerate(weights)
+        )
+        col_spec: int | list[float] = list(weights)
+    else:
+        flex_rules = """
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"],
+        div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"],
+        div[data-testid="stHorizontalBlock"] > div {
+            min-width: 0 !important;
+            max-width: none !important;
+            width: auto !important;
+            flex: 1 1 0 !important;
+        }
+        """
+        col_spec = n_cols
+
+    if variant == "bare":
+        host_css = """
+        {
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            margin: 0;
+        }
+        """
+        btn_css = """
+        button {
+            min-height: 3.05rem !important;
+            font-weight: 700 !important;
+            border-radius: 12px !important;
+            font-size: clamp(0.68rem, 2.8vw, 0.82rem) !important;
+            padding: 0.28rem 0.12rem !important;
+            white-space: pre-line !important;
+            line-height: 1.15 !important;
+        }
+        """
+    else:
+        host_css = f"""
         {{
             background: {p['cell_empty_bg']};
             border: 1px solid {p['list_card_border']};
-            border-radius: 12px;
-            padding: 4px;
-            margin: 0.15rem 0 0.45rem;
+            border-radius: 14px;
+            padding: 5px;
+            margin: 0.2rem 0 0.55rem;
         }}
-        div[data-testid="stHorizontalBlock"] {{
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 4px !important;
-            width: 100% !important;
-        }}
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {{
-            min-width: 0 !important;
-            flex: 1 1 0 !important;
-        }}
-        button {{
-            min-height: 2.55rem !important;
+        """
+        btn_css = """
+        button {
+            min-height: 2.7rem !important;
             font-weight: 700 !important;
-            border-radius: 8px !important;
-            font-size: clamp(0.62rem, 2.6vw, 0.85rem) !important;
-            padding-left: 0.1rem !important;
-            padding-right: 0.1rem !important;
+            border-radius: 10px !important;
+            font-size: clamp(0.64rem, 2.7vw, 0.88rem) !important;
+            padding-left: 0.2rem !important;
+            padding-right: 0.2rem !important;
             white-space: nowrap !important;
-        }}
-        """,
+        }
+        """
+
+    with stylable_container(
+        key=key,
+        css_styles=[
+            host_css,
+            """
+            div[data-testid="stHorizontalBlock"] {
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                align-items: stretch !important;
+                gap: 6px !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            """,
+            flex_rules,
+            btn_css,
+        ],
     ):
         st.markdown(
             f'<div class="{marker_cls}" data-ka-cols="{n_cols}" aria-hidden="true"></div>',
             unsafe_allow_html=True,
         )
-        yield st.columns(n_cols, gap="small")
+        yield st.columns(col_spec, gap="small")
+
+
+def render_option_chips(
+    *,
+    key: str,
+    options: list[str],
+    session_key: str,
+    caption: str = "",
+    per_row: int = 3,
+) -> str:
+    """Selectable option chips — ``per_row`` items per horizontal strip."""
+    if not options:
+        return ""
+    if caption:
+        st.caption(caption)
+    cur = st.session_state.get(session_key, options[0])
+    if cur not in options:
+        cur = options[0]
+        st.session_state[session_key] = cur
+
+    for row_i in range(0, len(options), per_row):
+        chunk = options[row_i : row_i + per_row]
+        with force_button_row(key=f"{key}_r{row_i}", n_cols=len(chunk)) as cols:
+            for col, opt in zip(cols, chunk):
+                with col:
+                    if st.button(
+                        opt,
+                        key=f"{key}_{opt}",
+                        use_container_width=True,
+                        type="primary" if opt == cur else "secondary",
+                    ):
+                        st.session_state[session_key] = opt
+                        st.rerun()
+    return st.session_state[session_key]
 
 
 def render_calendar_legend() -> None:
@@ -145,27 +219,12 @@ def _set_coach_prog_screen(screen: str) -> None:
 
 def render_coach_screen_switcher(*, current: str) -> None:
     """Two big pills: pick date vs edit program (replaces tabs on mobile)."""
-    inject_coach_mobile_css()
-    inject_calendar_theme()
-    p = get_calendar_palette()
-    with stylable_container(
+    with force_button_row(
         key="coach_scr_switch",
-        css_styles=f"""
-        {{
-            background: {p['cell_empty_bg']};
-            border: 1px solid {p['list_card_border']};
-            border-radius: 12px;
-            padding: 4px;
-            margin-bottom: 0.5rem;
-        }}
-        button {{ min-height: 2.75rem !important; font-weight: 700 !important; border-radius: 8px !important; }}
-        """,
-    ):
-        st.markdown(
-            '<div class="ka-coach-screen-marker ka-inline-row-marker"></div>',
-            unsafe_allow_html=True,
-        )
-        c1, c2 = st.columns(2)
+        n_cols=2,
+        marker_extra="ka-coach-screen-marker",
+    ) as cols:
+        c1, c2 = cols
         with c1:
             st.button(
                 "📅 選日期",
