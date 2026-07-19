@@ -78,74 +78,77 @@ def _render_sched_pick_ui(pick_mode: str) -> None:
     inject_coach_mobile_css()
     if pick_mode == "copy":
         targets = st.session_state.get("sched_pick_dates", [])
-        mark_force_row()
-        b1, b2, b3 = st.columns(3, gap="small")
-        with b1:
-            if st.button(
-                f"✅ 複製 {len(targets)}",
-                type="primary",
-                disabled=not targets,
-                key="sched_copy_confirm",
-                use_container_width=True,
-            ):
-                n = copy_time_venue_to_dates(copy_source, targets)
-                _clear_pick_state()
-                st.session_state["sched_flash"] = ("success", f"已複製全隊時間地點至 {n} 日")
-                if targets:
-                    set_coach_calendar_date(targets[-1])
-                st.rerun()
-        with b2:
-            st.button(
-                "↺ 清除",
-                disabled=not targets,
-                key="sched_copy_clear",
-                use_container_width=True,
-                on_click=_clear_sched_picks,
-            )
-        with b3:
-            if st.button("✖ 取消", key="sched_copy_cancel", use_container_width=True):
-                _clear_pick_state()
-                st.rerun()
+        with st.container():
+            mark_force_row()
+            b1, b2, b3 = st.columns(3, gap="small")
+            with b1:
+                if st.button(
+                    f"✅ 複製 {len(targets)}",
+                    type="primary",
+                    disabled=not targets,
+                    key="sched_copy_confirm",
+                    use_container_width=True,
+                ):
+                    n = copy_time_venue_to_dates(copy_source, targets)
+                    _clear_pick_state()
+                    st.session_state["sched_flash"] = ("success", f"已複製全隊時間地點至 {n} 日")
+                    if targets:
+                        set_coach_calendar_date(targets[-1])
+                    st.rerun()
+            with b2:
+                st.button(
+                    "↺ 清除",
+                    disabled=not targets,
+                    key="sched_copy_clear",
+                    use_container_width=True,
+                    on_click=_clear_sched_picks,
+                )
+            with b3:
+                if st.button("✖ 取消", key="sched_copy_cancel", use_container_width=True):
+                    _clear_pick_state()
+                    st.rerun()
 
     elif pick_mode == "bulk":
         targets = st.session_state.get("sched_pick_dates", [])
         st.markdown("#### 套用到已選日期（全隊同一時間地點）")
-        mark_force_row()
-        f1, f2, f3 = st.columns(3, gap="small")
-        bulk_start = f1.text_input("開始時間", "17:00", key="sched_bulk_st")
-        bulk_end = f2.text_input("結束時間", "19:00", key="sched_bulk_et")
-        bulk_venue = f3.selectbox("地點", VENUE_OPTIONS, key="sched_bulk_vn")
+        with st.container():
+            mark_force_row()
+            f1, f2, f3 = st.columns(3, gap="small")
+            bulk_start = f1.text_input("開始時間", "17:00", key="sched_bulk_st")
+            bulk_end = f2.text_input("結束時間", "19:00", key="sched_bulk_et")
+            bulk_venue = f3.selectbox("地點", VENUE_OPTIONS, key="sched_bulk_vn")
         bulk_other = ""
         if bulk_venue == "其他":
             bulk_other = st.text_input("其他地點", key="sched_bulk_vo", placeholder="請填寫詳細地點")
-        mark_force_row()
-        b1, b2, b3 = st.columns(3, gap="small")
-        with b1:
-            if st.button(
-                f"✅ 套用 {len(targets)}",
-                type="primary",
-                disabled=not targets,
-                key="sched_bulk_confirm",
-                use_container_width=True,
-            ):
-                n = apply_time_venue_to_dates(
-                    targets, bulk_start, bulk_end, bulk_venue, bulk_other,
+        with st.container():
+            mark_force_row()
+            b1, b2, b3 = st.columns(3, gap="small")
+            with b1:
+                if st.button(
+                    f"✅ 套用 {len(targets)}",
+                    type="primary",
+                    disabled=not targets,
+                    key="sched_bulk_confirm",
+                    use_container_width=True,
+                ):
+                    n = apply_time_venue_to_dates(
+                        targets, bulk_start, bulk_end, bulk_venue, bulk_other,
+                    )
+                    _clear_pick_state()
+                    st.session_state["sched_flash"] = ("success", f"已套用全隊時間地點至 {n} 個日期")
+                    st.rerun()
+            with b2:
+                st.button(
+                    "↺ 清除",
+                    disabled=not targets,
+                    key="sched_bulk_clear",
+                    use_container_width=True,
+                    on_click=_clear_sched_picks,
                 )
-                _clear_pick_state()
-                st.session_state["sched_flash"] = ("success", f"已套用全隊時間地點至 {n} 個日期")
-                st.rerun()
-        with b2:
-            st.button(
-                "↺ 清除",
-                disabled=not targets,
-                key="sched_bulk_clear",
-                use_container_width=True,
-                on_click=_clear_sched_picks,
-            )
-        with b3:
-            if st.button("✖ 取消", key="sched_bulk_cancel", use_container_width=True):
-                _clear_pick_state()
-                st.rerun()
+            with b3:
+                if st.button("✖ 取消", key="sched_bulk_cancel", use_container_width=True):
+                    _clear_pick_state()
+                    st.rerun()
 
 
 @st.fragment
@@ -207,47 +210,49 @@ def _render_sched_editor_ui() -> None:
 
     inject_coach_mobile_css()
     has_slot = has_schedule_slot(sk)
-    mark_force_row()
-    a1, a2 = st.columns(2, gap="small")
-    with a1:
-        if st.button(
-            "🗑 取消時間",
-            key=f"sched_clear_{rk}",
-            use_container_width=True,
-            disabled=not has_slot,
-            help="清除此日已設定的開始／結束時間與地點（全隊同步）",
-        ):
-            if clear_program_time_venue(sk):
-                # Drop widget state so empty fields show after clear
-                for suffix in ("st", "et", "vn", "vo"):
-                    st.session_state.pop(f"sched_{suffix}_{rk}", None)
-                st.session_state["sched_flash"] = (
-                    "success",
-                    f"已取消 {format_timetable_date(sk)} 的訓練時間與地點",
-                )
-            else:
-                st.session_state["sched_flash"] = ("error", "此日沒有可取消的時間地點")
-            st.rerun()
-    with a2:
-        st.caption("改時間後再按「儲存」；左掣清除當日時間。")
-
-    mark_force_row()
-    b1, b2 = st.columns(2, gap="small")
-    with b1:
-        if st.button("📋 複製時間", key="sched_copy_btn", use_container_width=True):
-            if not has_schedule_slot(sk):
-                st.session_state["sched_flash"] = ("error", "請先儲存此日的時間地點")
+    with st.container():
+        mark_force_row()
+        a1, a2 = st.columns(2, gap="small")
+        with a1:
+            if st.button(
+                "🗑 取消時間",
+                key=f"sched_clear_{rk}",
+                use_container_width=True,
+                disabled=not has_slot,
+                help="清除此日已設定的開始／結束時間與地點（全隊同步）",
+            ):
+                if clear_program_time_venue(sk):
+                    # Drop widget state so empty fields show after clear
+                    for suffix in ("st", "et", "vn", "vo"):
+                        st.session_state.pop(f"sched_{suffix}_{rk}", None)
+                    st.session_state["sched_flash"] = (
+                        "success",
+                        f"已取消 {format_timetable_date(sk)} 的訓練時間與地點",
+                    )
+                else:
+                    st.session_state["sched_flash"] = ("error", "此日沒有可取消的時間地點")
                 st.rerun()
-            st.session_state.sched_pick_mode = "copy"
-            st.session_state.sched_copy_source = sk
-            st.session_state.sched_pick_dates = []
-            st.rerun()
-    with b2:
-        if st.button("✅ 多選套用", key="sched_bulk_btn", use_container_width=True):
-            st.session_state.sched_pick_mode = "bulk"
-            st.session_state.pop("sched_copy_source", None)
-            st.session_state.sched_pick_dates = []
-            st.rerun()
+        with a2:
+            st.caption("改時間後再按「儲存」；左掣清除當日時間。")
+
+    with st.container():
+        mark_force_row()
+        b1, b2 = st.columns(2, gap="small")
+        with b1:
+            if st.button("📋 複製時間", key="sched_copy_btn", use_container_width=True):
+                if not has_schedule_slot(sk):
+                    st.session_state["sched_flash"] = ("error", "請先儲存此日的時間地點")
+                    st.rerun()
+                st.session_state.sched_pick_mode = "copy"
+                st.session_state.sched_copy_source = sk
+                st.session_state.sched_pick_dates = []
+                st.rerun()
+        with b2:
+            if st.button("✅ 多選套用", key="sched_bulk_btn", use_container_width=True):
+                st.session_state.sched_pick_mode = "bulk"
+                st.session_state.pop("sched_copy_source", None)
+                st.session_state.sched_pick_dates = []
+                st.rerun()
 
 
 def render_coach_schedule() -> None:

@@ -82,15 +82,15 @@ def inject_coach_editor_css() -> None:
         <style>
         /* Keep coach editor button rows on one line (mobile otherwise stacks columns) */
         div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
-        [data-testid="stVerticalBlock"]:has(.ka-prog-grp-marker) > [data-testid="stHorizontalBlock"],
+        [data-testid="stVerticalBlock"]:has(> div .ka-prog-grp-marker) > [data-testid="stHorizontalBlock"],
         div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
-        [data-testid="stVerticalBlock"]:has(.ka-prog-status-marker) > [data-testid="stHorizontalBlock"],
+        [data-testid="stVerticalBlock"]:has(> div .ka-prog-status-marker) > [data-testid="stHorizontalBlock"],
         div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
-        [data-testid="stVerticalBlock"]:has(.ka-prog-save-marker) > [data-testid="stHorizontalBlock"],
+        [data-testid="stVerticalBlock"]:has(> div .ka-prog-save-marker) > [data-testid="stHorizontalBlock"],
         div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
-        [data-testid="stVerticalBlock"]:has(.ka-prog-more-marker) > [data-testid="stHorizontalBlock"],
+        [data-testid="stVerticalBlock"]:has(> div .ka-prog-more-marker) > [data-testid="stHorizontalBlock"],
         div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
-        [data-testid="stVerticalBlock"]:has(.ka-prog-copy-marker) > [data-testid="stHorizontalBlock"] {
+        [data-testid="stVerticalBlock"]:has(> div .ka-prog-copy-marker) > [data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: nowrap !important;
@@ -98,20 +98,22 @@ def inject_coach_editor_css() -> None:
             width: 100% !important;
         }
         div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
-        [data-testid="stVerticalBlock"]:has(.ka-prog-grp-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"],
+        [data-testid="stVerticalBlock"]:has(> div .ka-prog-grp-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"],
         div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
-        [data-testid="stVerticalBlock"]:has(.ka-prog-status-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"],
+        [data-testid="stVerticalBlock"]:has(> div .ka-prog-status-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"],
         div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
-        [data-testid="stVerticalBlock"]:has(.ka-prog-save-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"],
+        [data-testid="stVerticalBlock"]:has(> div .ka-prog-save-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"],
         div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
-        [data-testid="stVerticalBlock"]:has(.ka-prog-more-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"],
+        [data-testid="stVerticalBlock"]:has(> div .ka-prog-more-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"],
         div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
-        [data-testid="stVerticalBlock"]:has(.ka-prog-copy-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        [data-testid="stVerticalBlock"]:has(> div .ka-prog-copy-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"] {
             min-width: 0 !important;
             flex: 1 1 0 !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-status-marker) button,
-        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-grp-marker) button {
+        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+        [data-testid="stVerticalBlock"]:has(> div .ka-prog-status-marker) > [data-testid="stHorizontalBlock"] button,
+        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+        [data-testid="stVerticalBlock"]:has(> div .ka-prog-grp-marker) > [data-testid="stHorizontalBlock"] button {
             min-height: 2.5rem !important;
             font-weight: 700 !important;
             font-size: clamp(0.68rem, 2.9vw, 0.9rem) !important;
@@ -119,15 +121,19 @@ def inject_coach_editor_css() -> None:
             padding-right: 0.2rem !important;
             white-space: nowrap !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-save-marker) button[kind="primary"] {
+        div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+        [data-testid="stVerticalBlock"]:has(> div .ka-prog-save-marker) > [data-testid="stHorizontalBlock"] button[kind="primary"] {
             min-height: 2.75rem !important;
             font-size: 1rem !important;
             font-weight: 800 !important;
         }
         @media (max-width: 768px) {
-            div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-save-marker) button,
-            div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-more-marker) button,
-            div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root) [data-testid="stVerticalBlock"]:has(.ka-prog-copy-marker) button {
+            div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+            [data-testid="stVerticalBlock"]:has(> div .ka-prog-save-marker) > [data-testid="stHorizontalBlock"] button,
+            div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+            [data-testid="stVerticalBlock"]:has(> div .ka-prog-more-marker) > [data-testid="stHorizontalBlock"] button,
+            div[data-testid="stVerticalBlock"]:has(.ka-prog-editor-root)
+            [data-testid="stVerticalBlock"]:has(> div .ka-prog-copy-marker) > [data-testid="stHorizontalBlock"] button {
                 min-height: 2.75rem !important;
                 font-size: clamp(0.72rem, 3.2vw, 0.9rem) !important;
                 white-space: nowrap !important;
@@ -167,21 +173,22 @@ def _render_group_picker(day_programs: list[dict], sk: str) -> tuple[int, dict, 
         st.session_state[pick_key] = 0
 
     st.caption("切換要編輯的組別")
-    st.markdown(
-        '<div class="ka-prog-grp-marker ka-inline-row-marker"></div>',
-        unsafe_allow_html=True,
-    )
-    cols = st.columns(len(GROUP_OPTIONS), gap="small")
-    for i, (col, group) in enumerate(zip(cols, GROUP_OPTIONS)):
-        with col:
-            st.button(
-                group_display_label(group),
-                key=f"pgbtn_{sk}_{i}",
-                use_container_width=True,
-                type="primary" if i == cur else "secondary",
-                on_click=_set_edit_group_idx,
-                args=(sk, i),
-            )
+    with st.container():
+        st.markdown(
+            '<div class="ka-prog-grp-marker" aria-hidden="true"></div>',
+            unsafe_allow_html=True,
+        )
+        cols = st.columns(len(GROUP_OPTIONS), gap="small")
+        for i, (col, group) in enumerate(zip(cols, GROUP_OPTIONS)):
+            with col:
+                st.button(
+                    group_display_label(group),
+                    key=f"pgbtn_{sk}_{i}",
+                    use_container_width=True,
+                    type="primary" if i == cur else "secondary",
+                    on_click=_set_edit_group_idx,
+                    args=(sk, i),
+                )
 
     edit_group = GROUP_OPTIONS[cur]
     if edit_group in by_group:
@@ -209,38 +216,39 @@ def _render_day_status_picker(sk: str, edit_group: str, prog: dict) -> str:
         st.session_state[state_key] = current
 
     st.caption("當日安排")
-    st.markdown(
-        '<div class="ka-prog-status-marker ka-inline-row-marker"></div>',
-        unsafe_allow_html=True,
-    )
-    c1, c2, c3 = st.columns(3, gap="small")
-    with c1:
-        st.button(
-            "🏃 訓練",
-            key=f"pstat_train_{sk}_{edit_group}",
-            use_container_width=True,
-            type="primary" if current == "訓練" else "secondary",
-            on_click=_set_day_status,
-            args=(sk, edit_group, "訓練"),
+    with st.container():
+        st.markdown(
+            '<div class="ka-prog-status-marker" aria-hidden="true"></div>',
+            unsafe_allow_html=True,
         )
-    with c2:
-        st.button(
-            "😴 休息",
-            key=f"pstat_rest_{sk}_{edit_group}",
-            use_container_width=True,
-            type="primary" if current == "休息" else "secondary",
-            on_click=_set_day_status,
-            args=(sk, edit_group, "休息"),
-        )
-    with c3:
-        st.button(
-            "🏁 比賽",
-            key=f"pstat_comp_{sk}_{edit_group}",
-            use_container_width=True,
-            type="primary" if current == "比賽" else "secondary",
-            on_click=_set_day_status,
-            args=(sk, edit_group, "比賽"),
-        )
+        c1, c2, c3 = st.columns(3, gap="small")
+        with c1:
+            st.button(
+                "🏃 訓練",
+                key=f"pstat_train_{sk}_{edit_group}",
+                use_container_width=True,
+                type="primary" if current == "訓練" else "secondary",
+                on_click=_set_day_status,
+                args=(sk, edit_group, "訓練"),
+            )
+        with c2:
+            st.button(
+                "😴 休息",
+                key=f"pstat_rest_{sk}_{edit_group}",
+                use_container_width=True,
+                type="primary" if current == "休息" else "secondary",
+                on_click=_set_day_status,
+                args=(sk, edit_group, "休息"),
+            )
+        with c3:
+            st.button(
+                "🏁 比賽",
+                key=f"pstat_comp_{sk}_{edit_group}",
+                use_container_width=True,
+                type="primary" if current == "比賽" else "secondary",
+                on_click=_set_day_status,
+                args=(sk, edit_group, "比賽"),
+            )
     return st.session_state[state_key]
 
 
@@ -335,67 +343,68 @@ def render_coach_day_editor(selected: date) -> None:
         title = group_display_label(edit_group)
 
     def _render_save_actions() -> None:
-        st.markdown(
-            '<div class="ka-prog-save-marker ka-inline-row-marker"></div>',
-            unsafe_allow_html=True,
-        )
-        back_col, save_col, tpl_col = st.columns([1.1, 1.4, 1], gap="small")
-        with back_col:
-            if st.button(
-                "← 返回",
-                use_container_width=True,
-                key=f"pback_{sk}_{edit_group}",
-            ):
-                st.session_state.coach_prog_screen = "cal"
-                st.rerun()
-        with save_col:
-            if st.button(
-                "💾 儲存",
-                type="primary",
-                use_container_width=True,
-                key=f"psave_{sk}_{edit_group}",
-            ):
-                _save_program(
-                    sk=sk,
-                    edit_group=edit_group,
-                    day_status=day_status,
-                    prog=prog,
-                    workout_text=workout_text,
-                    tips=tips,
-                    rpe=rpe,
-                    train_type=train_type,
-                    title=title,
-                )
-                st.session_state.coach_prog_screen = "cal"
-                st.session_state["prog_save_flash"] = f"已儲存 {short_group_label(edit_group)} 課表"
-                st.rerun()
-        with tpl_col:
-            if st.button("📁 範本", use_container_width=True, key=f"ptpl_{sk}_{edit_group}"):
-                tpl_vol = (
-                    parse_workout_volume(workout_text)
-                    if day_status == "訓練"
-                    else {"total_meters": 0, "total_reps": 0}
-                )
-                save_as_template({
-                    "type": train_type,
-                    "title": title,
-                    "group": edit_group,
-                    "sets": 0,
-                    "reps": tpl_vol["total_reps"],
-                    "dist": tpl_vol["total_meters"],
-                    "rest": workout_text,
-                    "duration": int(round(estimate_workout_minutes(tpl_vol["total_meters"], train_type))),
-                    "rpe": rpe,
-                    "tips": tips,
-                    "phase": "",
-                    "week_theme": "",
-                    "target_seconds": 0,
-                    "exercises": "",
-                    "tech_focus": "",
-                    "field_event": "",
-                    "attempts": 0,
-                })
-                st.success("已存範本")
+        with st.container():
+            st.markdown(
+                '<div class="ka-prog-save-marker" aria-hidden="true"></div>',
+                unsafe_allow_html=True,
+            )
+            back_col, save_col, tpl_col = st.columns([1.1, 1.4, 1], gap="small")
+            with back_col:
+                if st.button(
+                    "← 返回",
+                    use_container_width=True,
+                    key=f"pback_{sk}_{edit_group}",
+                ):
+                    st.session_state.coach_prog_screen = "cal"
+                    st.rerun()
+            with save_col:
+                if st.button(
+                    "💾 儲存",
+                    type="primary",
+                    use_container_width=True,
+                    key=f"psave_{sk}_{edit_group}",
+                ):
+                    _save_program(
+                        sk=sk,
+                        edit_group=edit_group,
+                        day_status=day_status,
+                        prog=prog,
+                        workout_text=workout_text,
+                        tips=tips,
+                        rpe=rpe,
+                        train_type=train_type,
+                        title=title,
+                    )
+                    st.session_state.coach_prog_screen = "cal"
+                    st.session_state["prog_save_flash"] = f"已儲存 {short_group_label(edit_group)} 課表"
+                    st.rerun()
+            with tpl_col:
+                if st.button("📁 範本", use_container_width=True, key=f"ptpl_{sk}_{edit_group}"):
+                    tpl_vol = (
+                        parse_workout_volume(workout_text)
+                        if day_status == "訓練"
+                        else {"total_meters": 0, "total_reps": 0}
+                    )
+                    save_as_template({
+                        "type": train_type,
+                        "title": title,
+                        "group": edit_group,
+                        "sets": 0,
+                        "reps": tpl_vol["total_reps"],
+                        "dist": tpl_vol["total_meters"],
+                        "rest": workout_text,
+                        "duration": int(round(estimate_workout_minutes(tpl_vol["total_meters"], train_type))),
+                        "rpe": rpe,
+                        "tips": tips,
+                        "phase": "",
+                        "week_theme": "",
+                        "target_seconds": 0,
+                        "exercises": "",
+                        "tech_focus": "",
+                        "field_event": "",
+                        "attempts": 0,
+                    })
+                    st.success("已存範本")
 
     if day_status == "訓練":
         flash_key = f"pcopy_flash_{sk}_{edit_group}"
@@ -478,28 +487,29 @@ def render_coach_day_editor(selected: date) -> None:
         vol_note = f"{run_vol['total_meters']:,} m" if run_vol["total_meters"] else "—"
         st.caption(f"加權負荷 {load} · 跑量 {vol_note} · ACWR {acwr_v}")
 
-    st.markdown(
-        '<div class="ka-prog-more-marker ka-inline-row-marker"></div>',
-        unsafe_allow_html=True,
-    )
-    m1, m2 = st.columns(2, gap="small")
-    with m1:
-        if st.button("🗑 刪除此組", use_container_width=True, key=f"pdelete_grp_{sk}_{edit_group}"):
-            if program_exists(selected):
-                if delete_program(selected, group=edit_group):
-                    st.success(f"已刪除 {short_group_label(edit_group)} 課表")
+    with st.container():
+        st.markdown(
+            '<div class="ka-prog-more-marker" aria-hidden="true"></div>',
+            unsafe_allow_html=True,
+        )
+        m1, m2 = st.columns(2, gap="small")
+        with m1:
+            if st.button("🗑 刪除此組", use_container_width=True, key=f"pdelete_grp_{sk}_{edit_group}"):
+                if program_exists(selected):
+                    if delete_program(selected, group=edit_group):
+                        st.success(f"已刪除 {short_group_label(edit_group)} 課表")
+                        st.rerun()
+                    st.info("找不到此組別課表")
+                else:
+                    st.info("此日沒有已儲存的課表")
+        with m2:
+            if st.button("🗑 刪除全日", use_container_width=True, key=f"pdelete_all_{sk}"):
+                if program_exists(selected):
+                    delete_program(selected)
+                    st.success(f"已刪除 {sk} 全部課表")
                     st.rerun()
-                st.info("找不到此組別課表")
-            else:
-                st.info("此日沒有已儲存的課表")
-    with m2:
-        if st.button("🗑 刪除全日", use_container_width=True, key=f"pdelete_all_{sk}"):
-            if program_exists(selected):
-                delete_program(selected)
-                st.success(f"已刪除 {sk} 全部課表")
-                st.rerun()
-            else:
-                st.info("此日沒有已儲存的課表")
+                else:
+                    st.info("此日沒有已儲存的課表")
 
     with st.expander("📱 WhatsApp 課表文案"):
         per = load_periodization()

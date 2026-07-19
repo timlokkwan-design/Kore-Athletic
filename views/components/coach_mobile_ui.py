@@ -14,19 +14,24 @@ def inject_coach_mobile_css() -> None:
     st.markdown(
         """
         <style>
-        /* Force paired action buttons to stay on one row on mobile */
-        [data-testid="stVerticalBlock"]:has(.ka-force-row) > [data-testid="stHorizontalBlock"] {
+        /*
+         * Force paired action buttons onto one row — SCOPED to the small
+         * vertical block that directly contains .ka-force-row (must wrap
+         * marker + columns in st.container()). Never use bare :has(.ka-force-row)
+         * on page-root blocks — that leaks into the calendar grid.
+         */
+        [data-testid="stVerticalBlock"]:has(> div .ka-force-row) > [data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: nowrap !important;
             gap: 0.35rem !important;
             width: 100% !important;
         }
-        [data-testid="stVerticalBlock"]:has(.ka-force-row) > [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        [data-testid="stVerticalBlock"]:has(> div .ka-force-row) > [data-testid="stHorizontalBlock"] > [data-testid="column"] {
             min-width: 0 !important;
             flex: 1 1 0 !important;
         }
-        [data-testid="stVerticalBlock"]:has(.ka-force-row) button {
+        [data-testid="stVerticalBlock"]:has(> div .ka-force-row) > [data-testid="stHorizontalBlock"] button {
             white-space: nowrap !important;
             font-size: clamp(0.62rem, 2.7vw, 0.88rem) !important;
             min-height: 2.5rem !important;
@@ -53,9 +58,13 @@ def inject_coach_mobile_css() -> None:
 
 
 def mark_force_row() -> None:
-    """Place before st.columns(...) so the row stays horizontal on phones."""
+    """Place inside st.container() immediately before st.columns(...).
+
+    Do not add ka-inline-row-marker here — that JS pin only supports ≤4
+    columns and can latch onto the wrong calendar chrome row.
+    """
     st.markdown(
-        '<div class="ka-force-row ka-inline-row-marker"></div>',
+        '<div class="ka-force-row" aria-hidden="true"></div>',
         unsafe_allow_html=True,
     )
 

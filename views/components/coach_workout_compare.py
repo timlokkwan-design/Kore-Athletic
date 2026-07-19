@@ -81,18 +81,19 @@ def _inject_hist_row_css() -> None:
     st.markdown(
         """
         <style>
-        [data-testid="stVerticalBlock"]:has(.ka-hist-actions-marker) > [data-testid="stHorizontalBlock"] {
+        /* Scoped: only the block that directly owns the hist-actions marker */
+        [data-testid="stVerticalBlock"]:has(> div .ka-hist-actions-marker) > [data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: nowrap !important;
             gap: 0.35rem !important;
             width: 100% !important;
         }
-        [data-testid="stVerticalBlock"]:has(.ka-hist-actions-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        [data-testid="stVerticalBlock"]:has(> div .ka-hist-actions-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"] {
             min-width: 0 !important;
             flex: 1 1 0 !important;
         }
-        [data-testid="stVerticalBlock"]:has(.ka-hist-actions-marker) button {
+        [data-testid="stVerticalBlock"]:has(> div .ka-hist-actions-marker) > [data-testid="stHorizontalBlock"] button {
             min-height: 2.5rem !important;
             font-weight: 700 !important;
             font-size: clamp(0.72rem, 3.2vw, 0.9rem) !important;
@@ -141,45 +142,46 @@ def _render_history_entry(
         unsafe_allow_html=True,
     )
 
-    st.markdown(
-        '<div class="ka-hist-actions-marker ka-inline-row-marker"></div>',
-        unsafe_allow_html=True,
-    )
-    c1, c2 = st.columns(2, gap="small")
-    with c1:
-        st.button(
-            "🔍 放大",
-            key=f"hist_zoom_{key_suffix}_{ds}",
-            use_container_width=True,
-            on_click=_pick_history_entry,
-            args=(prog, group),
+    with st.container():
+        st.markdown(
+            '<div class="ka-hist-actions-marker" aria-hidden="true"></div>',
+            unsafe_allow_html=True,
         )
-    with c2:
-        if show_week_copy and on_copy_week and copy_week_key:
-            if st.button(
-                "📋 複製上週",
-                key=copy_week_key,
-                use_container_width=True,
-                help="帶入 7 天前同一星期幾的跑案、備註與 RPE",
-            ):
-                on_copy_week()
-                st.rerun()
-        elif on_copy_program:
-            if st.button(
-                "📋 複製",
-                key=f"hist_copy_{key_suffix}_{ds}",
-                use_container_width=True,
-                help="帶入此日跑案到編輯區",
-            ):
-                on_copy_program(prog)
-                st.rerun()
-        else:
+        c1, c2 = st.columns(2, gap="small")
+        with c1:
             st.button(
-                "📋 複製",
-                key=f"hist_copy_disabled_{key_suffix}_{ds}",
+                "🔍 放大",
+                key=f"hist_zoom_{key_suffix}_{ds}",
                 use_container_width=True,
-                disabled=True,
+                on_click=_pick_history_entry,
+                args=(prog, group),
             )
+        with c2:
+            if show_week_copy and on_copy_week and copy_week_key:
+                if st.button(
+                    "📋 複製上週",
+                    key=copy_week_key,
+                    use_container_width=True,
+                    help="帶入 7 天前同一星期幾的跑案、備註與 RPE",
+                ):
+                    on_copy_week()
+                    st.rerun()
+            elif on_copy_program:
+                if st.button(
+                    "📋 複製",
+                    key=f"hist_copy_{key_suffix}_{ds}",
+                    use_container_width=True,
+                    help="帶入此日跑案到編輯區",
+                ):
+                    on_copy_program(prog)
+                    st.rerun()
+            else:
+                st.button(
+                    "📋 複製",
+                    key=f"hist_copy_disabled_{key_suffix}_{ds}",
+                    use_container_width=True,
+                    disabled=True,
+                )
 
 
 def _range_caption(selected: date, group: str, days_back: int, count: int) -> str:
@@ -233,10 +235,6 @@ def render_workout_history_compare(
             if not show_heading:
                 st.caption(_range_caption(selected, grp, days_back, 0))
             if on_copy_week and copy_week_key:
-                st.markdown(
-                    '<div class="ka-hist-actions-marker ka-inline-row-marker"></div>',
-                    unsafe_allow_html=True,
-                )
                 if st.button(
                     "📋 複製上週同天",
                     key=copy_week_key,
