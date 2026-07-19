@@ -19,6 +19,20 @@ def _parent_js() -> str:
     return browser_storage_js()
 
 
+def _run_browser_js(script_body: str) -> None:
+    """Execute JS on the parent Streamlit page (not a sandboxed iframe)."""
+    html = f"<script>(function(){{\n{script_body}\n}})();</script>"
+    try:
+        st.html(html, unsafe_allow_javascript=True)
+    except TypeError:
+        components.html(html, height=0, width=0)
+    except Exception:
+        try:
+            components.html(html, height=0, width=0)
+        except Exception:
+            pass
+
+
 def _read_request_cookies() -> dict[str, str]:
     try:
         ctx = st.context
@@ -45,42 +59,32 @@ def _read_request_cookies() -> dict[str, str]:
 
 
 def _clear_nav_bridge_cookie() -> None:
-    components.html(
+    _run_browser_js(
         f"""
-        <script>
-        (function() {{
-            {_parent_js()}
-            _kaDoc.cookie = {json.dumps(BRIDGE_COOKIE)} + "=; path=/; max-age=0; SameSite=Lax" + _kaSecure;
-        }})();
-        </script>
-        """,
-        height=0,
-        width=0,
+        {_parent_js()}
+        _kaDoc.cookie = {json.dumps(BRIDGE_COOKIE)} + "=; path=/; max-age=0; SameSite=Lax" + _kaSecure;
+        """
     )
 
 
 def _inject_nav_bridge() -> None:
-    components.html(
+    _run_browser_js(
         f"""
-        <script>
-        (function() {{
-            {_parent_js()}
-            const BRIDGE = {json.dumps(BRIDGE_COOKIE)};
-            const LS = {json.dumps(LS_NAV_KEY)};
-            const hasBridge = _kaDoc.cookie.split(';').some(
-                c => c.trim().startsWith(BRIDGE + '=')
-            );
-            if (hasBridge) return;
-            const raw = _kaLs.getItem(LS);
-            if (!raw) return;
-            _kaDoc.cookie = BRIDGE + "=" + encodeURIComponent(raw)
-                + "; path=/; max-age=120; SameSite=Lax" + _kaSecure;
-            try {{ window.top.location.reload(); }} catch (e) {{ window.parent.location.reload(); }}
-        }})();
-        </script>
-        """,
-        height=0,
-        width=0,
+        {_parent_js()}
+        const BRIDGE = {json.dumps(BRIDGE_COOKIE)};
+        const LS = {json.dumps(LS_NAV_KEY)};
+        const hasBridge = _kaDoc.cookie.split(';').some(
+            c => c.trim().startsWith(BRIDGE + '=')
+        );
+        if (hasBridge) return;
+        const raw = _kaLs.getItem(LS);
+        if (!raw) return;
+        _kaDoc.cookie = BRIDGE + "=" + encodeURIComponent(raw)
+            + "; path=/; max-age=120; SameSite=Lax" + _kaSecure;
+        try {{ window.location.reload(); }} catch (e) {{
+            try {{ window.top.location.reload(); }} catch (e2) {{}}
+        }}
+        """
     )
 
 
@@ -173,30 +177,18 @@ def save_nav_state(
         "ui_theme": st.session_state.get("ui_theme", "light"),
     }
     encoded = json.dumps(payload, ensure_ascii=False)
-    components.html(
+    _run_browser_js(
         f"""
-        <script>
-        (function() {{
-            {_parent_js()}
-            _kaLs.setItem({json.dumps(LS_NAV_KEY)}, {json.dumps(encoded)});
-        }})();
-        </script>
-        """,
-        height=0,
-        width=0,
+        {_parent_js()}
+        _kaLs.setItem({json.dumps(LS_NAV_KEY)}, {json.dumps(encoded)});
+        """
     )
 
 
 def clear_nav_state() -> None:
-    components.html(
+    _run_browser_js(
         f"""
-        <script>
-        (function() {{
-            {_parent_js()}
-            _kaLs.removeItem({json.dumps(LS_NAV_KEY)});
-        }})();
-        </script>
-        """,
-        height=0,
-        width=0,
+        {_parent_js()}
+        _kaLs.removeItem({json.dumps(LS_NAV_KEY)});
+        """
     )

@@ -19,7 +19,7 @@ from utils.coach_pending import get_coach_pending_total
 from utils.data_store import init_sample_data
 from utils.nav_persist import clear_nav_state, save_nav_state, try_restore_nav_state
 from utils.session_cache import soft_refresh_data
-from utils.session_persist import refresh_persisted_login, try_restore_session
+from utils.session_persist import init_auth_persistence, refresh_persisted_login, try_restore_session
 from utils.site_content import is_pb_public
 from views.analysis_view import render_analysis
 from views.auth_view import render_auth_view
@@ -123,6 +123,7 @@ def _render_page(
 
 
 def main() -> None:
+    init_auth_persistence()
     try_restore_session()
     user = get_current_user()
     role = user["role"] if user else "visitor"
