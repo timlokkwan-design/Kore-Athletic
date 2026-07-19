@@ -145,7 +145,7 @@ def _inject_storage_bridge() -> None:
             );
             _kaDoc.cookie = COOKIE + "=" + encodeURIComponent(token)
                 + "; path=/; max-age=" + maxAge + "; SameSite=Lax" + _kaSecure;
-            try { window.top.location.reload(); } catch (e) { window.parent.location.reload(); }
+            try {{ window.top.location.reload(); }} catch (e) {{ window.parent.location.reload(); }}
         }})();
         </script>
         """,
