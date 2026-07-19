@@ -92,20 +92,35 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         section.main {{
             background-color: {c["main_bg"]};
         }}
-        /* Hide Streamlit chrome that overlaps our mobile bottom dock */
+        /* Hide deploy/status chrome only — keep header sidebar expand controls */
         .stDeployButton,
         [data-testid="stAppDeployButton"],
         [data-testid="stStatusWidget"],
-        [data-testid="stToolbar"],
-        [data-testid="stDecoration"],
-        header [data-testid="stHeaderActionElements"],
-        div[data-testid="stAppToolbar"] {{
+        [data-testid="stDecoration"] {{
             display: none !important;
             visibility: hidden !important;
             pointer-events: none !important;
         }}
+        /* Do not hide stToolbar / stHeaderActionElements — that removes sidebar open */
         #MainMenu {{ visibility: hidden; }}
         footer {{ visibility: hidden; }}
+        /* Sidebar expand control — always visible & large enough to tap */
+        [data-testid="stSidebarCollapsedControl"],
+        [data-testid="collapsedControl"],
+        [data-testid="stSidebarCollapseButton"],
+        [data-testid="stExpandSidebarButton"] {{
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            z-index: 2147483646 !important;
+        }}
+        [data-testid="stSidebarCollapsedControl"] button,
+        [data-testid="collapsedControl"] button,
+        [data-testid="stSidebarCollapseButton"] button {{
+            min-width: 2.75rem !important;
+            min-height: 2.75rem !important;
+        }}
         hr {{ margin: 0.75rem 0; border-color: {c["border"]}; }}
         section.main [data-testid="stMarkdownContainer"] h1,
         section.main [data-testid="stMarkdownContainer"] h2,
