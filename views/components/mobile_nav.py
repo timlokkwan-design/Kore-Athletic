@@ -123,7 +123,7 @@ def render_coach_bottom_dock(current_section: str) -> None:
         marker_class="ka-bottom-tabbar-marker ka-coach-dock-marker",
         items=[
             ("🏠", "總覽", "總覽"),
-            ("📅", "課表", "設定課表"),
+            ("📅", "課表", "訓練時間表"),
             ("✅", "出席", "出席表"),
             ("👥", "隊伍", "隊伍管理"),
             ("🏅", "比賽", "比賽報名表"),
@@ -131,5 +131,5 @@ def render_coach_bottom_dock(current_section: str) -> None:
         current_section=current_section,
         session_key="coach_section",
         key_prefix="coach_dock",
-        active_aliases={"比賽報名表": {"賽事時間表", "比賽管理"}, "設定課表": {"訓練時間表"}},
+        active_aliases={"比賽報名表": {"賽事時間表", "比賽管理"}, "訓練時間表": {"設定課表"}},
     )
