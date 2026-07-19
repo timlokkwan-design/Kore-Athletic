@@ -1,4 +1,4 @@
-"""Sidebar alert for coach pending approvals."""
+"""Sidebar alert + popup dialog for coach pending approvals."""
 from __future__ import annotations
 
 import streamlit as st
@@ -15,6 +15,7 @@ def navigate_to_coach_pending() -> None:
 def render_coach_pending_sidebar() -> None:
     total = get_coach_pending_total()
     if total <= 0:
+        st.session_state.pop("_coach_pending_popup_seen", None)
         return
 
     lines = get_coach_pending_lines()
@@ -37,3 +38,31 @@ def render_coach_pending_sidebar() -> None:
     ):
         navigate_to_coach_pending()
         st.rerun()
+
+
+def maybe_show_coach_pending_popup() -> None:
+    """Show a dialog when pending count appears or increases (call from main area)."""
+    total = get_coach_pending_total()
+    if total <= 0:
+        st.session_state.pop("_coach_pending_popup_seen", None)
+        return
+
+    seen = int(st.session_state.get("_coach_pending_popup_seen", 0) or 0)
+    if total <= seen:
+        return
+
+    lines = get_coach_pending_lines()
+    detail = "、".join(f"{label} {count}" for label, count in lines)
+    st.session_state["_coach_pending_popup_seen"] = total
+
+    @st.dialog("⏳ 有待審批事項", width="small")
+    def _popup() -> None:
+        st.markdown(f"目前共有 **{total}** 項待處理：")
+        st.info(detail or "請前往隊伍管理審批")
+        if st.button("前往審批", type="primary", use_container_width=True, key="coach_pending_popup_go"):
+            navigate_to_coach_pending()
+            st.rerun()
+        if st.button("稍後處理", use_container_width=True, key="coach_pending_popup_later"):
+            st.rerun()
+
+    _popup()

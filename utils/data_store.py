@@ -1311,16 +1311,41 @@ def get_attendance_map_for_month(athlete_name: str, year: int, month: int) -> di
     return result
 
 
-def mark_leave(athlete_name: str, reason: str) -> None:
+def mark_leave(
+    athlete_name: str,
+    reason: str,
+    *,
+    for_date: date | str | None = None,
+) -> str:
+    """Register leave for today or a future training day. Returns YYYY-MM-DD."""
     from utils.permissions import require_athlete_self
+
     require_athlete_self(athlete_name)
+    if for_date is None:
+        target_d = date.today()
+    elif isinstance(for_date, date):
+        target_d = for_date
+    else:
+        target_d = date.fromisoformat(normalize_date_str(for_date))
+    if target_d < date.today():
+        raise ValueError("不能為過去日期登記請假")
+    target = target_d.isoformat()
     df = load_attendance()
-    target = date.today().isoformat()
-    df = df[~((df["date"].astype(str) == target) & (df["athlete_name"] == athlete_name))]
+    existing = df[
+        (df["date"].astype(str).str[:10] == target) & (df["athlete_name"] == athlete_name)
+    ] if not df.empty else df
+    if not existing.empty and safe_str(existing.iloc[-1].get("status")) == "present":
+        raise ValueError("該日已簽到，無法改為請假；請聯絡教練")
+    df = df[~((df["date"].astype(str).str[:10] == target) & (df["athlete_name"] == athlete_name))]
     df = pd.concat([df, pd.DataFrame([{
-        "date": target, "athlete_name": athlete_name, "status": "leave", "detail": reason,
+        "date": target,
+        "athlete_name": athlete_name,
+        "status": "leave",
+        "detail": reason,
+        "duration_minutes": 0,
     }])], ignore_index=True)
     save_attendance(df)
+    return target
 
 
 def get_attendance_today() -> pd.DataFrame:

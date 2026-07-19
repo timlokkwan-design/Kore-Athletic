@@ -210,24 +210,50 @@ def _tab_pb(name: str) -> None:
 
 
 def _tab_attendance(name: str) -> None:
+    from datetime import timedelta
+
     st.markdown("#### 📝 請假登記")
-    st.caption("簽到請使用上方「立即簽到」；簽到後會記錄於「訓練時間表」月曆。")
-    rec = get_attendance_record(name, date.today().isoformat())
+    st.caption("可預早為未來訓練日請假。簽到請用上方「立即簽到」。")
+    today = date.today()
+    leave_date = st.date_input(
+        "請假日期",
+        value=today,
+        min_value=today,
+        max_value=today + timedelta(days=60),
+        format="YYYY/MM/DD",
+        key="leave_date",
+    )
+    leave_key = leave_date.isoformat()
+    rec = get_attendance_record(name, leave_key)
     if rec and rec.get("status") == "present":
         dur = safe_int(rec.get("duration_minutes"), 0)
-        msg = f"今日已簽到 {rec.get('detail', '')}"
+        msg = f"{leave_key} 已簽到 {rec.get('detail', '')}"
         if dur > 0:
             msg += f" · 訓練 {format_train_duration(dur)}"
         st.success(msg)
-    reason = st.selectbox("請假/缺席原因", ["", "病假", "學校活動", "家庭原因", "受傷", "其他"])
-    if st.button("登記請假") and reason:
-        mark_leave(name, reason)
-        st.success("已登記請假")
-        st.rerun()
+    elif rec and rec.get("status") == "leave":
+        st.info(f"📝 {leave_key} 已請假：{rec.get('detail', '')}")
+    reason = st.selectbox(
+        "請假/缺席原因",
+        ["", "病假", "學校活動", "家庭原因", "受傷", "其他"],
+        key="leave_reason",
+    )
+    if st.button("登記請假", type="primary", key="leave_submit") and reason:
+        try:
+            marked = mark_leave(name, reason, for_date=leave_date)
+            st.success(f"已登記請假（{marked}）")
+            st.rerun()
+        except ValueError as exc:
+            st.error(str(exc))
     att = load_attendance()
-    today = date.today().isoformat()
-    row = att[(att["date"].astype(str) == today) & (att["athlete_name"] == name)] if not att.empty else att
-    if row.empty:
-        st.write("今日尚未簽到或請假")
-    elif row.iloc[-1]["status"] == "leave":
-        st.info(f"📝 請假：{row.iloc[-1]['detail']}")
+    if att.empty:
+        return
+    upcoming = att[
+        (att["athlete_name"] == name)
+        & (att["status"].astype(str) == "leave")
+        & (att["date"].astype(str).str[:10] >= today.isoformat())
+    ].sort_values("date")
+    if not upcoming.empty:
+        st.markdown("##### 已登記的請假")
+        for _, row in upcoming.iterrows():
+            st.write(f"📝 {str(row['date'])[:10]} · {row['detail']}")
