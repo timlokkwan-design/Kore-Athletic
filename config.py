@@ -6,7 +6,7 @@ from utils.grades import U18_GRADES, WIND_EVENTS
 
 APP_NAME = "KORE ATHLETIC"
 APP_SUBTITLE = "關添樂教練田徑訓練與成績管理系統"
-APP_VERSION = "2026.07.19-74"
+APP_VERSION = "2026.07.19-96"
 COACH_NAME = "關添樂"
 EMAIL_DOMAIN = "@kore-athletic.app"
 
@@ -39,13 +39,16 @@ TYPE_CATEGORY_COLORS = {
     "pending": "#fef3c7",
 }
 
-# Month calendar cell backgrounds (all calendars)
-CALENDAR_BG_TRAINING = "#dbeafe"
-CALENDAR_BG_COMPETITION = "#fee2e2"
-CALENDAR_BG_REST = "#f1f5f9"
-CALENDAR_BG_EMPTY = "#f8fafc"
+# Month calendar cell backgrounds — synced with views/components/calendar_theme.py
+CALENDAR_BG_TRAINING = "#B8D4F8"
+CALENDAR_BG_COMPETITION = "#FFCACA"
+CALENDAR_BG_REST = "#D5DCE5"
+CALENDAR_BG_EMPTY = "#E8EDF3"
 
 GROUP_OPTIONS = ["短跑組", "中長跑組", "跨欄組", "全體組員"]
+
+# 訓練時間表：儲存任一組時間時，自動確保兩組皆有課表時段
+SCHEDULE_LINKED_GROUPS = ["短跑組", "中長跑組"]
 
 GROUP_DISPLAY = {
     "短跑組": "短跑",
@@ -154,8 +157,8 @@ def default_program(for_date: str | None = None) -> dict:
     return {
         "date": d, "type": "間歇跑", "title": "",
         "group": "短跑組", "sets": 0, "reps": 0, "dist": 0,
-        "rest": "6×200m @ 30\"  走200m\n4×400m @ 70\"  休息3分", "duration": 0, "rpe": 7,
-        "tips": "前兩趟輕鬆跑，後四趟配速跑", "phase": "", "week_theme": "",
+        "rest": "", "duration": 0, "rpe": 7,
+        "tips": "", "phase": "", "week_theme": "",
         "target_seconds": 65.0, "load": 630,
         "exercises": "", "tech_focus": "", "field_event": "跳遠", "attempts": 10,
         "start_time": "", "end_time": "", "venue": "", "venue_other": "",

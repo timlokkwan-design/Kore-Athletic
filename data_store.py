@@ -30,7 +30,9 @@ from utils.config import (
     VIDEOS_FILE,
     WELLNESS_FILE,
     default_program,
+    normalize_group,
     normalize_train_type,
+    schedule_placeholder_program,
 )
 from utils.helpers import format_birth_display, get_grade, is_missing, is_wind_valid, normalize_date_str, safe_float, safe_int, safe_str
 
@@ -86,25 +88,33 @@ def _ensure_cols(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
 
 
 def _read(filename: str, columns: list[str]) -> pd.DataFrame:
-    from utils.supabase_config import is_supabase_enabled
+    from utils.session_cache import cached_dataframe
 
-    if is_supabase_enabled():
-        from utils.supabase_io import read_csv_table
-        return read_csv_table(filename, columns)
-    path = _data_path(filename)
-    if not path.exists():
-        return pd.DataFrame(columns=columns)
-    return _ensure_cols(pd.read_csv(path), columns)
+    def _load() -> pd.DataFrame:
+        from utils.supabase_config import is_supabase_enabled
+
+        if is_supabase_enabled():
+            from utils.supabase_io import read_csv_table
+            return read_csv_table(filename, columns)
+        path = _data_path(filename)
+        if not path.exists():
+            return pd.DataFrame(columns=columns)
+        return _ensure_cols(pd.read_csv(path), columns)
+
+    return cached_dataframe(filename, _load)
 
 
 def _write(filename: str, df: pd.DataFrame, columns: list[str]) -> None:
+    from utils.session_cache import invalidate_data_cache
     from utils.supabase_config import is_supabase_enabled
 
     if is_supabase_enabled():
         from utils.supabase_io import write_csv_table
         write_csv_table(filename, df, columns)
+        invalidate_data_cache()
         return
     _ensure_cols(df, columns).to_csv(_data_path(filename), index=False, encoding="utf-8-sig")
+    invalidate_data_cache()
 
 
 def _next_id(df: pd.DataFrame, col: str = "id") -> int:
@@ -142,7 +152,7 @@ def _row_to_program(row) -> dict:
     return {
         "date": safe_str(row["date"]),
         "type": normalize_train_type(safe_str(row.get("type"), "間歇跑")),
-        "title": safe_str(row.get("title")), "group": safe_str(row.get("group"), "全體組員"),
+        "title": safe_str(row.get("title")), "group": normalize_group(safe_str(row.get("group"), "短跑組")),
         "sets": safe_int(row.get("sets")), "reps": safe_int(row.get("reps")), "dist": safe_int(row.get("dist")),
         "rest": safe_str(row.get("rest")), "duration": safe_int(row.get("duration"), 60),
         "rpe": safe_int(row.get("rpe"), 7), "tips": safe_str(row.get("tips")),
@@ -174,19 +184,63 @@ def ensure_program_dict(raw) -> dict:
     return {}
 
 
-def get_program(for_date: date | None = None) -> dict:
-    target = normalize_date_str((for_date or date.today()).isoformat())
+def get_programs_for_date(for_date: date | str) -> list[dict]:
+    """All program rows for one calendar date (multiple groups allowed)."""
+    if isinstance(for_date, date):
+        target = for_date.isoformat()
+    else:
+        target = normalize_date_str(for_date)
     programs = load_programs()
-    if not programs.empty:
-        match = programs[programs["date"].astype(str).str[:10] == target]
-        if not match.empty:
-            return _row_to_program(match.iloc[0])
+    if programs.empty or not target:
+        return []
+    match = programs[programs["date"].astype(str).str[:10] == target]
+    return [_row_to_program(row) for _, row in match.iterrows()]
+
+
+def pick_program_for_student(programs: list[dict], specialty: str | None = None) -> dict | None:
+    """Prefer group-specific program; fall back to 全體組員."""
+    if not programs:
+        return None
+    if not specialty:
+        return programs[0]
+    specific = None
+    general = None
+    for p in programs:
+        group = normalize_group(safe_str(p.get("group")))
+        if group == "全體組員":
+            general = general or p
+        elif program_visible_to_student(p, specialty):
+            specific = p
+    return specific or general
+
+
+def get_program(
+    for_date: date | None = None,
+    *,
+    group: str | None = None,
+    specialty: str | None = None,
+) -> dict:
+    target = normalize_date_str((for_date or date.today()).isoformat())
+    day_programs = get_programs_for_date(target)
+    if group:
+        for p in day_programs:
+            if safe_str(p.get("group")) == group:
+                return p
+        fallback = default_program(target)
+        fallback["group"] = group
+        return fallback
+    if specialty:
+        picked = pick_program_for_student(day_programs, specialty)
+        if picked:
+            return picked
+    if day_programs:
+        return day_programs[0]
     return default_program(target)
 
 
-def get_today_menu(for_date: date | None = None) -> dict:
+def get_today_menu(for_date: date | None = None, specialty: str | None = None) -> dict:
     from utils.helpers import program_specs
-    p = get_program(for_date)
+    p = get_program(for_date, specialty=specialty)
     return {**p, "event": p.get("title") or p.get("type", ""), "description": program_specs(p), "notes": p.get("tips", "")}
 
 
@@ -194,13 +248,45 @@ def save_program(prog: dict) -> None:
     from utils.permissions import enforce_coach_if_logged_in
     enforce_coach_if_logged_in()
     prog = dict(prog)
-    prog["load"] = calc_load(prog.get("type", "間歇跑"), float(prog.get("duration") or 60),
-                             float(prog.get("rpe") or 7), int(prog.get("sets") or 0),
-                             int(prog.get("reps") or 0), int(prog.get("dist") or 0))
+    train_type = prog.get("type", "間歇跑")
+    rpe = float(prog.get("rpe") or 7)
+    sets = int(prog.get("sets") or 0)
+    reps = int(prog.get("reps") or 0)
+    dist = int(prog.get("dist") or 0)
+    duration = float(prog.get("duration") or 0)
+    if sets > 0 and reps > 0 and dist > 0:
+        total_meters = 0
+    elif dist > 0 and safe_str(prog.get("rest")):
+        total_meters = dist
+    else:
+        total_meters = 0
+    if duration <= 0 and total_meters > 0:
+        from utils.acwr import estimate_workout_minutes
+        duration = estimate_workout_minutes(total_meters, str(train_type))
+        prog["duration"] = int(round(duration))
+    prog["load"] = calc_load(
+        train_type,
+        duration or 45,
+        rpe,
+        sets,
+        reps,
+        dist if sets > 0 else 0,
+        total_meters=total_meters,
+    )
     programs = load_programs()
     target = normalize_date_str(prog["date"])
     prog["date"] = target
-    idx = programs.index[programs["date"].astype(str).str[:10] == target].tolist()
+    prog["group"] = normalize_group(safe_str(prog.get("group"), "短跑組"))
+    if not safe_str(prog.get("title")):
+        from utils.config import group_display_label
+        prog["title"] = group_display_label(prog["group"])
+    if programs.empty:
+        save_programs(pd.DataFrame([prog]))
+        return
+    mask = (
+        programs["date"].astype(str).str[:10] == target
+    ) & (programs["group"].astype(str) == prog["group"])
+    idx = programs.index[mask].tolist()
     row = pd.DataFrame([prog])
     if idx:
         programs = programs.drop(index=idx)
@@ -216,10 +302,27 @@ def program_exists(for_date: date | str) -> bool:
     return not programs[programs["date"].astype(str).str[:10] == target].empty
 
 
-def delete_program(for_date: date | str) -> bool:
-    """Remove saved program for a date. Returns True if a row was deleted."""
-    n = delete_programs([for_date.isoformat() if isinstance(for_date, date) else str(for_date)])
-    return n > 0
+def delete_program(for_date: date | str, group: str | None = None) -> bool:
+    """Remove program(s) for a date. With group, only that row is removed."""
+    from utils.permissions import enforce_coach_if_logged_in
+
+    enforce_coach_if_logged_in()
+    target = normalize_date_str(for_date.isoformat() if isinstance(for_date, date) else str(for_date))
+    if not target:
+        return False
+    if group:
+        programs = load_programs()
+        if programs.empty:
+            return False
+        mask = (
+            programs["date"].astype(str).str[:10] == target
+        ) & (programs["group"].astype(str) == group)
+        removed = int(mask.sum())
+        if not removed:
+            return False
+        save_programs(programs[~mask].reset_index(drop=True))
+        return True
+    return delete_programs([target]) > 0
 
 
 def delete_programs(dates: list[str] | list[date]) -> int:
@@ -247,30 +350,127 @@ def delete_programs(dates: list[str] | list[date]) -> int:
     return removed
 
 
-def copy_program(source_date: str, target_date: str, prog: dict | None = None) -> bool:
+def _copy_payloads(source_date: str, prog: dict | list[dict] | None) -> list[dict]:
+    src = normalize_date_str(source_date)
+    if isinstance(prog, list):
+        return [dict(p) for p in prog if p]
+    if prog is not None:
+        return [dict(prog)]
+    return [dict(p) for p in get_programs_for_date(src)]
+
+
+def copy_program(source_date: str, target_date: str, prog: dict | list[dict] | None = None) -> bool:
     from utils.permissions import enforce_coach_if_logged_in
     enforce_coach_if_logged_in()
-    """Copy program to another date. Returns True on success."""
+    """Copy all group programs (or one payload) to another date."""
     src = normalize_date_str(source_date)
     tgt = normalize_date_str(target_date)
     if not src or not tgt or src == tgt:
         return False
-    data = dict(prog if prog is not None else get_program(date.fromisoformat(src)))
-    data["date"] = tgt
-    save_program(data)
+    payloads = _copy_payloads(src, prog)
+    if not payloads:
+        return False
+    for data in payloads:
+        data["date"] = tgt
+        save_program(data)
     return True
 
 
-def copy_program_to_dates(source_date: str, target_dates: list[str], prog: dict | None = None) -> int:
-    """Copy program to multiple dates. Returns number of successful copies."""
+def copy_program_to_dates(source_date: str, target_dates: list[str], prog: dict | list[dict] | None = None) -> int:
+    """Copy all group programs on source date to multiple target dates."""
     src = normalize_date_str(source_date)
-    payload = dict(prog if prog is not None else get_program(date.fromisoformat(src)))
+    payloads = _copy_payloads(src, prog)
+    if not payloads:
+        return 0
     count = 0
     for tgt in target_dates:
         t = normalize_date_str(tgt)
-        if t and t != src and copy_program(src, t, payload):
-            count += 1
+        if not t or t == src:
+            continue
+        for data in payloads:
+            row = dict(data)
+            row["date"] = t
+            save_program(row)
+        count += 1
     return count
+
+
+def build_day_programs_map(programs: pd.DataFrame) -> dict[str, list[dict]]:
+    """All program rows grouped by date (supports multi-group / multi-session per day)."""
+    if programs.empty:
+        return {}
+    by_date: dict[str, list[dict]] = {}
+    for _, row in programs.iterrows():
+        ds = normalize_date_str(row.get("date"))
+        if not ds:
+            continue
+        by_date.setdefault(ds, []).append(_row_to_program(row))
+    return by_date
+
+
+def build_coach_prog_map(programs: pd.DataFrame) -> dict[str, dict]:
+    """One calendar cell per date; multi-group days show combined summary."""
+    from utils.helpers import merge_programs_calendar_summary
+
+    if programs.empty:
+        return {}
+    by_date: dict[str, list[dict]] = {}
+    for _, row in programs.iterrows():
+        ds = normalize_date_str(row.get("date"))
+        if not ds:
+            continue
+        by_date.setdefault(ds, []).append(_row_to_program(row))
+    result: dict[str, dict] = {}
+    for ds, progs in by_date.items():
+        if len(progs) == 1:
+            result[ds] = progs[0]
+            continue
+        title, spec = merge_programs_calendar_summary(progs)
+        merged = dict(progs[0])
+        merged["title"] = title
+        non_rest = [
+            p for p in progs
+            if normalize_train_type(safe_str(p.get("type"))) != "休息"
+        ]
+        types = {normalize_train_type(safe_str(p.get("type"))) for p in non_rest}
+        if len(types) == 1:
+            merged["type"] = next(iter(types))
+        elif non_rest:
+            merged["type"] = normalize_train_type(safe_str(non_rest[0].get("type")))
+        merged["_multi"] = True
+        merged["_programs"] = progs
+        if spec:
+            merged["tips"] = spec
+        result[ds] = merged
+    return result
+
+
+def get_group_program_for_date(for_date: date | str, group: str) -> dict | None:
+    """Single program row for a date + training group."""
+    target = normalize_date_str(for_date.isoformat() if isinstance(for_date, date) else for_date)
+    grp = normalize_group(group)
+    for prog in get_programs_for_date(target):
+        if normalize_group(safe_str(prog.get("group"))) == grp:
+            return prog
+    return None
+
+
+def build_student_prog_map(programs: pd.DataFrame, specialty: str) -> dict[str, dict]:
+    """One program per date, matched to student specialty."""
+    if programs.empty:
+        return {}
+    by_date: dict[str, list[dict]] = {}
+    for _, row in programs.iterrows():
+        ds = normalize_date_str(row.get("date"))
+        if not ds:
+            continue
+        by_date.setdefault(ds, []).append(_row_to_program(row))
+    result: dict[str, dict] = {}
+    for ds, progs in by_date.items():
+        picked = pick_program_for_student(progs, specialty)
+        if picked:
+            result[ds] = picked
+    return result
 
 
 def get_programs_for_month(year: int, month: int) -> pd.DataFrame:
@@ -279,6 +479,61 @@ def get_programs_for_month(year: int, month: int) -> pd.DataFrame:
         return programs
     prefix = f"{year}-{month:02d}"
     return programs[programs["date"].astype(str).str[:10].str.startswith(prefix)]
+
+
+def filter_programs_by_group(programs: pd.DataFrame, group: str | None) -> pd.DataFrame:
+    """Filter month programs to one training group (None = show all)."""
+    if programs.empty or not group:
+        return programs
+    target = normalize_group(group)
+    mask = programs["group"].astype(str).map(normalize_group) == target
+    return programs[mask]
+
+
+def get_group_training_history(
+    for_date: date | str,
+    group: str,
+    *,
+    days_back: int = 14,
+    limit: int = 0,
+) -> list[dict]:
+    """Training sessions for one group in the days before for_date (newest first)."""
+    from utils.helpers import has_time_venue, workout_detail
+
+    if isinstance(for_date, date):
+        anchor = for_date
+    else:
+        anchor = date.fromisoformat(normalize_date_str(for_date))
+    target_group = normalize_group(group)
+    start = anchor - timedelta(days=days_back)
+    programs = load_programs()
+    if programs.empty:
+        return []
+    found: list[dict] = []
+    for _, row in programs.iterrows():
+        ds = normalize_date_str(row.get("date"))
+        if not ds:
+            continue
+        try:
+            d = date.fromisoformat(ds)
+        except ValueError:
+            continue
+        if d >= anchor or d < start:
+            continue
+        if normalize_group(safe_str(row.get("group"))) != target_group:
+            continue
+        prog = _row_to_program(row)
+        tp = normalize_train_type(safe_str(prog.get("type")))
+        if tp == "休息":
+            continue
+        if tp == "比賽":
+            found.append(prog)
+            continue
+        from utils.helpers import has_time_venue, workout_detail as _workout_detail
+        if has_time_venue(prog) or _workout_detail(prog).strip():
+            found.append(prog)
+    found.sort(key=lambda p: p.get("date", ""), reverse=True)
+    return found if limit <= 0 else found[:limit]
 
 
 def apply_recovery_template(start_date: date) -> None:
@@ -330,6 +585,14 @@ def apply_template(template_id: str, target_date: str) -> None:
     save_program(prog)
 
 
+def delete_template(template_id: str) -> None:
+    from utils.permissions import enforce_coach_if_logged_in
+    enforce_coach_if_logged_in()
+    df = load_templates()
+    df = df[df["id"].astype(str) != str(template_id)]
+    save_templates(df)
+
+
 # ── Periodization ───────────────────────────────────────────────────────────
 
 def load_periodization() -> dict:
@@ -363,9 +626,9 @@ def days_until_competition() -> int | None:
 # ── Timetable (time & venue on calendar programs) ───────────────────────────
 
 def program_visible_to_student(prog: dict, specialty: str) -> bool:
-    from utils.config import SPECIALTY_TO_GROUP
+    from utils.config import SPECIALTY_TO_GROUP, normalize_group
 
-    group = safe_str(prog.get("group"), "全體組員")
+    group = normalize_group(safe_str(prog.get("group")))
     if group == "全體組員":
         return True
     return group == SPECIALTY_TO_GROUP.get(safe_str(specialty), "")
@@ -377,15 +640,49 @@ def save_program_time_venue(
     end_time: str,
     venue: str,
     venue_other: str = "",
+    *,
+    group: str,
 ) -> None:
+    from utils.config import SCHEDULE_LINKED_GROUPS, group_display_label
+    from utils.helpers import has_time_venue
+
     target = normalize_date_str(date_str)
-    prog = get_program(date.fromisoformat(target))
-    prog["date"] = target
-    prog["start_time"] = safe_str(start_time)
-    prog["end_time"] = safe_str(end_time)
-    prog["venue"] = safe_str(venue)
-    prog["venue_other"] = safe_str(venue_other) if venue == "其他" else ""
-    save_program(prog)
+    grp = normalize_group(group)
+    updates = {
+        "start_time": safe_str(start_time),
+        "end_time": safe_str(end_time),
+        "venue": safe_str(venue),
+        "venue_other": safe_str(venue_other) if venue == "其他" else "",
+    }
+
+    def _upsert_group(g: str) -> None:
+        g_norm = normalize_group(g)
+        day_programs = get_programs_for_date(target)
+        match = [p for p in day_programs if normalize_group(safe_str(p.get("group"))) == g_norm]
+        if not match:
+            prog = schedule_placeholder_program(target, group=g_norm)
+            prog.update(updates)
+            prog["title"] = group_display_label(g_norm)
+            save_program(prog)
+            return
+        for prog in match:
+            merged = dict(prog)
+            merged.update(updates)
+            tp = normalize_train_type(safe_str(merged.get("type")))
+            if tp == "休息":
+                merged["type"] = "待排課"
+            if not safe_str(merged.get("title")) or merged.get("title") == "時間已定":
+                merged["title"] = group_display_label(g_norm)
+            save_program(merged)
+
+    _upsert_group(grp)
+    for linked in SCHEDULE_LINKED_GROUPS:
+        lg = normalize_group(linked)
+        if lg == grp:
+            continue
+        existing = get_group_program_for_date(target, lg)
+        if not existing or not has_time_venue(existing):
+            _upsert_group(lg)
 
 
 def _program_exists_on_date(date_str: str) -> bool:
@@ -397,29 +694,54 @@ def _program_exists_on_date(date_str: str) -> bool:
 
 
 def is_training_day(date_str: str) -> bool:
-    """True if date has a non-rest program in the calendar."""
-    if not _program_exists_on_date(date_str):
+    """True if date has a non-rest, non-placeholder program in the calendar."""
+    target = normalize_date_str(date_str)
+    if not _program_exists_on_date(target):
         return False
-    prog = get_program(date.fromisoformat(normalize_date_str(date_str)))
-    return normalize_train_type(safe_str(prog.get("type"))) != "休息"
+    for prog in get_programs_for_date(target):
+        tp = normalize_train_type(safe_str(prog.get("type")))
+        if tp not in ("休息", "待排課"):
+            return True
+    return False
 
 
-def copy_time_venue_to_dates(source_date: str, target_dates: list[str]) -> int:
+def has_schedule_slot(date_str: str, group: str | None = None) -> bool:
+    """True if program on this date (and optional group) has time or venue set."""
+    from utils.helpers import has_time_venue
+
+    target = normalize_date_str(date_str)
+    for prog in get_programs_for_date(target):
+        if group and normalize_group(safe_str(prog.get("group"))) != normalize_group(group):
+            continue
+        if has_time_venue(prog):
+            return True
+    return False
+
+
+def copy_time_venue_to_dates(source_date: str, target_dates: list[str], *, group: str) -> int:
     from utils.permissions import enforce_coach_if_logged_in
     enforce_coach_if_logged_in()
-    """Copy time/venue from source to multiple dates. Returns success count."""
+    """Copy one group's time/venue from source to multiple dates."""
     src = normalize_date_str(source_date)
-    prog = get_program(date.fromisoformat(src))
+    grp = normalize_group(group)
+    src_programs = get_programs_for_date(src)
+    ref = next(
+        (p for p in src_programs if normalize_group(safe_str(p.get("group"))) == grp),
+        None,
+    )
+    if not ref:
+        return 0
     payload = {
-        "start_time": safe_str(prog.get("start_time")),
-        "end_time": safe_str(prog.get("end_time")),
-        "venue": safe_str(prog.get("venue")),
-        "venue_other": safe_str(prog.get("venue_other")),
+        "start_time": safe_str(ref.get("start_time")),
+        "end_time": safe_str(ref.get("end_time")),
+        "venue": safe_str(ref.get("venue")),
+        "venue_other": safe_str(ref.get("venue_other")),
+        "group": grp,
     }
     count = 0
     for tgt in target_dates:
         t = normalize_date_str(tgt)
-        if not t or t == src or not is_training_day(t):
+        if not t or t == src:
             continue
         save_program_time_venue(t, **payload)
         count += 1
@@ -432,15 +754,18 @@ def apply_time_venue_to_dates(
     end_time: str,
     venue: str,
     venue_other: str = "",
+    *,
+    group: str,
 ) -> int:
     from utils.permissions import enforce_coach_if_logged_in
     enforce_coach_if_logged_in()
+    grp = normalize_group(group)
     count = 0
     for tgt in target_dates:
         t = normalize_date_str(tgt)
-        if not t or not is_training_day(t):
+        if not t:
             continue
-        save_program_time_venue(t, start_time, end_time, venue, venue_other)
+        save_program_time_venue(t, start_time, end_time, venue, venue_other, group=grp)
         count += 1
     return count
 
@@ -457,7 +782,7 @@ def get_timetable_entries(
     programs = load_programs()
     if programs.empty:
         return []
-    entries: list[dict] = []
+    by_date: dict[str, list[dict]] = {}
     for _, row in programs.iterrows():
         ds = normalize_date_str(row.get("date"))
         if not ds:
@@ -468,13 +793,20 @@ def get_timetable_entries(
             continue
         if d < start or d > end:
             continue
-        prog = _row_to_program(row)
+        by_date.setdefault(ds, []).append(_row_to_program(row))
+
+    entries: list[dict] = []
+    for ds in sorted(by_date.keys()):
+        prog = pick_program_for_student(by_date[ds], specialty) if specialty else by_date[ds][0]
+        if not prog:
+            continue
         if not include_rest and prog.get("type") == "休息":
             continue
-        if specialty and not program_visible_to_student(prog, specialty):
-            continue
+        if not include_rest and normalize_train_type(safe_str(prog.get("type"))) == "待排課":
+            from utils.helpers import has_time_venue
+            if not has_time_venue(prog):
+                continue
         entries.append(prog)
-    entries.sort(key=lambda p: p["date"])
     return entries
 
 
@@ -514,14 +846,17 @@ def register_user(data: dict) -> None:
     save_users(users)
 
 
-def approve_student(username: str) -> None:
+def approve_student(username: str) -> dict | None:
     from utils.permissions import enforce_coach_if_logged_in
     enforce_coach_if_logged_in()
     users = load_users()
     mask = users["username"].astype(str) == username
     if mask.any():
+        row = users.loc[mask].iloc[0].to_dict()
         users.loc[mask, "role"] = "student"
         save_users(users)
+        return row
+    return None
 
 
 def remove_student(username: str) -> None:
@@ -1805,6 +2140,40 @@ def _seed_programs() -> None:
         save_programs(pd.concat([existing, pd.DataFrame(rows)], ignore_index=True))
 
 
+def ensure_testing_coach() -> None:
+    """Ensure TESTING AC coach account (T / T) exists."""
+    from utils.passwords import hash_password
+
+    users = load_users()
+    if not users.empty and (users["username"].astype(str) == "T").any():
+        return
+    row = {col: None for col in USER_COLUMNS}
+    row.update({
+        "username": "T",
+        "name": "TESTING AC",
+        "role": "coach",
+        "password": hash_password("T", min_length=1),
+        "specialty": "",
+        "phone": "",
+        "child_name": "",
+        "school": "",
+        "emergency_contact": "",
+        "emergency_phone": "",
+        "health": "",
+        "gender": "",
+        "name_en": "",
+        "birth_year": "",
+        "birth_date": "",
+        "hkaaa_id": "",
+        "hk_permanent_resident": "",
+        "avatar": "",
+    })
+    if users.empty:
+        save_users(pd.DataFrame([row]))
+    else:
+        save_users(pd.concat([users, pd.DataFrame([row])], ignore_index=True))
+
+
 def ensure_coach_exists() -> None:
     """Ensure at least one coach account exists (production-safe)."""
     from utils.cloud_deploy import default_coach_credentials
@@ -1847,6 +2216,7 @@ def init_sample_data() -> None:
 
     if is_production() or is_supabase_enabled():
         ensure_coach_exists()
+        ensure_testing_coach()
         if _read(PERIOD_FILE, PERIOD_COLUMNS).empty:
             save_periodization(DEFAULT_PERIODIZATION)
         return
@@ -1860,6 +2230,9 @@ def init_sample_data() -> None:
 
         seed_users = [
             {"username": "ktll", "name": "關添樂", "role": "coach", "password": "170330",
+             "specialty": "", "phone": "", "child_name": "", "school": "", "gender": "",
+             "emergency_contact": "", "emergency_phone": "", "health": ""},
+            {"username": "T", "name": "TESTING AC", "role": "coach", "password": "T",
              "specialty": "", "phone": "", "child_name": "", "school": "", "gender": "",
              "emergency_contact": "", "emergency_phone": "", "health": ""},
             {"username": "student1", "name": "陳大文", "role": "student", "password": "123",
@@ -1897,6 +2270,8 @@ def init_sample_data() -> None:
              "submitted_at": pd.Timestamp.now().isoformat(timespec="seconds"), "remark": "", "laps_text": "64.5s"},
         ]))
         _seed_acwr_history()
+
+    ensure_testing_coach()
 
 
 def _seed_acwr_history() -> None:
