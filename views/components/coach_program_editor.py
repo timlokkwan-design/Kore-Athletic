@@ -256,7 +256,7 @@ def render_coach_day_editor(selected: date) -> None:
     from utils.data_store import has_schedule_slot
     from utils.helpers import is_coach_plan_day
 
-    if not is_coach_plan_day(prog if day_programs else None, edit_group) and not has_schedule_slot(sk, edit_group):
+    if not is_coach_plan_day(prog if day_programs else None) and not has_schedule_slot(sk):
         st.warning(
             "此日未在「訓練時間表」排定時間／地點，或為休息日。"
             "請先到 **訓練時間表** 設定，或返回月曆選擇其他日子。"

@@ -641,13 +641,13 @@ def save_program_time_venue(
     venue: str,
     venue_other: str = "",
     *,
-    group: str,
+    group: str | None = None,
 ) -> None:
-    from utils.config import SCHEDULE_LINKED_GROUPS, group_display_label
+    """Save time/venue for a date — applies the same slot to all groups."""
+    from utils.config import GROUP_OPTIONS, SCHEDULE_UNIFIED_GROUPS, group_display_label
     from utils.helpers import has_time_venue
 
     target = normalize_date_str(date_str)
-    grp = normalize_group(group)
     updates = {
         "start_time": safe_str(start_time),
         "end_time": safe_str(end_time),
@@ -655,8 +655,11 @@ def save_program_time_venue(
         "venue_other": safe_str(venue_other) if venue == "其他" else "",
     }
 
-    def _upsert_group(g: str) -> None:
-        g_norm = normalize_group(g)
+    sync_groups = [normalize_group(g) for g in SCHEDULE_UNIFIED_GROUPS]
+    if not sync_groups:
+        sync_groups = [normalize_group(g) for g in GROUP_OPTIONS]
+
+    def _upsert_group(g_norm: str) -> None:
         day_programs = get_programs_for_date(target)
         match = [p for p in day_programs if normalize_group(safe_str(p.get("group"))) == g_norm]
         if not match:
@@ -675,14 +678,8 @@ def save_program_time_venue(
                 merged["title"] = group_display_label(g_norm)
             save_program(merged)
 
-    _upsert_group(grp)
-    for linked in SCHEDULE_LINKED_GROUPS:
-        lg = normalize_group(linked)
-        if lg == grp:
-            continue
-        existing = get_group_program_for_date(target, lg)
-        if not existing or not has_time_venue(existing):
-            _upsert_group(lg)
+    for lg in sync_groups:
+        _upsert_group(lg)
 
 
 def _program_exists_on_date(date_str: str) -> bool:
@@ -718,32 +715,34 @@ def has_schedule_slot(date_str: str, group: str | None = None) -> bool:
     return False
 
 
-def copy_time_venue_to_dates(source_date: str, target_dates: list[str], *, group: str) -> int:
+def copy_time_venue_to_dates(
+    source_date: str,
+    target_dates: list[str],
+    *,
+    group: str | None = None,
+) -> int:
+    from utils.helpers import has_time_venue
     from utils.permissions import enforce_coach_if_logged_in
+
     enforce_coach_if_logged_in()
-    """Copy one group's time/venue from source to multiple dates."""
+    """Copy unified time/venue from source to multiple dates."""
     src = normalize_date_str(source_date)
-    grp = normalize_group(group)
     src_programs = get_programs_for_date(src)
-    ref = next(
-        (p for p in src_programs if normalize_group(safe_str(p.get("group"))) == grp),
-        None,
-    )
+    ref = next((p for p in src_programs if has_time_venue(p)), None)
     if not ref:
         return 0
-    payload = {
-        "start_time": safe_str(ref.get("start_time")),
-        "end_time": safe_str(ref.get("end_time")),
-        "venue": safe_str(ref.get("venue")),
-        "venue_other": safe_str(ref.get("venue_other")),
-        "group": grp,
-    }
     count = 0
     for tgt in target_dates:
         t = normalize_date_str(tgt)
         if not t or t == src:
             continue
-        save_program_time_venue(t, **payload)
+        save_program_time_venue(
+            t,
+            safe_str(ref.get("start_time")),
+            safe_str(ref.get("end_time")),
+            safe_str(ref.get("venue")),
+            safe_str(ref.get("venue_other")),
+        )
         count += 1
     return count
 
@@ -755,17 +754,17 @@ def apply_time_venue_to_dates(
     venue: str,
     venue_other: str = "",
     *,
-    group: str,
+    group: str | None = None,
 ) -> int:
     from utils.permissions import enforce_coach_if_logged_in
+
     enforce_coach_if_logged_in()
-    grp = normalize_group(group)
     count = 0
     for tgt in target_dates:
         t = normalize_date_str(tgt)
         if not t:
             continue
-        save_program_time_venue(t, start_time, end_time, venue, venue_other, group=grp)
+        save_program_time_venue(t, start_time, end_time, venue, venue_other)
         count += 1
     return count
 

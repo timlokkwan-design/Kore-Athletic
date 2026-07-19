@@ -99,6 +99,8 @@ def _merged_for_sync(progs: list[dict]) -> dict | None:
 
 def _cell_summary(progs: list[dict] | dict | None) -> tuple[str, str, str]:
     """Return (title_line, detail_line, train_type) for calendar cell."""
+    from utils.helpers import has_time_venue
+
     progs = _normalize_progs(progs)
     if not progs:
         return "可預排", "", "—"
@@ -108,26 +110,33 @@ def _cell_summary(progs: list[dict] | dict | None) -> tuple[str, str, str]:
     ]
     if not active:
         return "休息", "", "休息"
-    parts: list[str] = []
+    tv = ""
     for p in active:
-        gl = short_group_label(p.get("group"))
         tv = format_time_venue_line(p)
         if tv:
-            parts.append(f"{gl} {tv}")
-        else:
-            parts.append(gl)
-    title = f"{len(active)}組" if len(active) > 1 else short_group_label(active[0].get("group"))
-    detail = " · ".join(parts[:3])
+            break
     tp = normalize_train_type(safe_str(active[0].get("type")))
-    return title, detail, tp
+    if tv:
+        return "訓練" if tp != "比賽" else "比賽", tv, tp
+    return "待排時間", "", tp
 
 
 def _render_sched_day_dialog(ds: str, day_map: dict[str, list[dict]]) -> None:
     st.markdown(f"### {format_timetable_date(ds)}")
     progs = day_map.get(ds, [])
     if not progs:
-        st.info("此日尚未排課，可為各組別預先設定時間與地點。")
+        st.info("此日尚未排課，可預先設定全隊時間與地點。")
         return
+    from utils.helpers import has_time_venue
+
+    ref = next((p for p in progs if has_time_venue(p)), None)
+    if ref:
+        start = safe_str(ref.get("start_time"))
+        end = safe_str(ref.get("end_time"))
+        time_text = f"{start} – {end}" if start and end else (start or end or "時間待設定")
+        st.markdown(f"🕐 **{time_text}** · 📍 **{resolve_venue(ref)}**")
+        st.caption("全隊共用以上時間地點")
+        st.markdown("---")
     for p in progs:
         tp = normalize_train_type(safe_str(p.get("type")))
         if tp == "休息":
