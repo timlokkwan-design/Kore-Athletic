@@ -302,18 +302,47 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 min-height: 44px !important;
                 font-size: 16px !important;
             }}
-            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) {{
-                position: sticky;
-                top: 0;
-                z-index: 99;
-                background: {c["main_bg"]};
-                padding-bottom: 0.35rem;
-                margin-bottom: 0.25rem;
-                border-bottom: 1px solid {c["border"]};
+            /* Instagram-style fixed bottom tab bar (student + coach) */
+            section.main .block-container {{
+                padding-bottom: 5.75rem !important;
             }}
-            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) button {{
-                min-height: 2.75rem !important;
+            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) {{
+                position: fixed !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                z-index: 1000 !important;
+                width: 100vw !important;
+                max-width: 100vw !important;
+                margin: 0 !important;
+                padding: 0.35rem 0.4rem calc(0.45rem + env(safe-area-inset-bottom, 0px)) !important;
+                background: {c["main_bg"]} !important;
+                border-top: 1px solid {c["border"]} !important;
+                box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.08) !important;
+            }}
+            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] {{
+                gap: 0.25rem !important;
+            }}
+            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button {{
+                min-height: 3.35rem !important;
+                white-space: pre-line !important;
+                line-height: 1.15 !important;
+                font-size: 0.72rem !important;
                 font-weight: 700 !important;
+                border-radius: 12px !important;
+                padding: 0.35rem 0.15rem !important;
+                transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease, background 0.12s ease !important;
+                box-shadow: none !important;
+            }}
+            /* Press feedback — proves the tile was tapped */
+            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button:active {{
+                transform: scale(0.88) !important;
+                filter: brightness(0.9) !important;
+                box-shadow: inset 0 0 0 2px {c["text"]}33 !important;
+            }}
+            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button:focus-visible {{
+                outline: 2px solid {c["text"]}55 !important;
+                outline-offset: 2px !important;
             }}
             div[data-testid="stVerticalBlock"]:has(.ka-checkin-bar-marker) {{
                 background: {COLOR_WARN_BG};
@@ -335,6 +364,13 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 font-size: 0.78rem;
                 color: {pwa_detail_style};
             }}
+        }}
+        /* Hide decorative markers */
+        .ka-bottom-tabbar-marker,
+        .ka-student-dock-marker,
+        .ka-coach-dock-marker,
+        .ka-tab-tile {{
+            display: none !important;
         }}
         </style>
         <div class="{role_attr}" style="display:none"></div>
