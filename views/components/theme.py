@@ -342,6 +342,22 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                that matches the whole page root and clips expander content. */
             section.main .block-container {{
                 padding-bottom: 6.5rem !important;
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+                position: relative !important;
+            }}
+            section.main {{
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+            }}
+            /* Content blocks must never be fixed (that freezes scroll) */
+            section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host) {{
+                position: static !important;
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
             }}
             /* Only the innermost dock host (class added by JS) is fixed.
                Leave right clearance for Streamlit Cloud "Manage app" FAB (host overlay). */
@@ -353,6 +369,8 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 z-index: 2147483000 !important;
                 width: 100vw !important;
                 max-width: 100vw !important;
+                height: auto !important;
+                max-height: 6rem !important;
                 margin: 0 !important;
                 /* Extra right padding so 隊伍／比賽 are not under the crown Manage button */
                 padding: 0.3rem 3.75rem calc(0.4rem + env(safe-area-inset-bottom, 0px)) 0.35rem !important;
@@ -360,6 +378,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 border-top: 1px solid {c["border"]} !important;
                 box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.10) !important;
                 pointer-events: auto !important;
+                overflow: visible !important;
             }}
             .ka-bottom-dock-host [data-testid="stHorizontalBlock"] {{
                 display: flex !important;
