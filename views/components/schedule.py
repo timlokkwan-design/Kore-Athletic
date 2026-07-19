@@ -496,17 +496,20 @@ def render_student_schedule_calendar(
 def render_coach_schedule_preview() -> None:
     """Coach read-only calendar — same UI as student platform."""
     from utils.config import SPECIALTY_OPTIONS
+    from views.components.coach_mobile_ui import render_option_chips
 
     st.subheader("📅 課表檢視")
     st.caption(
         "與學生平台相同的日曆（只讀）。選專項模擬該組學生所見；"
         "教練可查看完整跑案內容。"
     )
-    specialty = st.selectbox(
-        "檢視專項",
-        SPECIALTY_OPTIONS,
-        key="coach_preview_specialty",
-        help="與學生專項對應，顯示全體組員 + 該組課表",
+    # Chips 3-across (comfortable) instead of a full-width selectbox stack.
+    specialty = render_option_chips(
+        key="coach_preview_spec_chips",
+        options=list(SPECIALTY_OPTIONS),
+        session_key="coach_preview_specialty",
+        caption="檢視專項",
+        per_row=3,
     )
     render_student_schedule_calendar(
         specialty,

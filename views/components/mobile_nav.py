@@ -264,11 +264,12 @@ def _find_innermost_vertical_block_js() -> str:
                 if (el.querySelector('[data-testid="stExpander"]')) return true;
                 if (el.querySelector('[data-testid="stDataFrame"]')) return true;
                 if (el.querySelector('section.main')) return true;
+                // Calendar chrome inside host ⇒ not the dock/subtab host
                 if (el.querySelector('.ka-cal-month-nav-marker')) return true;
                 if (el.querySelector('.ka-cal-view-marker')) return true;
                 if (el.querySelector('.ka-cal-shell-marker')) return true;
-                if (el.querySelector('.ka-inline-row-marker')) return true;
                 if (el.querySelector('.ka-coach-screen-marker')) return true;
+                // Do NOT reject .ka-inline-row-marker — chip rows use it.
                 var rows = directRows(el);
                 if (rows.length !== 1) return true;
                 var h = el.getBoundingClientRect().height;
@@ -512,13 +513,11 @@ def _render_top_subtabbar(
     session_key: str,
     key_prefix: str,
 ) -> None:
-    """Fixed top sub-tabs — same horizontal tile style as the bottom dock.
-
-    items: (icon, short_label, section_value)
-    Pinned with position:fixed (sticky fails inside Streamlit layout).
-    """
+    """Fixed top sub-tabs — 檢視｜時間｜設定 (etc.) always one comfortable row."""
     if current_section not in {s for _, _, s in items}:
         return
+
+    from views.components.coach_mobile_ui import force_button_row
 
     st.markdown(
         """
@@ -534,7 +533,7 @@ def _render_top_subtabbar(
           flex-direction: row !important;
           flex-wrap: nowrap !important;
           width: 100% !important;
-          gap: 0.18rem !important;
+          gap: 0.35rem !important;
         }
         .ka-top-subtab-host [data-testid="stHorizontalBlock"] > div,
         .ka-top-subtab-host [data-testid="column"],
@@ -549,12 +548,14 @@ def _render_top_subtabbar(
         unsafe_allow_html=True,
     )
 
-    with st.container(border=False):
-        st.markdown(
-            '<div class="ka-top-subtab-marker" aria-hidden="true"></div>',
-            unsafe_allow_html=True,
-        )
-        cols = st.columns(len(items), gap="small")
+    # force_button_row keeps 檢視｜時間｜設定 side-by-side even before JS pins.
+    with force_button_row(
+        key=f"{key_prefix}_topbar",
+        n_cols=len(items),
+        marker_extra="ka-top-subtab-marker",
+        pin_inline=False,
+        variant="bare",
+    ) as cols:
         for col, (icon, label, section) in zip(cols, items):
             is_active = current_section == section
             with col:

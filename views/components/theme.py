@@ -722,14 +722,14 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             width: auto !important;
         }}
         .ka-top-subtab-host button {{
-            min-height: 3.15rem !important;
+            min-height: 3.2rem !important;
             width: 100% !important;
             white-space: pre-line !important;
-            line-height: 1.12 !important;
-            font-size: 0.72rem !important;
+            line-height: 1.15 !important;
+            font-size: clamp(0.7rem, 2.9vw, 0.84rem) !important;
             font-weight: 700 !important;
             border-radius: 12px !important;
-            padding: 0.28rem 0.1rem !important;
+            padding: 0.32rem 0.15rem !important;
             transition: transform 0.12s ease, filter 0.12s ease !important;
             box-shadow: none !important;
         }}

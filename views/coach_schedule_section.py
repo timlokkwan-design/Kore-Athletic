@@ -182,15 +182,16 @@ def _render_sched_editor_ui() -> None:
 
     from views.components.coach_mobile_ui import force_button_row
 
-    with force_button_row(key=f"sched_time_row_{rk}", n_cols=2) as cols:
-        c1, c2 = cols
+    # 開始｜結束｜地點 — three across on one comfortable row
+    with force_button_row(key=f"sched_time_row_{rk}", n_cols=3) as cols:
+        c1, c2, c3 = cols
         start_time = c1.text_input(
-            "開始時間", safe_str(prog.get("start_time")), placeholder="17:00", key=f"sched_st_{rk}",
+            "開始", safe_str(prog.get("start_time")), placeholder="17:00", key=f"sched_st_{rk}",
         )
         end_time = c2.text_input(
-            "結束時間", safe_str(prog.get("end_time")), placeholder="19:00", key=f"sched_et_{rk}",
+            "結束", safe_str(prog.get("end_time")), placeholder="19:00", key=f"sched_et_{rk}",
         )
-    venue = st.selectbox("地點", VENUE_OPTIONS, index=venue_idx, key=f"sched_vn_{rk}")
+        venue = c3.selectbox("地點", VENUE_OPTIONS, index=venue_idx, key=f"sched_vn_{rk}")
     venue_other = ""
     if venue == "其他":
         venue_other = st.text_input(
@@ -278,5 +279,13 @@ def render_coach_schedule() -> None:
     st.divider()
     st.markdown("#### 👀 預覽（學生時間表列表）")
     st.caption("完整日曆檢視請用上方「課表檢視」。")
-    preview_group = st.selectbox("模擬學生專項", SPECIALTY_OPTIONS, key="sched_preview_spec")
+    from views.components.coach_mobile_ui import render_option_chips
+
+    preview_group = render_option_chips(
+        key="sched_preview_spec_chips",
+        options=list(SPECIALTY_OPTIONS),
+        session_key="sched_preview_spec",
+        caption="模擬學生專項",
+        per_row=3,
+    )
     render_program_timetable(student_specialty=preview_group, days_ahead=60)
