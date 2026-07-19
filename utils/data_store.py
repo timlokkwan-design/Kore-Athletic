@@ -689,6 +689,34 @@ def save_program_time_venue(
         _upsert_group(lg)
 
 
+def clear_program_time_venue(date_str: str) -> bool:
+    """Clear time & venue for a date across all unified groups. Returns True if anything cleared."""
+    from utils.config import GROUP_OPTIONS, SCHEDULE_UNIFIED_GROUPS
+    from utils.helpers import has_time_venue
+
+    target = normalize_date_str(date_str)
+    sync_groups = {normalize_group(g) for g in (SCHEDULE_UNIFIED_GROUPS or GROUP_OPTIONS)}
+    day_programs = get_programs_for_date(target)
+    if not day_programs:
+        return False
+
+    cleared = False
+    for prog in day_programs:
+        g = normalize_group(safe_str(prog.get("group")))
+        if sync_groups and g not in sync_groups:
+            continue
+        if not has_time_venue(prog):
+            continue
+        merged = dict(prog)
+        merged["start_time"] = ""
+        merged["end_time"] = ""
+        merged["venue"] = ""
+        merged["venue_other"] = ""
+        save_program(merged)
+        cleared = True
+    return cleared
+
+
 def _program_exists_on_date(date_str: str) -> bool:
     target = normalize_date_str(date_str)
     programs = load_programs()
