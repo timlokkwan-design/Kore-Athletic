@@ -91,6 +91,10 @@ from utils.helpers import (
     weekly_summary_text,
     whatsapp_program_text,
 )
+from utils.coach_calendar_state import (
+    get_coach_calendar_year_month,
+    set_coach_calendar_date,
+)
 from views.components.coach_mobile_ui import render_coach_screen_switcher
 from views.components.coach_program_editor import render_coach_day_editor
 from views.components.calendar import render_calendar
@@ -185,9 +189,7 @@ def _coach_calendar_pick_ui(copy_mode: bool, delete_mode: bool) -> None:
                 st.session_state.pop("copy_source_payload", None)
                 st.session_state.pop("copy_target_dates", None)
                 if n and targets:
-                    st.session_state["coach_cal"] = targets[-1]
-                    st.session_state.cal_year = date.fromisoformat(targets[-1]).year
-                    st.session_state.cal_month = date.fromisoformat(targets[-1]).month
+                    set_coach_calendar_date(targets[-1])
                 st.session_state["copy_flash"] = (
                     "success",
                     f"已複製至 {n} 個日期：{', '.join(targets)}",
@@ -293,8 +295,7 @@ def _render_coach_program_editor() -> None:
     )
     cal_group = filter_map[cal_group_label]
 
-    cal_year = st.session_state.get("cal_year", date.today().year)
-    cal_month = st.session_state.get("cal_month", date.today().month)
+    cal_year, cal_month = get_coach_calendar_year_month()
     alert_map = build_coach_prog_map(
         filter_programs_by_group(get_programs_for_month(cal_year, cal_month), cal_group)
     )
@@ -331,7 +332,7 @@ def _render_coach_program_editor() -> None:
                 st.rerun()
         st.caption(f"今日完成率：**{log_completion_rate()}%**")
         if st.button("📍 今日課表", use_container_width=True, key="coach_goto_today"):
-            st.session_state["coach_cal"] = date.today().isoformat()
+            set_coach_calendar_date(date.today().isoformat())
             st.session_state.coach_prog_screen = "edit"
             st.rerun()
     else:

@@ -39,6 +39,12 @@ from views.components.calendar_list import render_month_day_list, render_view_mo
 from views.components.calendar_theme import inject_calendar_theme
 from views.components.calendar_ui import calendar_shell, render_calendar_month_nav
 from views.components.coach_mobile_ui import render_calendar_legend
+from utils.coach_calendar_state import (
+    ensure_coach_calendar_state,
+    get_coach_calendar_year_month,
+    set_coach_calendar_date,
+    set_coach_calendar_month,
+)
 
 
 def _sync_selection_to_month(select_key: str, year: int, month: int) -> None:
@@ -52,9 +58,11 @@ def _sync_selection_to_month(select_key: str, year: int, month: int) -> None:
         return
     today = date.today()
     if today.year == year and today.month == month:
-        st.session_state[select_key] = today.isoformat()
+        ds = today.isoformat()
     else:
-        st.session_state[select_key] = f"{year}-{month:02d}-01"
+        ds = f"{year}-{month:02d}-01"
+    st.session_state[select_key] = ds
+    set_coach_calendar_date(ds)
 
 
 def _toggle_copy_target(ds: str, copy_source: str) -> None:
@@ -79,21 +87,25 @@ def _toggle_delete_target(ds: str) -> None:
 
 
 def _calendar_prev_month(select_key: str, copy_mode: bool, delete_mode: bool) -> None:
-    if st.session_state.cal_month == 1:
-        st.session_state.cal_month, st.session_state.cal_year = 12, st.session_state.cal_year - 1
+    year, month = get_coach_calendar_year_month()
+    if month == 1:
+        year, month = year - 1, 12
     else:
-        st.session_state.cal_month -= 1
+        month -= 1
+    set_coach_calendar_month(year, month)
     if not copy_mode and not delete_mode:
-        _sync_selection_to_month(select_key, st.session_state.cal_year, st.session_state.cal_month)
+        _sync_selection_to_month(select_key, year, month)
 
 
 def _calendar_next_month(select_key: str, copy_mode: bool, delete_mode: bool) -> None:
-    if st.session_state.cal_month == 12:
-        st.session_state.cal_month, st.session_state.cal_year = 1, st.session_state.cal_year + 1
+    year, month = get_coach_calendar_year_month()
+    if month == 12:
+        year, month = year + 1, 1
     else:
-        st.session_state.cal_month += 1
+        month += 1
+    set_coach_calendar_month(year, month)
     if not copy_mode and not delete_mode:
-        _sync_selection_to_month(select_key, st.session_state.cal_year, st.session_state.cal_month)
+        _sync_selection_to_month(select_key, year, month)
 
 
 def _programs_on_day(prog_map: dict[str, dict], ds: str) -> list[dict]:
@@ -197,6 +209,7 @@ def _coach_compact_day_style(
 def _coach_pick_for_edit(select_key: str) -> Callable[[str], None]:
     def _pick(ds: str) -> None:
         st.session_state[select_key] = ds
+        set_coach_calendar_date(ds)
         st.session_state["coach_prog_screen"] = "edit"
 
     return _pick
@@ -298,9 +311,8 @@ def _render_calendar_impl(
     goto_edit_on_select: bool = False,
     schedule_only: bool = False,
 ) -> date | None:
-    if "cal_year" not in st.session_state:
-        t = date.today()
-        st.session_state.cal_year, st.session_state.cal_month = t.year, t.month
+    ensure_coach_calendar_state()
+    year, month = get_coach_calendar_year_month()
 
     inject_calendar_theme()
 
@@ -309,8 +321,8 @@ def _render_calendar_impl(
     delete_targets = set(st.session_state.get("delete_target_dates", [])) if delete_mode else set()
 
     render_calendar_month_nav(
-        year=st.session_state.cal_year,
-        month=st.session_state.cal_month,
+        year=year,
+        month=month,
         prev_key=f"{select_key}_prev",
         next_key=f"{select_key}_next",
         on_prev=_calendar_prev_month,
@@ -328,7 +340,6 @@ def _render_calendar_impl(
         if schedule_only:
             st.caption("只顯示 **訓練時間表** 已排時間／地點的日子 · 休息日不顯示")
 
-    year, month = st.session_state.cal_year, st.session_state.cal_month
     if not copy_mode and not delete_mode:
         _sync_selection_to_month(select_key, year, month)
     programs = get_programs_for_month(year, month)
@@ -336,7 +347,7 @@ def _render_calendar_impl(
     prog_map = build_coach_prog_map(programs)
 
     if select_key not in st.session_state:
-        st.session_state[select_key] = date.today().isoformat()
+        st.session_state[select_key] = st.session_state.get("coach_cal", date.today().isoformat())
 
     default_mode = "list" if schedule_only else "fullcalendar"
     view_mode = render_view_mode_toggle(
@@ -452,4 +463,5 @@ def _render_calendar_impl(
             else f"已選日期：**{st.session_state[select_key]}** · 格內色條=課表摘要 · 點格查看詳情"
         )
         st.caption(hint)
+    set_coach_calendar_date(str(st.session_state[select_key]))
     return selected
