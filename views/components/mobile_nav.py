@@ -140,7 +140,7 @@ def _find_innermost_vertical_block_js() -> str:
 
 
 def _pin_innermost_dock_host() -> None:
-    """Pin only a small dock-only block. Never fix the page root (locks scroll)."""
+    """Pin only small dock/subtab blocks. Never fix the page root (locks scroll)."""
     try:
         st.html(
             f"""
@@ -166,17 +166,40 @@ def _pin_innermost_dock_host() -> None:
                     el.classList.contains('ka-bottom-dock-host')
                     || el.classList.contains('ka-top-subtab-host')
                   )) return;
-                  // Never leave the page shell position:fixed
                   if (el.style.position === 'fixed') {{
                     el.style.setProperty('position', 'relative', 'important');
                   }}
                 }});
                 document.querySelectorAll('.ka-bottom-dock-host').forEach(function (el) {{
-                  if (isBadHost(el, 180, 2, 8)) el.classList.remove('ka-bottom-dock-host');
+                  if (isBadHost(el, 200, 2, 10)) el.classList.remove('ka-bottom-dock-host');
                 }});
                 document.querySelectorAll('.ka-top-subtab-host').forEach(function (el) {{
-                  if (isBadHost(el, 180, 2, 8)) el.classList.remove('ka-top-subtab-host');
+                  if (isBadHost(el, 200, 2, 10)) el.classList.remove('ka-top-subtab-host');
                 }});
+              }}
+
+              function headerBottom() {{
+                var header = document.querySelector('[data-testid="stHeader"]')
+                  || document.querySelector('header');
+                if (!header) return 0;
+                var r = header.getBoundingClientRect();
+                return Math.max(0, r.bottom);
+              }}
+
+              function placeTopHost() {{
+                var host = document.querySelector('.ka-top-subtab-host');
+                var bc = document.querySelector('section.main .block-container');
+                if (!host) {{
+                  document.documentElement.style.removeProperty('--ka-top-pad');
+                  if (bc) bc.classList.remove('ka-has-top-subtabs');
+                  return;
+                }}
+                var top = headerBottom();
+                host.style.setProperty('top', top + 'px', 'important');
+                host.style.setProperty('position', 'fixed', 'important');
+                var h = host.getBoundingClientRect().height || 56;
+                document.documentElement.style.setProperty('--ka-top-pad', (top + h + 10) + 'px');
+                if (bc) bc.classList.add('ka-has-top-subtabs');
               }}
 
               function pinDock() {{
@@ -186,7 +209,7 @@ def _pin_innermost_dock_host() -> None:
                 }});
                 document.querySelectorAll('.ka-bottom-tabbar-marker').forEach(function (marker) {{
                   var deepest = findHost(marker);
-                  if (isBadHost(deepest, 180, 2, 8)) return;
+                  if (isBadHost(deepest, 200, 2, 10)) return;
                   deepest.classList.add('ka-bottom-dock-host');
                 }});
                 unlockScroll();
@@ -199,20 +222,25 @@ def _pin_innermost_dock_host() -> None:
                 }});
                 document.querySelectorAll('.ka-top-subtab-marker').forEach(function (marker) {{
                   var deepest = findHost(marker);
-                  if (isBadHost(deepest, 180, 2, 8)) return;
+                  if (isBadHost(deepest, 200, 2, 10)) return;
                   deepest.classList.add('ka-top-subtab-host');
                 }});
+                placeTopHost();
                 unlockScroll();
               }}
 
               function pinAll() {{
                 pinDock();
                 pinTopSubtabs();
+                placeTopHost();
               }}
               pinAll();
               setTimeout(pinAll, 50);
               setTimeout(pinAll, 200);
               setTimeout(pinAll, 500);
+              setTimeout(pinAll, 1000);
+              window.addEventListener('resize', placeTopHost);
+              window.addEventListener('scroll', placeTopHost, {{ passive: true }});
             }})();
             </script>
             """,
@@ -231,9 +259,10 @@ def _render_top_subtabbar(
     session_key: str,
     key_prefix: str,
 ) -> None:
-    """Sticky top sub-tabs — same horizontal tile style as the bottom dock.
+    """Fixed top sub-tabs — same horizontal tile style as the bottom dock.
 
     items: (icon, short_label, section_value)
+    Pinned with position:fixed (sticky fails inside Streamlit layout).
     """
     if current_section not in {s for _, _, s in items}:
         return
@@ -267,7 +296,7 @@ def _render_top_subtabbar(
         unsafe_allow_html=True,
     )
 
-    with st.container():
+    with st.container(border=False):
         st.markdown(
             '<div class="ka-top-subtab-marker" aria-hidden="true"></div>',
             unsafe_allow_html=True,
@@ -382,7 +411,8 @@ def _render_bottom_tabbar(
 
     with st.container():
         st.markdown(f'<div class="{marker_class}" aria-hidden="true"></div>', unsafe_allow_html=True)
-        cols = st.columns(len(items), gap="small")
+        # Extra trailing column = clearance for Streamlit Cloud Manage crown FAB
+        cols = st.columns(len(items) + 1, gap="small")
         aliases = active_aliases or {}
         for col, (icon, label, section) in zip(cols, items):
             related = aliases.get(section, set())
@@ -397,6 +427,12 @@ def _render_bottom_tabbar(
                     on_click=_set_section_with_feedback,
                     args=(session_key, section),
                 )
+        # Last column intentionally empty — keeps 比賽／隊伍 clear of Manage FAB
+        with cols[-1]:
+            st.markdown(
+                '<div class="ka-dock-fab-spacer" aria-hidden="true"></div>',
+                unsafe_allow_html=True,
+            )
 
     _pin_innermost_dock_host()
 
