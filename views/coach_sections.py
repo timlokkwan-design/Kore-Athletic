@@ -7,7 +7,6 @@ import streamlit as st
 
 from utils.acwr import acwr_status, calc_acwr, calc_load, estimate_workout_minutes, needs_rest
 from utils.config import (
-    CALENDAR_GROUP_FILTERS,
     EVENTS,
     GROUP_OPTIONS,
     SPECIALTY_OPTIONS,
