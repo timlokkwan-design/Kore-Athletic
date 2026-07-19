@@ -12,8 +12,8 @@ PENDING_LABELS = {
     "specialty": "專項更改",
 }
 
-# Re-read often so another session's submissions surface on the coach phone quickly.
-_PENDING_TTL_SECONDS = 5.0
+# Soft TTL: short enough for pending alerts, long enough to avoid lag on every tap.
+_PENDING_TTL_SECONDS = 30.0
 _PENDING_CACHE_KEYS = (
     "coach_pending_summary",
     "users.csv",

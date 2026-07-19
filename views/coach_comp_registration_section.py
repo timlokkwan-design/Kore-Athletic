@@ -45,6 +45,19 @@ def render_coach_comp_registration() -> None:
             })
         st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, hide_index=True)
 
+        # Roster summary first — mobile users must see who registered without digging into editors.
+        st.markdown("#### ✅ 成功報名名單")
+        any_roster = False
+        for comp in comps:
+            entries = get_comp_entries_for_comp(comp["id"])
+            count = len(entries)
+            if count:
+                any_roster = True
+            with st.expander(f"{comp['name']} · {comp['date']} · {count} 人", expanded=count > 0):
+                render_successful_registration_roster(comp["id"])
+        if not any_roster:
+            st.caption("暫未有成功報名；學生提交後會顯示於此。")
+
     st.markdown("---")
     st.markdown("#### ➕ 新增比賽")
 
@@ -91,7 +104,7 @@ def render_coach_comp_registration() -> None:
 
     for comp in comps:
         count = comp.get("registration_count", 0)
-        with st.expander(f"{comp['name']} · {comp['date']} · 報名 {count} 人"):
+        with st.expander(f"{comp['name']} · {comp['date']} · 報名 {count} 人", expanded=count > 0):
             c1, c2 = st.columns(2)
             with c1:
                 edit_name = st.text_input("比賽名稱", comp["name"], key=f"comp_name_{comp['id']}")
@@ -155,8 +168,8 @@ def render_coach_comp_registration() -> None:
                 st.caption("尚無學生報名，或學生尚未選擇項目。")
 
             entries = get_comp_entries_for_comp(comp["id"])
+            render_successful_registration_roster(comp["id"])
             if entries:
-                render_successful_registration_roster(comp["id"])
                 st.markdown("**報名詳情（PB）**")
                 for entry in entries:
                     render_person(
@@ -174,8 +187,6 @@ def render_coach_comp_registration() -> None:
                             f"  └ {event}：{pb.get('score') or '—'} "
                             f"（{pb.get('comp_name') or '—'} · {pb.get('date') or '—'}）"
                         )
-            else:
-                render_successful_registration_roster(comp["id"])
 
             if comp.get("link"):
                 st.markdown(f"🔗 [比賽連結]({comp['link']})")

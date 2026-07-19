@@ -40,20 +40,25 @@ def _render_schedule_list(comps: list[dict], *, show_delete: bool = False) -> No
             when = f"{format_timetable_date(ds)} · 還有 {days} 天"
         else:
             when = f"{format_timetable_date(ds)} · 已結束"
-        left, right = st.columns([5, 1] if show_delete else [1])
-        with left:
-            st.markdown(f"**{name}**")
-            notes = safe_str(comp.get("notes"))
-            detail = when + (f" · {loc}" if loc else "")
-            if notes and notes not in ("賽事預告",):
-                detail = f"{notes} · {detail}" if when else notes
-            st.caption(detail)
+
+        notes = safe_str(comp.get("notes"))
+        detail = when + (f" · {loc}" if loc else "")
+        if notes and notes not in ("賽事預告",):
+            detail = f"{notes} · {detail}" if when else notes
+
         if show_delete:
+            left, right = st.columns([5, 1])
+            with left:
+                st.markdown(f"**{name}**")
+                st.caption(detail)
             with right:
                 if st.button("刪除", key=f"comp_sched_del_{comp.get('id')}", use_container_width=True):
                     delete_competition(safe_str(comp.get("id")))
                     st.success("已刪除")
                     st.rerun()
+        else:
+            st.markdown(f"**{name}**")
+            st.caption(detail)
 
 
 def render_coach_competition_schedule() -> None:

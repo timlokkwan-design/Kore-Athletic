@@ -39,7 +39,15 @@ def render_coach_announcements() -> None:
             st.error(msg)
 
     st.markdown("##### 已發佈／草稿")
-    items = get_announcements(published_only=False)
+    try:
+        items = get_announcements(published_only=False)
+    except Exception as exc:
+        st.error(
+            "未能讀取最新消息資料表。請到 Supabase → SQL Editor 執行 "
+            "`supabase/schema_patch_v202.sql`（建立 ka_announcements）。"
+        )
+        st.caption(str(exc))
+        return
     if not items:
         render_empty_state("尚未有消息", "發佈第一則最新消息後會顯示於此")
         return
@@ -65,7 +73,11 @@ def render_coach_announcements() -> None:
 def render_student_announcements() -> None:
     st.markdown("#### 最新消息")
     st.caption("教練發佈的通知與公告。")
-    items = get_announcements(published_only=True)
+    try:
+        items = get_announcements(published_only=True)
+    except Exception:
+        render_empty_state("暫時未能載入消息", "若剛更新 App，請教練於 Supabase 執行 schema_patch_v202.sql")
+        return
     if not items:
         render_empty_state("暫無最新消息", "教練發佈後會顯示於此")
         return
@@ -78,7 +90,11 @@ def render_student_announcements() -> None:
 
 def render_latest_announcement_banner() -> None:
     """Compact teaser for student homepage."""
-    items = get_announcements(published_only=True)
+    try:
+        items = get_announcements(published_only=True)
+    except Exception:
+        # Missing Supabase table / transient API errors must not blank the schedule tab.
+        return
     if not items:
         return
     latest = items[0]

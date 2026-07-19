@@ -1693,9 +1693,43 @@ def find_competition_by_name(name: str) -> dict | None:
     return None
 
 
+def _session_seed_done(flag: str) -> bool:
+    try:
+        import streamlit as st
+        return bool(st.session_state.get(flag))
+    except Exception:
+        return False
+
+
+def _mark_session_seed_done(flag: str) -> None:
+    try:
+        import streamlit as st
+        st.session_state[flag] = True
+    except Exception:
+        pass
+
+
+def _can_seed_competitions() -> bool:
+    """Seed writes need coach (or no logged-in user during init). Students must not trigger saves."""
+    from utils.permissions import get_session_user
+
+    user = get_session_user()
+    if user is None:
+        return True
+    return safe_str(user.get("role")) == "coach"
+
+
 def ensure_youth_age_group_v_registrations() -> int:
-    """確保分齡賽(五)存在，並預填已成功報名名單。回傳新增／更新筆數。"""
+    """確保分齡賽(五)存在，並預填已成功報名名單。回傳新增／更新筆數。
+
+    Only writes when data actually changes. Students never trigger competition saves
+    (avoids PermissionDenied crash + full Supabase replace on every open).
+    """
     from utils.config import YOUTH_AGE_GROUP_V_COMP, YOUTH_AGE_GROUP_V_REGISTRATIONS
+    from utils.permissions import PermissionDenied
+
+    if _session_seed_done("_ensured_youth_v"):
+        return 0
 
     name = safe_str(YOUTH_AGE_GROUP_V_COMP.get("name"))
     ds = normalize_date_str(YOUTH_AGE_GROUP_V_COMP.get("date"))
@@ -1704,7 +1738,10 @@ def ensure_youth_age_group_v_registrations() -> int:
 
     comps = load_competitions()
     match = comps[comps["name"].astype(str) == name] if not comps.empty else comps
+    comps_mutated = False
     if match.empty:
+        if not _can_seed_competitions():
+            return 0
         row = {
             "id": _uid(),
             "name": name,
@@ -1720,34 +1757,48 @@ def ensure_youth_age_group_v_registrations() -> int:
             "link": "",
         }
         comps = pd.concat([comps, pd.DataFrame([row])], ignore_index=True)
-        save_competitions(comps)
+        comps_mutated = True
         comp_id = row["id"]
     else:
         comp_id = safe_str(match.iloc[0]["id"])
         idx = int(match.index[0])
-        comps = comps.copy()
         existing = parse_comp_events(comps.at[idx, "event"] if "event" in comps.columns else "")
         needed = parse_comp_events(open_events)
         merged = list(dict.fromkeys(existing + needed))
-        # Rebuild row as strings to avoid pandas dtype traps (int published etc.)
-        row = {col: comps.at[idx, col] if col in comps.columns else "" for col in COMP_COLUMNS}
-        row["id"] = comp_id
-        row["name"] = name
-        row["event"] = ",".join(merged)
-        row["published"] = "1"
-        if notes and not safe_str(row.get("notes")):
-            row["notes"] = notes
-        if ds and not safe_str(row.get("date")):
-            row["date"] = ds
-        else:
-            row["date"] = normalize_date_str(row.get("date")) or ds
-        for col in COMP_COLUMNS:
-            row[col] = "" if is_missing(row.get(col)) else row[col]
-        row["published"] = "1"
-        row["event"] = ",".join(merged)
-        comps = comps.drop(index=idx)
-        comps = pd.concat([comps, pd.DataFrame([row])], ignore_index=True)
-        save_competitions(comps)
+        cur_pub = safe_str(comps.at[idx, "published"] if "published" in comps.columns else "1")
+        cur_notes = safe_str(comps.at[idx, "notes"] if "notes" in comps.columns else "")
+        cur_date = normalize_date_str(comps.at[idx, "date"] if "date" in comps.columns else "") or ""
+        need_notes = bool(notes and not cur_notes)
+        need_date = bool(ds and not cur_date)
+        need_events = merged != existing
+        need_pub = cur_pub not in ("1", "True", "true")
+        if need_notes or need_date or need_events or need_pub:
+            if _can_seed_competitions():
+                comps = comps.copy()
+                row = {col: comps.at[idx, col] if col in comps.columns else "" for col in COMP_COLUMNS}
+                row["id"] = comp_id
+                row["name"] = name
+                row["event"] = ",".join(merged)
+                row["published"] = "1"
+                if need_notes:
+                    row["notes"] = notes
+                if need_date:
+                    row["date"] = ds
+                else:
+                    row["date"] = cur_date or ds
+                for col in COMP_COLUMNS:
+                    row[col] = "" if is_missing(row.get(col)) else row[col]
+                row["published"] = "1"
+                row["event"] = ",".join(merged)
+                comps = comps.drop(index=idx)
+                comps = pd.concat([comps, pd.DataFrame([row])], ignore_index=True)
+                comps_mutated = True
+
+    if comps_mutated:
+        try:
+            save_competitions(comps)
+        except PermissionDenied:
+            return 0
 
     users = load_users()
     name_to_user: dict[str, str] = {}
@@ -1777,12 +1828,16 @@ def ensure_youth_age_group_v_registrations() -> int:
                 entries["events"] = entries["events"].astype(object)
                 prev = safe_str(entries.at[i, "events"])
                 if prev != events_text:
+                    if not _can_seed_competitions():
+                        continue
                     entries.at[i, "events"] = events_text
                     entries.at[i, "submitted_at"] = now
                     if username and not safe_str(entries.at[i, "username"]):
                         entries.at[i, "username"] = username
                     changed += 1
                 continue
+        if not _can_seed_competitions():
+            continue
         row = {
             "id": _uid(),
             "comp_id": comp_id,
@@ -1797,6 +1852,10 @@ def ensure_youth_age_group_v_registrations() -> int:
 
     if changed:
         save_comp_entries(entries)
+
+    # Mark done once competition row exists (even if student couldn't seed entries).
+    if not match.empty or comps_mutated:
+        _mark_session_seed_done("_ensured_youth_v")
     return changed
 
 
@@ -2035,14 +2094,21 @@ def add_schedule_competition(
 
 
 def ensure_season_competition_schedule() -> int:
-    """預填賽季賽事時間表；已存在相同名稱＋日期則略過。回傳新增筆數。"""
+    """預填賽季賽事時間表；已存在相同名稱＋日期則略過。回傳新增筆數。
+
+    Skips writes for logged-in students (avoids PermissionDenied + lag).
+    """
     from utils.config import SEASON_COMPETITION_SCHEDULE
+    from utils.permissions import PermissionDenied
+
+    if _session_seed_done("_ensured_season_sched"):
+        return 0
 
     existing = {
         (safe_str(c.get("name")), safe_str(c.get("date"))[:10])
         for c in get_competitions(published_only=False)
     }
-    added = 0
+    missing = []
     for row in SEASON_COMPETITION_SCHEDULE:
         name = safe_str(row.get("name"))
         ds = normalize_date_str(row.get("date"))
@@ -2051,16 +2117,31 @@ def ensure_season_competition_schedule() -> int:
         key = (name, ds[:10])
         if key in existing:
             continue
-        add_competition({
-            "name": name,
-            "date": ds[:10],
-            "event": "",
-            "location": "",
-            "published": "1",
-            "notes": safe_str(row.get("notes")) or "賽事預告",
-        })
+        missing.append((key, name, ds, row))
+
+    if not missing:
+        _mark_session_seed_done("_ensured_season_sched")
+        return 0
+
+    if not _can_seed_competitions():
+        return 0
+
+    added = 0
+    for key, name, ds, row in missing:
+        try:
+            add_competition({
+                "name": name,
+                "date": ds[:10],
+                "event": "",
+                "location": "",
+                "published": "1",
+                "notes": safe_str(row.get("notes")) or "賽事預告",
+            })
+        except PermissionDenied:
+            return added
         existing.add(key)
         added += 1
+    _mark_session_seed_done("_ensured_season_sched")
     return added
 
 
@@ -2188,16 +2269,21 @@ def publish_announcement(title: str, body: str, author: str = "") -> tuple[bool,
         return False, "請輸入標題"
     if not b:
         return False, "請輸入內容"
-    df = load_announcements()
-    row = {
-        "id": _uid(),
-        "title": t,
-        "body": b,
-        "published_at": pd.Timestamp.now().isoformat(timespec="seconds"),
-        "published": True,
-        "author": safe_str(author) or "教練",
-    }
-    save_announcements(pd.concat([df, pd.DataFrame([row])], ignore_index=True))
+    try:
+        df = load_announcements()
+        row = {
+            "id": _uid(),
+            "title": t,
+            "body": b,
+            "published_at": pd.Timestamp.now().isoformat(timespec="seconds"),
+            "published": True,
+            "author": safe_str(author) or "教練",
+        }
+        save_announcements(pd.concat([df, pd.DataFrame([row])], ignore_index=True))
+    except RuntimeError as exc:
+        return False, str(exc)
+    except Exception as exc:
+        return False, f"發佈失敗：{exc}"
     return True, "已發佈最新消息"
 
 
@@ -2205,14 +2291,19 @@ def delete_announcement(announcement_id: str) -> tuple[bool, str]:
     from utils.permissions import enforce_coach_if_logged_in
 
     enforce_coach_if_logged_in()
-    df = load_announcements()
-    if df.empty:
-        return False, "找不到消息"
-    aid = safe_str(announcement_id)
-    mask = df["id"].astype(str) == aid
-    if not mask.any():
-        return False, "找不到消息"
-    save_announcements(df[~mask])
+    try:
+        df = load_announcements()
+        if df.empty:
+            return False, "找不到消息"
+        aid = safe_str(announcement_id)
+        mask = df["id"].astype(str) == aid
+        if not mask.any():
+            return False, "找不到消息"
+        save_announcements(df[~mask])
+    except RuntimeError as exc:
+        return False, str(exc)
+    except Exception as exc:
+        return False, f"刪除失敗：{exc}"
     return True, "已刪除"
 
 
@@ -2220,15 +2311,20 @@ def unpublish_announcement(announcement_id: str) -> tuple[bool, str]:
     from utils.permissions import enforce_coach_if_logged_in
 
     enforce_coach_if_logged_in()
-    df = load_announcements()
-    if df.empty:
-        return False, "找不到消息"
-    aid = safe_str(announcement_id)
-    mask = df["id"].astype(str) == aid
-    if not mask.any():
-        return False, "找不到消息"
-    df.loc[mask, "published"] = False
-    save_announcements(df)
+    try:
+        df = load_announcements()
+        if df.empty:
+            return False, "找不到消息"
+        aid = safe_str(announcement_id)
+        mask = df["id"].astype(str) == aid
+        if not mask.any():
+            return False, "找不到消息"
+        df.loc[mask, "published"] = False
+        save_announcements(df)
+    except RuntimeError as exc:
+        return False, str(exc)
+    except Exception as exc:
+        return False, f"取消發佈失敗：{exc}"
     return True, "已取消發佈"
 
 
@@ -2327,35 +2423,40 @@ def upsert_student_goal(
     uname = safe_str(username)
     aname = safe_str(athlete_name)
 
-    if not df.empty:
-        same = (
-            (df["username"].astype(str) == uname)
-            & (df["event"].astype(str) == event)
-        )
-        if same.any():
-            idx = df.index[same][0]
-            # Keep score as text (avoid float dtype blocking "11.20" updates)
-            df["target_score"] = df["target_score"].astype(object)
-            df["athlete_name"] = df["athlete_name"].astype(object)
-            df["updated_at"] = df["updated_at"].astype(object)
-            df["active"] = df["active"].astype(object)
-            df.at[idx, "athlete_name"] = aname
-            df.at[idx, "target_score"] = target
-            df.at[idx, "updated_at"] = now
-            df.at[idx, "active"] = True
-            save_student_goals(df)
-            return True, "已更新目標"
+    try:
+        if not df.empty:
+            same = (
+                (df["username"].astype(str) == uname)
+                & (df["event"].astype(str) == event)
+            )
+            if same.any():
+                idx = df.index[same][0]
+                # Keep score as text (avoid float dtype blocking "11.20" updates)
+                df["target_score"] = df["target_score"].astype(object)
+                df["athlete_name"] = df["athlete_name"].astype(object)
+                df["updated_at"] = df["updated_at"].astype(object)
+                df["active"] = df["active"].astype(object)
+                df.at[idx, "athlete_name"] = aname
+                df.at[idx, "target_score"] = target
+                df.at[idx, "updated_at"] = now
+                df.at[idx, "active"] = True
+                save_student_goals(df)
+                return True, "已更新目標"
 
-    row = {
-        "id": _uid(),
-        "username": uname,
-        "athlete_name": aname,
-        "event": event,
-        "target_score": target,
-        "updated_at": now,
-        "active": True,
-    }
-    save_student_goals(pd.concat([df, pd.DataFrame([row])], ignore_index=True))
+        row = {
+            "id": _uid(),
+            "username": uname,
+            "athlete_name": aname,
+            "event": event,
+            "target_score": target,
+            "updated_at": now,
+            "active": True,
+        }
+        save_student_goals(pd.concat([df, pd.DataFrame([row])], ignore_index=True))
+    except RuntimeError as exc:
+        return False, str(exc)
+    except Exception as exc:
+        return False, f"儲存目標失敗：{exc}"
     return True, "已儲存目標"
 
 
@@ -2367,16 +2468,21 @@ def deactivate_student_goal(goal_id: str, username: str) -> tuple[bool, str]:
     except PermissionDenied as exc:
         return False, exc.message
 
-    df = load_student_goals()
-    if df.empty:
-        return False, "找不到目標"
-    gid = safe_str(goal_id)
-    mask = (df["id"].astype(str) == gid) & (df["username"].astype(str) == safe_str(username))
-    if not mask.any():
-        return False, "找不到目標"
-    df.loc[mask, "active"] = False
-    df.loc[mask, "updated_at"] = pd.Timestamp.now().isoformat(timespec="seconds")
-    save_student_goals(df)
+    try:
+        df = load_student_goals()
+        if df.empty:
+            return False, "找不到目標"
+        gid = safe_str(goal_id)
+        mask = (df["id"].astype(str) == gid) & (df["username"].astype(str) == safe_str(username))
+        if not mask.any():
+            return False, "找不到目標"
+        df.loc[mask, "active"] = False
+        df.loc[mask, "updated_at"] = pd.Timestamp.now().isoformat(timespec="seconds")
+        save_student_goals(df)
+    except RuntimeError as exc:
+        return False, str(exc)
+    except Exception as exc:
+        return False, f"移除失敗：{exc}"
     return True, "已移除目標"
 
 
