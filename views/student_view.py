@@ -8,8 +8,8 @@ import streamlit as st
 from utils.auth import refresh_current_user, require_student_or_stop
 from utils.config import EVENTS
 from utils.data_store import (
-    append_training_log, get_program,
-    get_today_menu, get_wellness, get_attendance_record, load_attendance, mark_leave,
+    get_program,
+    get_wellness, get_attendance_record, load_attendance, mark_leave,
     submit_pending_record, submit_wellness, load_race_records, days_until_competition,
 )
 from utils.helpers import format_train_duration, needs_wind, parse_time, program_specs, safe_int, safe_str
@@ -18,8 +18,8 @@ from views.components.comp_registration import render_student_comp_registration
 from views.components.mobile_nav import render_student_quick_dock
 from views.components.schedule import render_student_schedule_calendar
 from views.components.student_profile import render_student_profile
+from views.components.student_training_log import render_student_training_log
 from views.components.theme import render_page_header, render_stat_cards
-from views.components.timer import render_lap_timer
 
 STUDENT_NAV_CATEGORIES: list[tuple[str, list[str]]] = [
     ("📅 每日訓練", ["訓練時間表", "訓練日誌", "健康問卷", "出席"]),
@@ -84,85 +84,7 @@ def _tab_schedule(user: dict) -> None:
 
 
 def _tab_training_log(user: dict) -> None:
-    specialty = user.get("specialty") or "短跑"
-    prog = get_program(specialty=specialty)
-    menu = get_today_menu(specialty=specialty)
-    train_type = prog.get("type", "間歇跑")
-
-    st.markdown("#### 回傳今日訓練數據")
-    st.info(f"今日課表：**{program_specs(prog) or prog.get('type')}** · 專項：**{specialty}**")
-
-    lap_times, lap_reactions = [], []
-    if train_type in ("間歇跑", "節奏跑", "恢復跑"):
-        if "n_lap_rows" not in st.session_state:
-            st.session_state.n_lap_rows = 1
-        n_laps = int(st.session_state.n_lap_rows)
-        st.caption(f"共 {n_laps} 組")
-        for i in range(n_laps):
-            with st.container(border=True):
-                st.markdown(f"**第 {i + 1} 組**")
-                c1, c2 = st.columns(2)
-                lap_times.append(
-                    c1.number_input("時間(秒)", 0.0, 999.0, 0.0, step=0.1, key=f"lap_t_{i}")
-                )
-                lap_reactions.append(c2.text_input("身體反應", key=f"lap_r_{i}"))
-        if st.button("＋ 新增一組", key="add_lap_row"):
-            st.session_state.n_lap_rows = n_laps + 1
-            st.rerun()
-        if specialty == "短跑":
-            st.number_input("反應時 (選填)", step=0.001, key="log_reaction")
-        if specialty == "中長跑":
-            st.number_input("最後 200m 衝刺時間", key="log_kick")
-    elif specialty == "跨欄":
-            st.number_input("欄間節奏(秒)", step=0.01, key="hurdle_rhythm")
-            st.number_input("順欄數", 1, 20, 10, key="hurdle_count")
-    elif train_type == "比賽" or specialty in ("田項", "田賽"):
-        st.text_input("最佳試跳/投", key="field_best")
-        st.number_input("試次數", 1, 20, 6, key="field_attempts")
-    elif train_type == "肌力課":
-        st.text_input("完成組數 x 次數", placeholder="深蹲 4x8", key="strength_note")
-    elif train_type == "技術課":
-        st.text_area("技術練習重點回報", key="tech_notes")
-    else:
-        st.caption("依今日課表類型填寫。")
-
-    rpe = st.slider("RPE 自覺強度 (1-10)", 1, 10, 5)
-    duration = st.number_input("訓練時長 (分鐘) — Foster 負荷", 1, 300, int(prog.get("duration") or 60))
-    remark = st.text_area("總結備註", height=80)
-
-    st.markdown("#### 分圈計時器")
-    timer_laps = render_lap_timer()
-    if timer_laps and train_type in ("間歇跑", "節奏跑", "恢復跑"):
-        st.caption("計時器記圈結果可填入上方表單")
-
-    if st.button("提交訓練數據", type="primary", use_container_width=True):
-        valid = [t for t in lap_times if t > 0]
-        avg = sum(valid) / len(valid) if valid else 0
-        laps_text = "、".join(f"{t}s({r})" for t, r in zip(lap_times, lap_reactions) if t > 0)
-        extra = {}
-        if train_type in ("間歇跑", "節奏跑", "恢復跑") and specialty == "短跑":
-            extra["reaction"] = st.session_state.get("log_reaction")
-        if specialty == "中長跑":
-            extra["kick"] = st.session_state.get("log_kick")
-        if specialty == "跨欄":
-            extra["hurdle_rhythm"] = st.session_state.get("hurdle_rhythm")
-            extra["hurdle_count"] = st.session_state.get("hurdle_count")
-        if train_type == "比賽" or specialty in ("田項", "田賽"):
-            extra["field_best"] = st.session_state.get("field_best")
-            extra["field_attempts"] = st.session_state.get("field_attempts")
-        if train_type == "肌力課":
-            extra["strength_note"] = st.session_state.get("strength_note")
-        if train_type == "技術課":
-            extra["tech_notes"] = st.session_state.get("tech_notes")
-        append_training_log(
-            student_name=user["name"], rep_number=1,
-            actual_seconds=avg if avg else float(prog.get("target_seconds") or 0),
-            rpe=rpe, injury_notes="無不適", menu=menu, duration=int(duration), remark=remark,
-            laps_text=laps_text, avg_pace=f"{avg:.2f}" if avg else "-", **extra,
-        )
-        load = int(duration * rpe * 1.5)
-        st.success(f"✅ 提交成功！Foster 負荷: {load} (時長×RPE×類型權重)")
-        st.balloons()
+    render_student_training_log(user)
 
 
 def _tab_wellness(name: str) -> None:
