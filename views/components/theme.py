@@ -323,13 +323,18 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 min-height: 44px !important;
                 font-size: 16px !important;
             }}
-            /* Instagram-style fixed bottom tab bar (student + coach) */
+            /* Instagram-style fixed bottom tab bar — ONE horizontal row */
             section.main .block-container {{
-                padding-bottom: 6.25rem !important;
+                padding-bottom: 5.5rem !important;
             }}
+            /* Pin the dock container to the viewport bottom (student + coach) */
+            div[data-testid="stVerticalBlock"]:has(> div > .ka-bottom-tabbar-marker),
             div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker),
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker),
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker),
             div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker),
-            div[data-testid="element-container"]:has(.ka-bottom-tabbar-marker) {{
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker),
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) {{
                 position: fixed !important;
                 left: 0 !important;
                 right: 0 !important;
@@ -338,51 +343,102 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 width: 100vw !important;
                 max-width: 100vw !important;
                 margin: 0 !important;
-                padding: 0.35rem 0.4rem calc(0.45rem + env(safe-area-inset-bottom, 0px)) !important;
+                padding: 0.3rem 0.35rem calc(0.4rem + env(safe-area-inset-bottom, 0px)) !important;
                 background: {c["main_bg"]} !important;
                 border-top: 1px solid {c["border"]} !important;
-                box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.08) !important;
+                box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.10) !important;
             }}
-            /* Keep the marker's own element-container from becoming a tiny fixed strip */
-            div[data-testid="element-container"]:has(> .ka-bottom-tabbar-marker),
-            div[data-testid="element-container"]:has(> div > .ka-bottom-tabbar-marker) {{
+            /* Marker itself must not become a fixed full-width strip */
+            div[data-testid="element-container"]:has(.ka-bottom-tabbar-marker),
+            div[data-testid="element-container"]:has(.ka-student-dock-marker),
+            div[data-testid="element-container"]:has(.ka-coach-dock-marker) {{
                 position: absolute !important;
                 width: 0 !important;
                 height: 0 !important;
+                overflow: hidden !important;
                 padding: 0 !important;
                 margin: 0 !important;
-                border: 0 !important;
+                border: none !important;
                 box-shadow: none !important;
-                overflow: hidden !important;
                 pointer-events: none !important;
             }}
+            /* CRITICAL: keep tabs in a single horizontal row (Streamlit may wrap columns) */
             div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] {{
-                gap: 0.25rem !important;
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] {{
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                align-items: stretch !important;
+                justify-content: space-between !important;
+                gap: 0.2rem !important;
+                width: 100% !important;
+                margin: 0 !important;
+            }}
+            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div,
+            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="column"],
+            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stColumn"],
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="column"],
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stColumn"],
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="column"],
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stColumn"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="column"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stColumn"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="column"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stColumn"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="column"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stColumn"] {{
+                flex: 1 1 0 !important;
+                min-width: 0 !important;
+                max-width: none !important;
+                width: auto !important;
             }}
             div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button {{
-                min-height: 3.35rem !important;
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) button,
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) button,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) button,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) button {{
+                min-height: 3.1rem !important;
+                width: 100% !important;
                 white-space: pre-line !important;
-                line-height: 1.15 !important;
-                font-size: 0.72rem !important;
+                line-height: 1.1 !important;
+                font-size: 0.68rem !important;
                 font-weight: 700 !important;
-                border-radius: 12px !important;
-                padding: 0.35rem 0.15rem !important;
-                transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease, background 0.12s ease !important;
+                border-radius: 10px !important;
+                padding: 0.28rem 0.1rem !important;
+                transition: transform 0.12s ease, filter 0.12s ease !important;
                 box-shadow: none !important;
             }}
-            /* Press feedback — proves the tile was tapped */
             div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button:active,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button:active {{
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) button:active,
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) button:active,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button:active,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) button:active,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) button:active {{
                 transform: scale(0.88) !important;
                 filter: brightness(0.9) !important;
-                box-shadow: inset 0 0 0 2px {c["text"]}33 !important;
             }}
             div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button:focus-visible,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button:focus-visible {{
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) button:focus-visible,
+            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) button:focus-visible,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button:focus-visible,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) button:focus-visible,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) button:focus-visible {{
                 outline: 2px solid {c["text"]}55 !important;
                 outline-offset: 2px !important;
+            }}
+            /* Hide the stacked in-flow dock clone if any leftover spacing */
+            .ka-bottom-tabbar-spacer {{
+                height: 0 !important;
             }}
             div[data-testid="stVerticalBlock"]:has(.ka-checkin-bar-marker) {{
                 background: {COLOR_WARN_BG};
@@ -405,12 +461,22 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 color: {pwa_detail_style};
             }}
         }}
-        /* Hide decorative markers */
+        /* Markers must stay in DOM for :has() — do NOT use display:none (breaks mobile Safari matching) */
         .ka-bottom-tabbar-marker,
         .ka-student-dock-marker,
         .ka-coach-dock-marker,
         .ka-tab-tile {{
-            display: none !important;
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            margin: -1px !important;
+            overflow: hidden !important;
+            clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important;
+            border: 0 !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
         }}
         </style>
         <div class="{role_attr}" style="display:none"></div>

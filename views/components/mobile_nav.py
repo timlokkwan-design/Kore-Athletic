@@ -50,14 +50,75 @@ def _render_bottom_tabbar(
     key_prefix: str,
     active_aliases: dict[str, set[str]] | None = None,
 ) -> None:
-    """Fixed bottom tab bar.
+    """Fixed bottom tab bar — single horizontal row on mobile (Instagram-style).
 
     items: (icon, short_label, section_value)
     active_aliases: map dock section → other sections that should also light up the tile
     """
+    # Reinforce layout every render (Streamlit mobile CSS can wrap columns).
+    # Applies to BOTH student (.ka-student-dock-marker) and coach (.ka-coach-dock-marker).
+    st.markdown(
+        """
+        <style>
+        @media (max-width: 768px) {
+          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            width: 100% !important;
+            gap: 0.18rem !important;
+          }
+          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="column"],
+          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stColumn"],
+          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="column"],
+          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stColumn"],
+          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="column"],
+          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stColumn"] {
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
+            width: auto !important;
+            max-width: none !important;
+          }
+        }
+        @media (min-width: 769px) {
+          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+          }
+          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div {
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
+          }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     flash = st.session_state.get("_bottom_tab_flash")
     if flash:
-        # One-shot pop animation on the newly selected tile
         st.markdown(
             """
             <style>
@@ -77,10 +138,9 @@ def _render_bottom_tabbar(
             unsafe_allow_html=True,
         )
 
-    # One container so sticky/fixed CSS can reliably target the whole dock.
     with st.container():
         st.markdown(f'<div class="{marker_class}" aria-hidden="true"></div>', unsafe_allow_html=True)
-        cols = st.columns(len(items))
+        cols = st.columns(len(items), gap="small")
         aliases = active_aliases or {}
         for col, (icon, label, section) in zip(cols, items):
             related = aliases.get(section, set())
@@ -123,7 +183,7 @@ def render_coach_bottom_dock(current_section: str) -> None:
         marker_class="ka-bottom-tabbar-marker ka-coach-dock-marker",
         items=[
             ("🏠", "總覽", "總覽"),
-            ("📅", "課表", "設定課表"),
+            ("📅", "課表", "訓練時間表"),
             ("✅", "出席", "出席表"),
             ("👥", "隊伍", "隊伍管理"),
             ("🏅", "比賽", "比賽報名表"),
@@ -131,5 +191,5 @@ def render_coach_bottom_dock(current_section: str) -> None:
         current_section=current_section,
         session_key="coach_section",
         key_prefix="coach_dock",
-        active_aliases={"比賽報名表": {"賽事時間表", "比賽管理"}, "設定課表": {"訓練時間表"}},
+        active_aliases={"比賽報名表": {"賽事時間表", "比賽管理"}, "訓練時間表": {"設定課表"}},
     )

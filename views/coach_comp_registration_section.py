@@ -14,9 +14,13 @@ from utils.data_store import (
     ensure_youth_age_group_v_registrations,
     get_comp_entries_for_comp,
     get_competitions,
+    next_registration_candidate,
+    registration_status,
+    registration_status_label,
     resolve_event_pb,
     update_competition,
 )
+from utils.helpers import safe_str
 from views.components.avatar import render_person
 from views.components.comp_roster import render_successful_registration_roster
 
@@ -25,25 +29,49 @@ def _events_text(events: list[str]) -> str:
     return "、".join(events) if events else "—"
 
 
+def _parse_deadline(value: str) -> date | None:
+    text = safe_str(value)
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text[:10])
+    except ValueError:
+        return None
+
+
 def render_coach_comp_registration() -> None:
     ensure_youth_age_group_v_registrations()
     st.subheader("📋 比賽報名表")
-    st.caption("設定比賽及開放項目；學生自行選項報名。可匯出田總格式報名資料。")
+    st.caption(
+        "設定比賽及開放項目；學生自行選項報名。"
+        "必須填寫「報名截止」後學生方可報名；過期後不能報名，再為下一個比賽填寫截止日期即可開放。"
+    )
 
     comps = get_competitions()
+    today = date.today().isoformat()
 
     if comps:
         summary_rows = []
         for comp in comps:
+            status = registration_status(comp, today=today)
             summary_rows.append({
                 "比賽": comp["name"],
                 "日期": comp["date"],
                 "地點": comp["location"] or "—",
                 "項目": _events_text(comp["events"]),
+                "報名截止": comp.get("deadline") or "待填寫",
+                "報名狀態": registration_status_label(status),
                 "報名人數": comp.get("registration_count", 0),
                 "發布": "✅" if comp["published"] else "—",
             })
         st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, hide_index=True)
+
+        next_comp = next_registration_candidate(comps, today=today)
+        if next_comp:
+            st.info(
+                f"下一個待開放報名：**{next_comp['name']}**（{next_comp.get('date') or '—'}）。"
+                f"請在下方管理區填寫「報名截止」日期後，學生即可報名。"
+            )
 
         # Roster summary first — mobile users must see who registered without digging into editors.
         st.markdown("#### ✅ 成功報名名單")
@@ -53,7 +81,11 @@ def render_coach_comp_registration() -> None:
             count = len(entries)
             if count:
                 any_roster = True
-            with st.expander(f"{comp['name']} · {comp['date']} · {count} 人", expanded=count > 0):
+            status = registration_status(comp, today=today)
+            with st.expander(
+                f"{comp['name']} · {comp['date']} · {count} 人 · {registration_status_label(status)}",
+                expanded=count > 0,
+            ):
                 render_successful_registration_roster(comp["id"])
         if not any_roster:
             st.caption("暫未有成功報名；學生提交後會顯示於此。")
@@ -69,7 +101,16 @@ def render_coach_comp_registration() -> None:
             location = st.text_input("比賽地點", placeholder="灣仔運動場")
             events = st.multiselect("開放報名項目", EVENTS, key="coach_comp_reg_events_new")
         with c2:
-            deadline = st.date_input("報名截止", value=date.today(), key="coach_comp_reg_deadline_new")
+            set_deadline = st.checkbox(
+                "設定報名截止日期（勾選後學生方可報名；不勾則有待稍後填寫）",
+                value=False,
+                key="coach_comp_reg_set_deadline_new",
+            )
+            deadline = st.date_input(
+                "報名截止",
+                value=date.today(),
+                key="coach_comp_reg_deadline_new",
+            )
             link = st.text_input("比賽連結", placeholder="https://...")
             notes = st.text_area("須知 / 備註", placeholder="請準時提交報名資料")
         published = st.checkbox("發布至學生平台", value=True)
@@ -85,14 +126,17 @@ def render_coach_comp_registration() -> None:
                     "event": ",".join(events),
                     "location": location.strip(),
                     "registered": "",
-                    "deadline": deadline.isoformat(),
+                    "deadline": deadline.isoformat() if set_deadline else "",
                     "assembly_time": "",
                     "transport": "",
                     "notes": notes.strip(),
                     "link": link.strip(),
                     "published": "1" if published else "0",
                 })
-                st.success("已新增比賽")
+                st.success(
+                    "已新增比賽"
+                    + ("；報名已開放至截止日。" if set_deadline else "。截止日期有待填寫，學生暫未能報名。")
+                )
                 st.rerun()
 
     st.markdown("---")
@@ -104,7 +148,12 @@ def render_coach_comp_registration() -> None:
 
     for comp in comps:
         count = comp.get("registration_count", 0)
-        with st.expander(f"{comp['name']} · {comp['date']} · 報名 {count} 人", expanded=count > 0):
+        status = registration_status(comp, today=today)
+        status_label = registration_status_label(status)
+        with st.expander(
+            f"{comp['name']} · {comp['date']} · 報名 {count} 人 · {status_label}",
+            expanded=(status == "pending_deadline" and count >= 0) or count > 0,
+        ):
             c1, c2 = st.columns(2)
             with c1:
                 edit_name = st.text_input("比賽名稱", comp["name"], key=f"comp_name_{comp['id']}")
@@ -121,12 +170,22 @@ def render_coach_comp_registration() -> None:
                     key=f"comp_events_{comp['id']}",
                 )
             with c2:
-                default_deadline = (
-                    date.fromisoformat(comp["deadline"])
-                    if comp["deadline"]
-                    else date.today()
+                existing_deadline = _parse_deadline(comp.get("deadline") or "")
+                set_deadline = st.checkbox(
+                    "已設定報名截止日期（學生方可報名）",
+                    value=existing_deadline is not None,
+                    key=f"comp_set_deadline_{comp['id']}",
                 )
-                edit_deadline = st.date_input("報名截止", value=default_deadline, key=f"comp_deadline_{comp['id']}")
+                edit_deadline = st.date_input(
+                    "報名截止",
+                    value=existing_deadline or date.today(),
+                    key=f"comp_deadline_{comp['id']}",
+                    disabled=not set_deadline,
+                )
+                if status == "pending_deadline":
+                    st.caption("尚未填寫截止日 → 學生暫未能報名。填寫並儲存後即開放。")
+                elif status == "closed":
+                    st.caption("已過截止日 → 學生不能再報名。可為下一個比賽設定截止日以開放報名。")
                 edit_link = st.text_input("比賽連結", comp.get("link", ""), key=f"comp_link_{comp['id']}")
                 edit_notes = st.text_area("須知 / 備註", comp.get("notes", ""), key=f"comp_notes_{comp['id']}")
             edit_published = st.checkbox(
@@ -142,7 +201,7 @@ def render_coach_comp_registration() -> None:
                     "date": edit_date.isoformat(),
                     "event": ",".join(edit_events),
                     "location": edit_location.strip(),
-                    "deadline": edit_deadline.isoformat(),
+                    "deadline": edit_deadline.isoformat() if set_deadline else "",
                     "link": edit_link.strip(),
                     "notes": edit_notes.strip(),
                     "published": "1" if edit_published else "0",

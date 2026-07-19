@@ -1626,6 +1626,52 @@ def competition_to_dict(row) -> dict:
     }
 
 
+def registration_status(comp: dict, *, today: str | None = None) -> str:
+    """Return open | closed | pending_deadline | no_events | unpublished.
+
+    - pending_deadline: 教練尚未填寫報名截止日 → 學生暫未能報名
+    - closed: 已過截止日期 → 未能報名
+    - open: 已填截止日且今日尚未截止 → 可報名
+    """
+    if not comp.get("published", True):
+        return "unpublished"
+    if not (comp.get("events") or []):
+        return "no_events"
+    deadline = safe_str(comp.get("deadline"))
+    if not deadline:
+        return "pending_deadline"
+    day = today or date.today().isoformat()
+    if deadline < day[:10]:
+        return "closed"
+    return "open"
+
+
+def is_registration_open(comp: dict, *, today: str | None = None) -> bool:
+    return registration_status(comp, today=today) == "open"
+
+
+def registration_status_label(status: str) -> str:
+    return {
+        "open": "報名開放中",
+        "closed": "已過截止日期，未能報名",
+        "pending_deadline": "截止日期有待教練填寫",
+        "no_events": "尚未開放項目",
+        "unpublished": "未發布",
+    }.get(status, status)
+
+
+def next_registration_candidate(comps: list[dict], *, today: str | None = None) -> dict | None:
+    """Earliest upcoming competition that still needs a deadline (next to open)."""
+    day = (today or date.today().isoformat())[:10]
+    pending = [
+        c for c in comps
+        if registration_status(c, today=day) == "pending_deadline"
+        and safe_str(c.get("date")) >= day
+    ]
+    pending.sort(key=lambda c: (safe_str(c.get("date")), safe_str(c.get("name"))))
+    return pending[0] if pending else None
+
+
 def load_comp_entries() -> pd.DataFrame:
     return _read(COMP_ENTRIES_FILE, COMP_ENTRY_COLUMNS)
 
@@ -1932,6 +1978,14 @@ def submit_comp_entry(
     picked = [e for e in events if e in allowed]
     if not picked:
         return False, "所選項目不在此比賽開放項目內"
+
+    status = registration_status(comp)
+    if status == "pending_deadline":
+        return False, "報名截止日期有待教練填寫，暫未能報名"
+    if status == "closed":
+        return False, "已過報名截止日期，未能報名"
+    if status != "open":
+        return False, "此比賽目前未開放報名"
 
     stored_pbs: dict[str, dict] = {}
     manual = event_pbs or {}
