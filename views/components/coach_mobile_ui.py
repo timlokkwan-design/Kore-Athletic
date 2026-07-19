@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import streamlit as st
-from streamlit_extras.stylable_container import stylable_container
+
+from views.components.stylable_shim import stylable_container
 
 from views.components.calendar_theme import get_calendar_palette, inject_calendar_theme
 

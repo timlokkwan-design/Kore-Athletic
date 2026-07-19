@@ -5,7 +5,8 @@ from contextlib import contextmanager
 from typing import Iterator
 
 import streamlit as st
-from streamlit_extras.stylable_container import stylable_container
+
+from views.components.stylable_shim import stylable_container
 
 from views.components.calendar_theme import get_calendar_palette, inject_calendar_theme
 
