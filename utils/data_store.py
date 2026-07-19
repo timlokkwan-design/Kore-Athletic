@@ -2152,7 +2152,7 @@ def ensure_testing_coach() -> None:
         "username": "T",
         "name": "TESTING AC",
         "role": "coach",
-        "password": hash_password("T"),
+        "password": hash_password("T", min_length=1),
         "specialty": "",
         "phone": "",
         "child_name": "",
