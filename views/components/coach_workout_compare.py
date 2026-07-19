@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+from collections.abc import Callable
 from datetime import date, timedelta
 
 import streamlit as st
@@ -76,11 +77,42 @@ def _pick_history_entry(prog: dict, group: str) -> None:
     st.session_state[_DIALOG_KEY] = {"prog": dict(prog), "group": group}
 
 
+def _inject_hist_row_css() -> None:
+    st.markdown(
+        """
+        <style>
+        [data-testid="stVerticalBlock"]:has(.ka-hist-actions-marker) > [data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 0.35rem !important;
+            width: 100% !important;
+        }
+        [data-testid="stVerticalBlock"]:has(.ka-hist-actions-marker) > [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+            min-width: 0 !important;
+            flex: 1 1 0 !important;
+        }
+        [data-testid="stVerticalBlock"]:has(.ka-hist-actions-marker) button {
+            min-height: 2.5rem !important;
+            font-weight: 700 !important;
+            font-size: clamp(0.72rem, 3.2vw, 0.9rem) !important;
+            white-space: nowrap !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def _render_history_entry(
     prog: dict,
     group: str,
     *,
     key_suffix: str,
+    on_copy_program: Callable[[dict], None] | None = None,
+    show_week_copy: bool = False,
+    on_copy_week: Callable[[], None] | None = None,
+    copy_week_key: str | None = None,
 ) -> None:
     ds = safe_str(prog.get("date"))
     heading = _date_heading(prog)
@@ -108,13 +140,46 @@ def _render_history_entry(
         f"{html.escape(detail)}</pre>",
         unsafe_allow_html=True,
     )
-    st.button(
-        "🔍 放大檢視",
-        key=f"hist_zoom_{key_suffix}_{ds}",
-        use_container_width=True,
-        on_click=_pick_history_entry,
-        args=(prog, group),
+
+    st.markdown(
+        '<div class="ka-hist-actions-marker ka-inline-row-marker"></div>',
+        unsafe_allow_html=True,
     )
+    c1, c2 = st.columns(2, gap="small")
+    with c1:
+        st.button(
+            "🔍 放大",
+            key=f"hist_zoom_{key_suffix}_{ds}",
+            use_container_width=True,
+            on_click=_pick_history_entry,
+            args=(prog, group),
+        )
+    with c2:
+        if show_week_copy and on_copy_week and copy_week_key:
+            if st.button(
+                "📋 複製上週",
+                key=copy_week_key,
+                use_container_width=True,
+                help="帶入 7 天前同一星期幾的跑案、備註與 RPE",
+            ):
+                on_copy_week()
+                st.rerun()
+        elif on_copy_program:
+            if st.button(
+                "📋 複製",
+                key=f"hist_copy_{key_suffix}_{ds}",
+                use_container_width=True,
+                help="帶入此日跑案到編輯區",
+            ):
+                on_copy_program(prog)
+                st.rerun()
+        else:
+            st.button(
+                "📋 複製",
+                key=f"hist_copy_disabled_{key_suffix}_{ds}",
+                use_container_width=True,
+                disabled=True,
+            )
 
 
 def _range_caption(selected: date, group: str, days_back: int, count: int) -> str:
@@ -129,7 +194,7 @@ def _range_caption(selected: date, group: str, days_back: int, count: int) -> st
         )
     return (
         f"選定日 **{sel}** · 顯示 **{gl}** 在 {start.month}/{start.day}–"
-        f"{end.month}/{end.day}（不含選定日）共 **{count}** 次訓練 · 按 **放大檢視** 全屏閱讀"
+        f"{end.month}/{end.day}（不含選定日）共 **{count}** 次訓練"
     )
 
 
@@ -140,10 +205,14 @@ def render_workout_history_compare(
     groups: list[str] | None = None,
     days_back: int = 14,
     show_heading: bool = True,
+    on_copy_week: Callable[[], None] | None = None,
+    copy_week_key: str | None = None,
+    on_copy_program: Callable[[dict], None] | None = None,
 ) -> None:
     """
     List training days for the editing group only — dates in (selected - 14d, selected).
     """
+    _inject_hist_row_css()
     show_groups = groups or _COMPARE_GROUPS
     if highlight_group:
         hg = normalize_group(highlight_group)
@@ -163,6 +232,19 @@ def render_workout_history_compare(
         if not history:
             if not show_heading:
                 st.caption(_range_caption(selected, grp, days_back, 0))
+            if on_copy_week and copy_week_key:
+                st.markdown(
+                    '<div class="ka-hist-actions-marker ka-inline-row-marker"></div>',
+                    unsafe_allow_html=True,
+                )
+                if st.button(
+                    "📋 複製上週同天",
+                    key=copy_week_key,
+                    use_container_width=True,
+                    help="帶入 7 天前同一星期幾的跑案、備註與 RPE",
+                ):
+                    on_copy_week()
+                    st.rerun()
             continue
 
         grp_key = normalize_group(grp).replace(" ", "")
@@ -171,6 +253,10 @@ def render_workout_history_compare(
                 prog,
                 grp,
                 key_suffix=f"g{col_idx}_{grp_key}_{i}_{selected.isoformat()}",
+                on_copy_program=on_copy_program,
+                show_week_copy=(i == 0 and on_copy_week is not None),
+                on_copy_week=on_copy_week,
+                copy_week_key=copy_week_key if i == 0 else None,
             )
 
     _open_history_dialog()

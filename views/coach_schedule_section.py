@@ -73,12 +73,16 @@ def _render_sched_pick_ui(pick_mode: str) -> None:
         copy_source=copy_source if pick_mode == "copy" else "",
     )
 
+    from views.components.coach_mobile_ui import inject_coach_mobile_css, mark_force_row
+
+    inject_coach_mobile_css()
     if pick_mode == "copy":
         targets = st.session_state.get("sched_pick_dates", [])
-        b1, b2, b3 = st.columns(3)
+        mark_force_row()
+        b1, b2, b3 = st.columns(3, gap="small")
         with b1:
             if st.button(
-                f"✅ 確認複製到 {len(targets)} 個日期",
+                f"✅ 複製 {len(targets)}",
                 type="primary",
                 disabled=not targets,
                 key="sched_copy_confirm",
@@ -92,7 +96,7 @@ def _render_sched_pick_ui(pick_mode: str) -> None:
                 st.rerun()
         with b2:
             st.button(
-                "↺ 清除已選",
+                "↺ 清除",
                 disabled=not targets,
                 key="sched_copy_clear",
                 use_container_width=True,
@@ -106,17 +110,19 @@ def _render_sched_pick_ui(pick_mode: str) -> None:
     elif pick_mode == "bulk":
         targets = st.session_state.get("sched_pick_dates", [])
         st.markdown("#### 套用到已選日期（全隊同一時間地點）")
-        f1, f2, f3 = st.columns(3)
+        mark_force_row()
+        f1, f2, f3 = st.columns(3, gap="small")
         bulk_start = f1.text_input("開始時間", "17:00", key="sched_bulk_st")
         bulk_end = f2.text_input("結束時間", "19:00", key="sched_bulk_et")
         bulk_venue = f3.selectbox("地點", VENUE_OPTIONS, key="sched_bulk_vn")
         bulk_other = ""
         if bulk_venue == "其他":
             bulk_other = st.text_input("其他地點", key="sched_bulk_vo", placeholder="請填寫詳細地點")
-        b1, b2, b3 = st.columns(3)
+        mark_force_row()
+        b1, b2, b3 = st.columns(3, gap="small")
         with b1:
             if st.button(
-                f"✅ 套用到 {len(targets)} 個日期",
+                f"✅ 套用 {len(targets)}",
                 type="primary",
                 disabled=not targets,
                 key="sched_bulk_confirm",
@@ -130,7 +136,7 @@ def _render_sched_pick_ui(pick_mode: str) -> None:
                 st.rerun()
         with b2:
             st.button(
-                "↺ 清除已選",
+                "↺ 清除",
                 disabled=not targets,
                 key="sched_bulk_clear",
                 use_container_width=True,
@@ -197,11 +203,15 @@ def _render_sched_editor_ui() -> None:
         )
         st.rerun()
 
+    from views.components.coach_mobile_ui import inject_coach_mobile_css, mark_force_row
+
+    inject_coach_mobile_css()
     has_slot = has_schedule_slot(sk)
-    a1, a2 = st.columns(2)
+    mark_force_row()
+    a1, a2 = st.columns(2, gap="small")
     with a1:
         if st.button(
-            "🗑 取消當日訓練時間",
+            "🗑 取消時間",
             key=f"sched_clear_{rk}",
             use_container_width=True,
             disabled=not has_slot,
@@ -219,11 +229,12 @@ def _render_sched_editor_ui() -> None:
                 st.session_state["sched_flash"] = ("error", "此日沒有可取消的時間地點")
             st.rerun()
     with a2:
-        st.caption("更改：改時間後再按「儲存」。取消：按左方按鈕清除當日時間。")
+        st.caption("改時間後再按「儲存」；左掣清除當日時間。")
 
-    b1, b2 = st.columns(2)
+    mark_force_row()
+    b1, b2 = st.columns(2, gap="small")
     with b1:
-        if st.button("📋 複製時間地點到其他日期", key="sched_copy_btn", use_container_width=True):
+        if st.button("📋 複製時間", key="sched_copy_btn", use_container_width=True):
             if not has_schedule_slot(sk):
                 st.session_state["sched_flash"] = ("error", "請先儲存此日的時間地點")
                 st.rerun()
@@ -232,7 +243,7 @@ def _render_sched_editor_ui() -> None:
             st.session_state.sched_pick_dates = []
             st.rerun()
     with b2:
-        if st.button("✅ 多選套用時間地點", key="sched_bulk_btn", use_container_width=True):
+        if st.button("✅ 多選套用", key="sched_bulk_btn", use_container_width=True):
             st.session_state.sched_pick_mode = "bulk"
             st.session_state.pop("sched_copy_source", None)
             st.session_state.sched_pick_dates = []

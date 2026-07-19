@@ -14,6 +14,26 @@ def inject_coach_mobile_css() -> None:
     st.markdown(
         """
         <style>
+        /* Force paired action buttons to stay on one row on mobile */
+        [data-testid="stVerticalBlock"]:has(.ka-force-row) > [data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 0.35rem !important;
+            width: 100% !important;
+        }
+        [data-testid="stVerticalBlock"]:has(.ka-force-row) > [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+            min-width: 0 !important;
+            flex: 1 1 0 !important;
+        }
+        [data-testid="stVerticalBlock"]:has(.ka-force-row) button {
+            white-space: nowrap !important;
+            font-size: clamp(0.62rem, 2.7vw, 0.88rem) !important;
+            min-height: 2.5rem !important;
+            font-weight: 700 !important;
+            padding-left: 0.15rem !important;
+            padding-right: 0.15rem !important;
+        }
         @media (max-width: 768px) {
             [data-testid="stAppViewContainer"],
             section.main,
@@ -28,6 +48,14 @@ def inject_coach_mobile_css() -> None:
         }
         </style>
         """,
+        unsafe_allow_html=True,
+    )
+
+
+def mark_force_row() -> None:
+    """Place before st.columns(...) so the row stays horizontal on phones."""
+    st.markdown(
+        '<div class="ka-force-row ka-inline-row-marker"></div>',
         unsafe_allow_html=True,
     )
 
