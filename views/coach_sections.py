@@ -293,17 +293,23 @@ def _render_coach_log_filter() -> None:
 
 
 def _render_calendar_group_filter() -> tuple[str, str | None]:
-    """Compact one-row group filter (replaces selectbox on mobile)."""
+    """Compact one-row group filter for calendar view only (not the editor)."""
     from views.components.coach_mobile_ui import force_button_row
 
-    labels = [label for label, _ in CALENDAR_GROUP_FILTERS]
-    values = [value for _, value in CALENDAR_GROUP_FILTERS]
+    # Editor no longer switches groups — calendar filter stays simple.
+    filters = [
+        ("全部組別", None),
+        ("短跑", "短跑組"),
+        ("中長跑", "中長跑組"),
+        ("其他", "跨欄組"),
+    ]
+    labels = [label for label, _ in filters]
+    values = [value for _, value in filters]
     chip = {
         "全部組別": "全部",
         "短跑": "短跑",
         "中長跑": "中長跑",
-        "跨欄": "跨欄",
-        "全部學員": "全體",
+        "其他": "其他",
     }
     key = "coach_cal_group_filter_idx"
     if key not in st.session_state:
