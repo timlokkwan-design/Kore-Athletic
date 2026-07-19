@@ -10,6 +10,9 @@ from utils.data_store import (
     ensure_youth_age_group_v_registrations,
     get_best_performance_last_year,
     get_student_competitions,
+    is_registration_open,
+    registration_status,
+    registration_status_label,
     resolve_event_pb,
     submit_comp_entry,
 )
@@ -64,46 +67,59 @@ def _collect_manual_pbs(
     return manual
 
 
-def _render_comp_signup(user: dict, comp: dict) -> None:
+def _render_comp_signup(user: dict, comp: dict, *, allow_submit: bool) -> None:
     comp_id = comp["id"]
     athlete_name = user["name"]
     username = user["username"]
     available = comp.get("events") or []
-    if not available:
-        st.warning("此比賽尚未開放項目。")
-        return
+    status = registration_status(comp)
 
     date_label = format_timetable_date(comp["date"]) if comp.get("date") else "—"
     st.markdown(f"**{comp['name']}** · {date_label} · {comp.get('location') or '—'}")
     if comp.get("link"):
         st.markdown(f"🔗 [比賽連結]({comp['link']})")
-    if comp.get("deadline"):
+
+    if status == "pending_deadline":
+        st.warning("報名截止日期有待教練填寫，暫未能報名。")
+    elif status == "closed":
+        deadline = safe_str(comp.get("deadline"))
+        st.error(f"已過報名截止日期（{deadline or '—'}），未能報名。")
+    elif comp.get("deadline"):
         st.caption(f"報名截止：{comp['deadline']}")
+
     if comp.get("notes"):
         st.info(comp["notes"])
 
-    default_events = comp.get("my_events") or []
-    picked = st.multiselect(
-        "選擇參賽項目",
-        available,
-        default=[e for e in default_events if e in available],
-        key=f"student_comp_events_{comp_id}",
-    )
+    if not available:
+        st.warning("此比賽尚未開放項目。")
+        render_successful_registration_roster(comp_id)
+        return
 
-    saved_pbs = comp.get("my_event_pbs") or {}
-    manual_pbs = _collect_manual_pbs(athlete_name, picked, comp_id, saved_pbs) if picked else {}
+    if allow_submit and is_registration_open(comp):
+        default_events = comp.get("my_events") or []
+        picked = st.multiselect(
+            "選擇參賽項目",
+            available,
+            default=[e for e in default_events if e in available],
+            key=f"student_comp_events_{comp_id}",
+        )
 
-    c1, c2 = st.columns(2)
-    if c1.button("提交報名", type="primary", key=f"student_comp_submit_{comp_id}"):
-        ok, msg = submit_comp_entry(comp_id, username, athlete_name, picked, manual_pbs)
-        if ok:
-            st.success("報名已提交")
+        saved_pbs = comp.get("my_event_pbs") or {}
+        manual_pbs = _collect_manual_pbs(athlete_name, picked, comp_id, saved_pbs) if picked else {}
+
+        c1, c2 = st.columns(2)
+        if c1.button("提交報名", type="primary", key=f"student_comp_submit_{comp_id}"):
+            ok, msg = submit_comp_entry(comp_id, username, athlete_name, picked, manual_pbs)
+            if ok:
+                st.success("報名已提交")
+                st.rerun()
+            st.warning(msg)
+        if comp.get("is_registered") and c2.button("取消報名", key=f"student_comp_cancel_{comp_id}"):
+            delete_comp_entry(comp_id, athlete_name)
+            st.success("已取消報名")
             st.rerun()
-        st.warning(msg)
-    if comp.get("is_registered") and c2.button("取消報名", key=f"student_comp_cancel_{comp_id}"):
-        delete_comp_entry(comp_id, athlete_name)
-        st.success("已取消報名")
-        st.rerun()
+    elif comp.get("is_registered") and comp.get("my_events"):
+        st.caption("報名已截止或暫未開放；以下為你已提交的報名。")
 
     if comp.get("is_registered") and comp.get("my_events"):
         st.markdown("**已提交報名摘要**")
@@ -121,7 +137,10 @@ def _render_comp_signup(user: dict, comp: dict) -> None:
 def render_student_comp_registration(user: dict) -> None:
     ensure_youth_age_group_v_registrations()
     st.markdown("#### 🏅 比賽報名")
-    st.caption("選擇參賽項目；如已有申報成績紀錄會自動帶入，否則請填寫該項目最佳成績。詳細個人資料請至「個人資料」分頁。")
+    st.caption(
+        "選擇參賽項目；如已有申報成績紀錄會自動帶入，否則請填寫該項目最佳成績。"
+        "過了報名截止日期後不能報名；下一個比賽須等教練填寫截止日期後才開放。"
+    )
 
     if not _profile_complete(user):
         st.warning("基本資料尚未完整，請先到「個人資料」填寫。")
@@ -135,31 +154,53 @@ def render_student_comp_registration(user: dict) -> None:
     today = date.today().isoformat()
     # 僅顯示已設定開放項目的比賽（純預告見「賽事時間表」）
     open_for_signup = [c for c in comps if c.get("events")]
-    upcoming = [c for c in open_for_signup if safe_str(c.get("date")) >= today]
-    past = [c for c in open_for_signup if safe_str(c.get("date")) < today]
-
     if not open_for_signup:
         st.info("暫無可報名比賽。賽事日期預告請見「賽事時間表」。")
         return
 
-    # Roster overview first so mobile users see who already signed up.
+    open_now = [c for c in open_for_signup if registration_status(c, today=today) == "open"]
+    pending = [c for c in open_for_signup if registration_status(c, today=today) == "pending_deadline"]
+    closed = [c for c in open_for_signup if registration_status(c, today=today) == "closed"]
+    # Sort soonest first
+    open_now.sort(key=lambda c: (safe_str(c.get("date")), safe_str(c.get("name"))))
+    pending.sort(key=lambda c: (safe_str(c.get("date")), safe_str(c.get("name"))))
+    closed.sort(key=lambda c: (safe_str(c.get("date")), safe_str(c.get("name"))), reverse=True)
+
+    # Roster overview
     st.markdown("##### ✅ 成功報名名單")
     for comp in open_for_signup:
-        entries_title = f"{comp['name']} · {comp.get('date') or '—'}"
+        status = registration_status(comp, today=today)
+        tag = registration_status_label(status)
+        entries_title = f"{comp['name']} · {comp.get('date') or '—'} · {tag}"
         with st.expander(entries_title, expanded=False):
             render_successful_registration_roster(comp["id"])
 
-    if upcoming:
+    if open_now:
         st.markdown("##### 可報名比賽")
-        for comp in upcoming:
+        for comp in open_now:
             title = comp["name"]
+            if comp.get("deadline"):
+                title += f" · 截止 {comp['deadline']}"
             if comp.get("is_registered"):
                 title += " ✅ 已報名"
-            with st.expander(title, expanded=comp.get("is_registered", False)):
-                _render_comp_signup(user, comp)
+            with st.expander(title, expanded=True):
+                _render_comp_signup(user, comp, allow_submit=True)
+    else:
+        st.info("目前沒有開放報名的比賽。")
 
-    if past:
-        st.markdown("##### 過往比賽")
-        for comp in reversed(past):
-            events_text = "、".join(comp.get("my_events") or []) or "未報名"
-            st.write(f"**{comp['name']}** ({comp['date']}) — {events_text}")
+    if pending:
+        st.markdown("##### 下一個比賽（截止日期有待教練填寫）")
+        st.caption("上一個報名截止後，教練填寫下一個比賽的截止日期，即可開放報名。")
+        for i, comp in enumerate(pending):
+            title = f"{comp['name']} · {comp.get('date') or '—'}"
+            with st.expander(title, expanded=(i == 0 and not open_now)):
+                _render_comp_signup(user, comp, allow_submit=False)
+
+    if closed:
+        st.markdown("##### 已截止報名")
+        for comp in closed:
+            title = f"{comp['name']} · 截止 {comp.get('deadline') or '—'}"
+            if comp.get("is_registered"):
+                title += " ✅ 已報名"
+            with st.expander(title, expanded=False):
+                _render_comp_signup(user, comp, allow_submit=False)
