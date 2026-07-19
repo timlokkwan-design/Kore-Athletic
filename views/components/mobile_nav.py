@@ -42,54 +42,78 @@ def render_visitor_sidebar_nav(
 
 
 def _pin_innermost_dock_host() -> None:
-    """Mark only the innermost vertical block that holds the dock.
-
-    Broad CSS :has(.ka-bottom-tabbar-marker) would also match the page root and
-    position:fixed the whole coach/student view — expanders then look empty.
-    """
+    """Pin only a small dock-only block. Never fix the page root (locks scroll)."""
     try:
         st.html(
             """
             <script>
             (function () {
+              function unlockScroll() {
+                var unlock = [
+                  document.documentElement,
+                  document.body,
+                  document.querySelector('.stApp'),
+                  document.querySelector('[data-testid="stAppViewContainer"]'),
+                  document.querySelector('section.main'),
+                  document.querySelector('section.main .block-container')
+                ];
+                unlock.forEach(function (el) {
+                  if (!el || !el.style) return;
+                  el.style.setProperty('overflow', 'visible', 'important');
+                  el.style.setProperty('overflow-y', 'auto', 'important');
+                  el.style.setProperty('height', 'auto', 'important');
+                  el.style.setProperty('max-height', 'none', 'important');
+                  if (el.classList && el.classList.contains('ka-bottom-dock-host')) return;
+                  // Never leave the page shell position:fixed
+                  if (el.style.position === 'fixed') {
+                    el.style.setProperty('position', 'relative', 'important');
+                  }
+                });
+                // Strip mistaken host class from large blocks
+                document.querySelectorAll('.ka-bottom-dock-host').forEach(function (el) {
+                  var h = el.getBoundingClientRect().height;
+                  var bad = h > 180
+                    || el.querySelector('[data-testid="stExpander"]')
+                    || el.querySelector('[data-testid="stDataFrame"]')
+                    || el.querySelector('section.main')
+                    || (el.querySelectorAll('button').length > 8);
+                  if (bad) el.classList.remove('ka-bottom-dock-host');
+                });
+              }
+
               function pinDock() {
+                unlockScroll();
                 document.querySelectorAll('.ka-bottom-dock-host').forEach(function (el) {
                   el.classList.remove('ka-bottom-dock-host');
                 });
-                var markers = document.querySelectorAll(
-                  '.ka-bottom-tabbar-marker, .ka-student-dock-marker, .ka-coach-dock-marker'
-                );
+                var markers = document.querySelectorAll('.ka-bottom-tabbar-marker');
                 markers.forEach(function (marker) {
-                  var node = marker;
-                  var best = null;
-                  while (node && node !== document.body) {
-                    if (
-                      node.getAttribute &&
-                      node.getAttribute('data-testid') === 'stVerticalBlock'
-                    ) {
-                      best = node; // keep walking so the deepest match wins last-assign… 
-                    }
-                    node = node.parentElement;
-                  }
-                  // Re-walk for the deepest (innermost) vertical block
-                  node = marker;
+                  var node = marker.parentElement;
                   var deepest = null;
                   while (node && node !== document.body) {
-                    if (
-                      node.getAttribute &&
-                      node.getAttribute('data-testid') === 'stVerticalBlock'
-                    ) {
+                    if (node.getAttribute && node.getAttribute('data-testid') === 'stVerticalBlock') {
                       deepest = node;
-                      break; // first upward hit is the innermost
+                      break;
                     }
                     node = node.parentElement;
                   }
-                  if (deepest) deepest.classList.add('ka-bottom-dock-host');
+                  if (!deepest) return;
+                  var h = deepest.getBoundingClientRect().height;
+                  var btns = deepest.querySelectorAll('button').length;
+                  var bad = h > 180
+                    || deepest.querySelector('[data-testid="stExpander"]')
+                    || deepest.querySelector('[data-testid="stDataFrame"]')
+                    || btns < 2
+                    || btns > 8;
+                  if (bad) return;
+                  deepest.classList.add('ka-bottom-dock-host');
                 });
+                unlockScroll();
               }
               pinDock();
               setTimeout(pinDock, 50);
-              setTimeout(pinDock, 250);
+              setTimeout(pinDock, 200);
+              setTimeout(pinDock, 500);
             })();
             </script>
             """,
@@ -118,6 +142,22 @@ def _render_bottom_tabbar(
     st.markdown(
         """
         <style>
+        /* Page must always scroll; only .ka-bottom-dock-host may be fixed */
+        html, body, .stApp,
+        [data-testid="stAppViewContainer"],
+        section.main,
+        section.main .block-container {
+          overflow-x: hidden !important;
+          overflow-y: auto !important;
+          height: auto !important;
+          max-height: none !important;
+        }
+        section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host) {
+          position: static !important;
+          height: auto !important;
+          max-height: none !important;
+          overflow: visible !important;
+        }
         .ka-bottom-dock-host [data-testid="stHorizontalBlock"] {
           display: flex !important;
           flex-direction: row !important;
