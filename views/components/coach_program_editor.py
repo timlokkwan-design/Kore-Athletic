@@ -415,12 +415,9 @@ def render_coach_day_editor(selected: date) -> None:
                 )
             )
 
-    with st.container():
-        st.markdown(
-            '<div class="ka-prog-save-marker" aria-hidden="true"></div>',
-            unsafe_allow_html=True,
-        )
-        back_col, save_col, tpl_col = st.columns([1.1, 1.4, 1], gap="small")
+    # 返回｜儲存｜範本 — force one equal row on mobile
+    with force_button_row(key=f"prog_save_row_{sk}", n_cols=3) as cols:
+        back_col, save_col, tpl_col = cols
         with back_col:
             if st.button("← 返回", use_container_width=True, key=f"pback_{sk}"):
                 st.session_state.coach_prog_screen = "cal"
