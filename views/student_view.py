@@ -13,6 +13,10 @@ from utils.data_store import (
     submit_pending_record, submit_wellness, load_race_records, days_until_competition,
 )
 from utils.helpers import format_train_duration, needs_wind, parse_time, program_specs, safe_int, safe_str
+from views.components.announcements import (
+    render_latest_announcement_banner,
+    render_student_announcements,
+)
 from views.components.checkin import render_student_checkin_bar
 from views.components.comp_registration import render_student_comp_registration
 from views.components.mobile_nav import render_student_quick_dock
@@ -22,7 +26,7 @@ from views.components.theme import render_page_header, render_stat_cards
 from views.components.timer import render_lap_timer
 
 STUDENT_NAV_CATEGORIES: list[tuple[str, list[str]]] = [
-    ("📅 每日訓練", ["訓練時間表", "訓練日誌", "健康問卷", "出席"]),
+    ("📅 每日訓練", ["訓練時間表", "最新消息", "訓練日誌", "健康問卷", "出席"]),
     ("🏅 比賽", ["比賽報名", "提交比賽成績"]),
     ("👤 帳戶", ["個人資料"]),
 ]
@@ -44,6 +48,8 @@ def render_student_view(section: str) -> None:
 
     if section == "訓練時間表":
         _tab_schedule(user)
+    elif section == "最新消息":
+        render_student_announcements()
     elif section == "個人資料":
         render_student_profile(user)
     elif section == "訓練日誌":
@@ -77,6 +83,8 @@ def _tab_schedule(user: dict) -> None:
         ("簽到", checkin_label, checkin_tone),
         ("距離比賽", countdown_label, "normal"),
     ])
+
+    render_latest_announcement_banner()
 
     st.markdown("#### 訓練時間表")
     st.caption(f"專項：**{user.get('specialty', '—')}**")

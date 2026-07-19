@@ -24,6 +24,7 @@ from utils.config import (
     PERIOD_FILE,
     PROGRAMS_FILE,
     RACE_RECORDS_FILE,
+    ANNOUNCEMENTS_FILE,
     TEMPLATES_FILE,
     TRAIN_TYPES,
     USERS_FILE,
@@ -69,6 +70,9 @@ PENDING_SPECIALTY_COLUMNS = [
     "id", "username", "name", "current_specialty", "requested_specialty", "reason", "date",
 ]
 RACE_COLUMNS = ["id", "athlete_name", "item", "score", "date", "wind", "comp_name", "grade", "valid"]
+ANNOUNCEMENT_COLUMNS = [
+    "id", "title", "body", "published_at", "published", "author",
+]
 
 TEST_USERNAMES = frozenset({"student1", "student2", "student3", "parent1"})
 TEST_STUDENT_NAMES = frozenset({"陳大文", "林明美", "張豪傑", "陳家長"})
@@ -1863,6 +1867,102 @@ def add_video(data: dict) -> None:
     data["id"] = _next_id(df)
     data["date"] = data.get("date") or date.today().isoformat()
     save_videos(pd.concat([df, pd.DataFrame([data])], ignore_index=True))
+
+
+# ── Announcements (最新消息) ─────────────────────────────────────────────────
+
+def load_announcements() -> pd.DataFrame:
+    return _read(ANNOUNCEMENTS_FILE, ANNOUNCEMENT_COLUMNS)
+
+
+def save_announcements(df: pd.DataFrame) -> None:
+    _write(ANNOUNCEMENTS_FILE, df, ANNOUNCEMENT_COLUMNS)
+
+
+def _is_announcement_published(value) -> bool:
+    text = safe_str(value).lower()
+    if not text or text in ("nan", "none"):
+        return False
+    if text in ("0", "false", "no", "n", "否"):
+        return False
+    return text in ("1", "true", "yes", "y", "是")
+
+
+def announcement_to_dict(row) -> dict:
+    data = row.to_dict() if hasattr(row, "to_dict") else dict(row)
+    return {
+        "id": safe_str(data.get("id")),
+        "title": safe_str(data.get("title")),
+        "body": safe_str(data.get("body")),
+        "published_at": safe_str(data.get("published_at")),
+        "published": _is_announcement_published(data.get("published")),
+        "author": safe_str(data.get("author")),
+    }
+
+
+def get_announcements(*, published_only: bool = False) -> list[dict]:
+    df = load_announcements()
+    if df.empty:
+        return []
+    items = [announcement_to_dict(row) for _, row in df.iterrows()]
+    if published_only:
+        items = [a for a in items if a["published"]]
+    items.sort(key=lambda a: a.get("published_at") or "", reverse=True)
+    return items
+
+
+def publish_announcement(title: str, body: str, author: str = "") -> tuple[bool, str]:
+    from utils.permissions import enforce_coach_if_logged_in
+
+    enforce_coach_if_logged_in()
+    t = safe_str(title)
+    b = safe_str(body)
+    if not t:
+        return False, "請輸入標題"
+    if not b:
+        return False, "請輸入內容"
+    df = load_announcements()
+    row = {
+        "id": _uid(),
+        "title": t,
+        "body": b,
+        "published_at": pd.Timestamp.now().isoformat(timespec="seconds"),
+        "published": True,
+        "author": safe_str(author) or "教練",
+    }
+    save_announcements(pd.concat([df, pd.DataFrame([row])], ignore_index=True))
+    return True, "已發佈最新消息"
+
+
+def delete_announcement(announcement_id: str) -> tuple[bool, str]:
+    from utils.permissions import enforce_coach_if_logged_in
+
+    enforce_coach_if_logged_in()
+    df = load_announcements()
+    if df.empty:
+        return False, "找不到消息"
+    aid = safe_str(announcement_id)
+    mask = df["id"].astype(str) == aid
+    if not mask.any():
+        return False, "找不到消息"
+    save_announcements(df[~mask])
+    return True, "已刪除"
+
+
+def unpublish_announcement(announcement_id: str) -> tuple[bool, str]:
+    from utils.permissions import enforce_coach_if_logged_in
+
+    enforce_coach_if_logged_in()
+    df = load_announcements()
+    if df.empty:
+        return False, "找不到消息"
+    aid = safe_str(announcement_id)
+    mask = df["id"].astype(str) == aid
+    if not mask.any():
+        return False, "找不到消息"
+    df.loc[mask, "published"] = False
+    save_announcements(df)
+    return True, "已取消發佈"
 
 
 # ── Race records & pending ──────────────────────────────────────────────────

@@ -9,6 +9,7 @@ import pandas as pd
 
 from utils.config import DATA_DIR
 from utils.data_store import (
+    ANNOUNCEMENT_COLUMNS,
     ATTENDANCE_COLUMNS,
     COMP_COLUMNS,
     COMP_ENTRY_COLUMNS,
@@ -47,6 +48,7 @@ MIGRATIONS: list[tuple[str, list[str]]] = [
     ("pending_records.csv", PENDING_COLUMNS),
     ("pending_specialty.csv", PENDING_SPECIALTY_COLUMNS),
     ("race_records.csv", RACE_COLUMNS),
+    ("announcements.csv", ANNOUNCEMENT_COLUMNS),
 ]
 
 

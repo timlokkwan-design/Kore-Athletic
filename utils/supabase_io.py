@@ -20,6 +20,7 @@ CSV_TO_TABLE: dict[str, str] = {
     "pending_records.csv": "ka_pending_records",
     "pending_specialty.csv": "ka_pending_specialty",
     "race_records.csv": "ka_race_records",
+    "announcements.csv": "ka_announcements",
 }
 
 INTERNAL_COLUMNS = {"row_id"}
