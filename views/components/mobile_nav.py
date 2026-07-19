@@ -11,7 +11,8 @@ COACH_TOP_CLUSTERS: list[tuple[str, list[tuple[str, str, str]]]] = [
     (
         "train",
         [
-            ("📅", "時間表", "訓練時間表"),
+            ("👀", "檢視", "課表檢視"),
+            ("📅", "時間", "訓練時間表"),
             ("✏️", "設定", "設定課表"),
         ],
     ),
@@ -113,7 +114,7 @@ def render_visitor_sidebar_nav(
 
 
 def _find_innermost_vertical_block_js() -> str:
-    """Shared JS snippet: from marker → nearest stVerticalBlock + row force."""
+    """Shared JS: find dock/subtab host + force ONLY that row (never page-wide)."""
     return """
               function findHost(marker) {
                 var node = marker.parentElement;
@@ -125,36 +126,77 @@ def _find_innermost_vertical_block_js() -> str:
                 }
                 return null;
               }
-              function forceRowLayout(el) {
-                if (!el) return;
-                el.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function (row) {
-                  row.style.setProperty('display', 'flex', 'important');
-                  row.style.setProperty('flex-direction', 'row', 'important');
-                  row.style.setProperty('flex-wrap', 'nowrap', 'important');
-                  row.style.setProperty('width', '100%', 'important');
-                  row.style.setProperty('align-items', 'stretch', 'important');
-                  Array.prototype.forEach.call(row.children, function (col) {
-                    col.style.setProperty('flex', '1 1 0', 'important');
-                    col.style.setProperty('min-width', '0', 'important');
-                    col.style.setProperty('max-width', 'none', 'important');
-                    col.style.setProperty('width', 'auto', 'important');
+              function directRows(host) {
+                var out = [];
+                if (!host) return out;
+                host.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function (row) {
+                  var p = row.parentElement;
+                  var nested = false;
+                  while (p && p !== host) {
+                    if (p.getAttribute && p.getAttribute('data-testid') === 'stVerticalBlock') {
+                      nested = true;
+                      break;
+                    }
+                    p = p.parentElement;
+                  }
+                  if (!nested) out.push(row);
+                });
+                return out;
+              }
+              function forceRowOn(row) {
+                if (!row) return;
+                row.style.setProperty('display', 'flex', 'important');
+                row.style.setProperty('flex-direction', 'row', 'important');
+                row.style.setProperty('flex-wrap', 'nowrap', 'important');
+                row.style.setProperty('width', '100%', 'important');
+                row.style.setProperty('align-items', 'stretch', 'important');
+                Array.prototype.forEach.call(row.children, function (col) {
+                  col.style.setProperty('flex', '1 1 0', 'important');
+                  col.style.setProperty('min-width', '0', 'important');
+                  col.style.setProperty('max-width', 'none', 'important');
+                  col.style.setProperty('width', 'auto', 'important');
+                });
+              }
+              function clearRowInline(row) {
+                if (!row || !row.style) return;
+                ['display','flex-direction','flex-wrap','width','align-items'].forEach(function (p) {
+                  row.style.removeProperty(p);
+                });
+                Array.prototype.forEach.call(row.children || [], function (col) {
+                  if (!col.style) return;
+                  ['flex','min-width','max-width','width'].forEach(function (p) {
+                    col.style.removeProperty(p);
                   });
+                });
+              }
+              function scrubLeakedRowStyles() {
+                document.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function (row) {
+                  if (row.closest('.ka-bottom-dock-host') || row.closest('.ka-top-subtab-host')) return;
+                  clearRowInline(row);
                 });
               }
               function isWrongHost(el, minBtns, maxBtns) {
                 if (!el) return true;
                 var btns = el.querySelectorAll('button').length;
-                return el.querySelector('[data-testid="stExpander"]')
-                  || el.querySelector('[data-testid="stDataFrame"]')
-                  || el.querySelector('section.main')
-                  || btns < minBtns
-                  || btns > maxBtns;
+                if (btns < minBtns || btns > maxBtns) return true;
+                if (el.querySelector('iframe') || el.querySelector('.fc')) return true;
+                if (el.querySelector('[data-testid="stExpander"]')) return true;
+                if (el.querySelector('[data-testid="stDataFrame"]')) return true;
+                if (el.querySelector('section.main')) return true;
+                if (el.querySelector('.ka-cal-month-nav-marker')) return true;
+                if (el.querySelector('.ka-cal-view-marker')) return true;
+                if (el.querySelector('.ka-cal-shell-marker')) return true;
+                var rows = directRows(el);
+                if (rows.length !== 1) return true;
+                var h = el.getBoundingClientRect().height;
+                if (h > 200) return true;
+                return false;
               }
     """
 
 
 def _pin_innermost_dock_host() -> None:
-    """Pin only small dock/subtab blocks. Force horizontal row BEFORE height checks."""
+    """Pin only small dock/subtab blocks. Never rewrite other page columns."""
     try:
         st.html(
             f"""
@@ -184,22 +226,13 @@ def _pin_innermost_dock_host() -> None:
                     el.style.setProperty('position', 'relative', 'important');
                   }}
                 }});
-                document.querySelectorAll('.ka-bottom-dock-host').forEach(function (el) {{
-                  if (isWrongHost(el, 2, 10)) el.classList.remove('ka-bottom-dock-host');
-                  else forceRowLayout(el);
-                }});
-                document.querySelectorAll('.ka-top-subtab-host').forEach(function (el) {{
-                  if (isWrongHost(el, 2, 10)) el.classList.remove('ka-top-subtab-host');
-                  else forceRowLayout(el);
-                }});
               }}
 
               function headerBottom() {{
                 var header = document.querySelector('[data-testid="stHeader"]')
                   || document.querySelector('header');
                 if (!header) return 0;
-                var r = header.getBoundingClientRect();
-                return Math.max(0, r.bottom);
+                return Math.max(0, header.getBoundingClientRect().bottom);
               }}
 
               function placeTopHost() {{
@@ -210,62 +243,62 @@ def _pin_innermost_dock_host() -> None:
                   if (bc) bc.classList.remove('ka-has-top-subtabs');
                   return;
                 }}
-                forceRowLayout(host);
+                var rows = directRows(host);
+                if (rows[0]) forceRowOn(rows[0]);
                 var top = Math.max(headerBottom(), 2.75 * 16);
                 host.style.setProperty('top', top + 'px', 'important');
                 host.style.setProperty('position', 'fixed', 'important');
                 host.style.setProperty('left', '0', 'important');
                 host.style.setProperty('right', '0', 'important');
-                host.style.setProperty('z-index', '2147482900', 'important');
+                host.style.setProperty('z-index', '2147482800', 'important');
                 var h = host.getBoundingClientRect().height || 56;
                 document.documentElement.style.setProperty('--ka-top-pad', (top + h + 10) + 'px');
                 if (bc) bc.classList.add('ka-has-top-subtabs');
               }}
 
-              function pinDock() {{
-                unlockScroll();
-                document.querySelectorAll('.ka-bottom-dock-host').forEach(function (el) {{
-                  el.classList.remove('ka-bottom-dock-host');
+              function pinByMarker(markerSel, hostClass) {{
+                document.querySelectorAll('.' + hostClass).forEach(function (el) {{
+                  el.classList.remove(hostClass);
                 }});
-                document.querySelectorAll('.ka-bottom-tabbar-marker').forEach(function (marker) {{
-                  var deepest = findHost(marker);
-                  if (isWrongHost(deepest, 2, 10)) return;
-                  forceRowLayout(deepest);
-                  deepest.classList.add('ka-bottom-dock-host');
-                  forceRowLayout(deepest);
+                document.querySelectorAll(markerSel).forEach(function (marker) {{
+                  var host = findHost(marker);
+                  if (!host) return;
+                  var rows = directRows(host);
+                  if (rows.length === 1) forceRowOn(rows[0]);
+                  if (isWrongHost(host, 2, 10)) return;
+                  host.classList.add(hostClass);
+                  if (rows[0]) {{
+                    forceRowOn(rows[0]);
+                    // Bottom dock: last column is Manage-FAB spacer
+                    if (hostClass === 'ka-bottom-dock-host' && rows[0].children.length > 2) {{
+                      var last = rows[0].lastElementChild;
+                      if (last && last.style) {{
+                        last.style.setProperty('flex', '0 0 4.75rem', 'important');
+                        last.style.setProperty('max-width', '4.75rem', 'important');
+                        last.style.setProperty('min-width', '4.5rem', 'important');
+                      }}
+                    }}
+                  }}
                 }});
-                unlockScroll();
-              }}
-
-              function pinTopSubtabs() {{
-                unlockScroll();
-                document.querySelectorAll('.ka-top-subtab-host').forEach(function (el) {{
-                  el.classList.remove('ka-top-subtab-host');
-                }});
-                document.querySelectorAll('.ka-top-subtab-marker').forEach(function (marker) {{
-                  var deepest = findHost(marker);
-                  // Do NOT reject on height — mobile columns stack first and look "tall".
-                  if (isWrongHost(deepest, 2, 10)) return;
-                  forceRowLayout(deepest);
-                  deepest.classList.add('ka-top-subtab-host');
-                  forceRowLayout(deepest);
-                }});
-                placeTopHost();
-                unlockScroll();
               }}
 
               function pinAll() {{
-                pinDock();
-                pinTopSubtabs();
+                unlockScroll();
+                pinByMarker('.ka-bottom-tabbar-marker', 'ka-bottom-dock-host');
+                pinByMarker('.ka-top-subtab-marker', 'ka-top-subtab-host');
+                // Strip any leftover inline flex hacks from calendar / content rows
+                scrubLeakedRowStyles();
+                // Re-apply only on real hosts after scrub
+                document.querySelectorAll('.ka-bottom-dock-host, .ka-top-subtab-host').forEach(function (host) {{
+                  var rows = directRows(host);
+                  if (rows[0]) forceRowOn(rows[0]);
+                }});
                 placeTopHost();
+                unlockScroll();
               }}
               pinAll();
-              setTimeout(pinAll, 50);
-              setTimeout(pinAll, 200);
-              setTimeout(pinAll, 500);
-              setTimeout(pinAll, 1000);
-              window.addEventListener('resize', placeTopHost);
-              window.addEventListener('scroll', placeTopHost, {{ passive: true }});
+              setTimeout(pinAll, 80);
+              setTimeout(pinAll, 400);
             }})();
             </script>
             """,
@@ -445,7 +478,7 @@ def _render_top_subtabbar(
                     args=(session_key, section),
                 )
 
-    _pin_innermost_dock_host()
+    # Pin runs once from bottom dock (avoids double JS + layout thrash).
 
 
 def render_coach_top_subtabs(current_section: str) -> None:
@@ -607,7 +640,7 @@ def render_coach_bottom_dock(current_section: str) -> None:
         key_prefix="coach_dock",
         active_aliases={
             "比賽報名表": {"賽事時間表", "比賽管理"},
-            "訓練時間表": {"設定課表"},
+            "訓練時間表": {"設定課表", "課表檢視"},
             "出席表": {"ACWR/健康"},
             # 分析與溝通 has no bottom tile; top sub-tabs cover it via sidebar.
         },
