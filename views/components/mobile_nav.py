@@ -5,11 +5,76 @@ import time
 
 import streamlit as st
 
-# Competition cluster shown as sticky top sub-tabs when bottom「比賽」is active.
-COACH_COMP_SECTIONS = ("賽事時間表", "比賽報名表", "比賽管理")
-STUDENT_COMP_SECTIONS = ("賽事時間表", "比賽報名", "提交比賽成績")
-# Training cluster for coach bottom「課表」.
-COACH_TRAIN_SECTIONS = ("訓練時間表", "設定課表")
+# Sticky top sub-tab clusters: any category with 2+ sections.
+# Each item: (icon, short_label, section_value)
+COACH_TOP_CLUSTERS: list[tuple[str, list[tuple[str, str, str]]]] = [
+    (
+        "train",
+        [
+            ("📅", "時間表", "訓練時間表"),
+            ("✏️", "設定", "設定課表"),
+        ],
+    ),
+    (
+        "team",
+        [
+            ("✅", "出席", "出席表"),
+            ("❤️", "健康", "ACWR/健康"),
+            ("👥", "隊伍", "隊伍管理"),
+        ],
+    ),
+    (
+        "comp",
+        [
+            ("📅", "時間表", "賽事時間表"),
+            ("📋", "報名表", "比賽報名表"),
+            ("⚙️", "管理", "比賽管理"),
+        ],
+    ),
+    (
+        "comms",
+        [
+            ("📢", "消息", "最新消息"),
+            ("🎬", "影片", "影片分析"),
+            ("💬", "家長", "家長溝通"),
+        ],
+    ),
+]
+
+STUDENT_TOP_CLUSTERS: list[tuple[str, list[tuple[str, str, str]]]] = [
+    (
+        "daily",
+        [
+            ("📅", "課表", "訓練時間表"),
+            ("📢", "消息", "最新消息"),
+            ("📝", "日誌", "訓練日誌"),
+            ("🛏️", "健康", "健康問卷"),
+            ("✅", "出席", "出席"),
+        ],
+    ),
+    (
+        "comp",
+        [
+            ("📅", "時間表", "賽事時間表"),
+            ("📝", "報名", "比賽報名"),
+            ("🏁", "成績", "提交比賽成績"),
+        ],
+    ),
+]
+
+COACH_COMP_SECTIONS = tuple(s for _, _, s in COACH_TOP_CLUSTERS[2][1])
+STUDENT_COMP_SECTIONS = tuple(s for _, _, s in STUDENT_TOP_CLUSTERS[1][1])
+COACH_TRAIN_SECTIONS = tuple(s for _, _, s in COACH_TOP_CLUSTERS[0][1])
+
+
+def _cluster_for_section(
+    clusters: list[tuple[str, list[tuple[str, str, str]]]],
+    section: str,
+) -> tuple[str, list[tuple[str, str, str]]] | None:
+    for key, items in clusters:
+        if section in {s for _, _, s in items}:
+            return key, items
+    return None
 
 
 def _set_main_page(session_key: str, page: str) -> None:
@@ -110,7 +175,7 @@ def _pin_innermost_dock_host() -> None:
                   if (isBadHost(el, 180, 2, 8)) el.classList.remove('ka-bottom-dock-host');
                 }});
                 document.querySelectorAll('.ka-top-subtab-host').forEach(function (el) {{
-                  if (isBadHost(el, 160, 2, 6)) el.classList.remove('ka-top-subtab-host');
+                  if (isBadHost(el, 180, 2, 8)) el.classList.remove('ka-top-subtab-host');
                 }});
               }}
 
@@ -134,7 +199,7 @@ def _pin_innermost_dock_host() -> None:
                 }});
                 document.querySelectorAll('.ka-top-subtab-marker').forEach(function (marker) {{
                   var deepest = findHost(marker);
-                  if (isBadHost(deepest, 160, 2, 6)) return;
+                  if (isBadHost(deepest, 180, 2, 8)) return;
                   deepest.classList.add('ka-top-subtab-host');
                 }});
                 unlockScroll();
@@ -224,43 +289,30 @@ def _render_top_subtabbar(
 
 
 def render_coach_top_subtabs(current_section: str) -> None:
-    """Top sub-tabs for coach 比賽事務 (and 訓練規劃 when on 課表)."""
-    if current_section in COACH_COMP_SECTIONS:
-        _render_top_subtabbar(
-            items=[
-                ("📅", "時間表", "賽事時間表"),
-                ("📋", "報名表", "比賽報名表"),
-                ("⚙️", "管理", "比賽管理"),
-            ],
-            current_section=current_section,
-            session_key="coach_section",
-            key_prefix="coach_top_comp",
-        )
-    elif current_section in COACH_TRAIN_SECTIONS:
-        _render_top_subtabbar(
-            items=[
-                ("📅", "時間表", "訓練時間表"),
-                ("✏️", "設定", "設定課表"),
-            ],
-            current_section=current_section,
-            session_key="coach_section",
-            key_prefix="coach_top_train",
-        )
+    """Sticky top sub-tabs for every multi-section coach category."""
+    matched = _cluster_for_section(COACH_TOP_CLUSTERS, current_section)
+    if not matched:
+        return
+    key, items = matched
+    _render_top_subtabbar(
+        items=items,
+        current_section=current_section,
+        session_key="coach_section",
+        key_prefix=f"coach_top_{key}",
+    )
 
 
 def render_student_top_subtabs(current_section: str) -> None:
-    """Top sub-tabs for student 比賽 cluster."""
-    if current_section not in STUDENT_COMP_SECTIONS:
+    """Sticky top sub-tabs for every multi-section student category."""
+    matched = _cluster_for_section(STUDENT_TOP_CLUSTERS, current_section)
+    if not matched:
         return
+    key, items = matched
     _render_top_subtabbar(
-        items=[
-            ("📅", "時間表", "賽事時間表"),
-            ("📝", "報名", "比賽報名"),
-            ("🏁", "成績", "提交比賽成績"),
-        ],
+        items=items,
         current_section=current_section,
         session_key="student_section",
-        key_prefix="stu_top_comp",
+        key_prefix=f"stu_top_{key}",
     )
 
 
@@ -365,7 +417,10 @@ def render_student_quick_dock(current_section: str) -> None:
         current_section=current_section,
         session_key="student_section",
         key_prefix="stu_dock",
-        active_aliases={"比賽報名": {"賽事時間表", "提交比賽成績"}},
+        active_aliases={
+            "比賽報名": {"賽事時間表", "提交比賽成績"},
+            "訓練時間表": {"最新消息", "健康問卷"},
+        },
     )
 
 
@@ -383,5 +438,10 @@ def render_coach_bottom_dock(current_section: str) -> None:
         current_section=current_section,
         session_key="coach_section",
         key_prefix="coach_dock",
-        active_aliases={"比賽報名表": {"賽事時間表", "比賽管理"}, "訓練時間表": {"設定課表"}},
+        active_aliases={
+            "比賽報名表": {"賽事時間表", "比賽管理"},
+            "訓練時間表": {"設定課表"},
+            "出席表": {"ACWR/健康"},
+            # 分析與溝通 has no bottom tile; top sub-tabs cover it via sidebar.
+        },
     )

@@ -51,7 +51,7 @@ _SECTION_RENDERERS = {
 def render_coach_view(section: str) -> None:
     from utils.auth import require_coach_or_stop
     require_coach_or_stop()
-    # Sticky top sub-tabs for 比賽事務 / 訓練規劃 (same tile style as bottom dock).
+    # Sticky top sub-tabs for every multi-section category.
     render_coach_top_subtabs(section)
     render_page_header("教練平台", f"目前分頁：{section}")
 

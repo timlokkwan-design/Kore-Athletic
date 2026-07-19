@@ -462,7 +462,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             width: 100% !important;
             max-width: 100% !important;
             height: auto !important;
-            max-height: 5.5rem !important;
+            max-height: 6rem !important;
             margin: 0 0 0.55rem 0 !important;
             padding: 0.35rem 0.25rem 0.4rem 0.25rem !important;
             background: {c["main_bg"]} !important;

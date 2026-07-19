@@ -40,7 +40,7 @@ def render_student_view(section: str) -> None:
     require_student_or_stop()
     user = refresh_current_user()
     specialty = user.get("specialty") or "—"
-    # Sticky top sub-tabs for 比賽 (時間表／報名／成績).
+    # Sticky top sub-tabs for every multi-section category.
     render_student_top_subtabs(section)
     render_page_header(
         "學生平台",
