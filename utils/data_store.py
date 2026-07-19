@@ -823,14 +823,17 @@ def register_user(data: dict) -> None:
     save_users(users)
 
 
-def approve_student(username: str) -> None:
+def approve_student(username: str) -> dict | None:
     from utils.permissions import enforce_coach_if_logged_in
     enforce_coach_if_logged_in()
     users = load_users()
     mask = users["username"].astype(str) == username
     if mask.any():
+        row = users.loc[mask].iloc[0].to_dict()
         users.loc[mask, "role"] = "student"
         save_users(users)
+        return row
+    return None
 
 
 def remove_student(username: str) -> None:

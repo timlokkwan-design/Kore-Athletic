@@ -42,34 +42,30 @@ def render_student_checkin_bar(name: str, *, specialty: str = "", compact_when_d
         msg = f"✅ 今日已簽到 {time_str}"
         if dur > 0:
             msg += f" · 訓練 {format_train_duration(dur)}"
-        if compact_when_done:
-            from views.components.theme import render_compact_bar
+        from views.components.theme import render_compact_bar
 
-            render_compact_bar(msg, tone="success")
-            return
-        with st.container(border=True):
-            st.markdown("#### ✅ 訓練簽到")
-            st.success(msg)
-            st.caption("簽到記錄會顯示於「訓練時間表」月曆。")
+        render_compact_bar(msg, tone="success")
         return
 
-    with st.expander("✅ 訓練簽到 — 尚未簽到", expanded=True):
-        default_dur = _default_duration_minutes(specialty)
-        if st.session_state.get("student_checkin_duration", default_dur) < 15:
-            st.session_state.student_checkin_duration = default_dur
-        c1, c2 = st.columns([2, 1])
-        with c1:
-            duration = st.number_input(
-                "訓練時長（分鐘）",
-                min_value=15,
-                max_value=300,
-                value=default_dur,
-                step=15,
-                key="student_checkin_duration",
-            )
-        with c2:
-            st.write("")
-            st.write("")
-            if st.button("一鍵簽到", type="primary", use_container_width=True, key="student_checkin_btn"):
-                check_in(name, duration_minutes=int(duration))
-                st.rerun()
+    st.markdown('<div class="ka-checkin-bar-marker"></div>', unsafe_allow_html=True)
+    st.markdown("#### ✅ 訓練簽到")
+    default_dur = _default_duration_minutes(specialty)
+    if st.session_state.get("student_checkin_duration", default_dur) < 15:
+        st.session_state.student_checkin_duration = default_dur
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        duration = st.number_input(
+            "訓練時長（分鐘）",
+            min_value=15,
+            max_value=300,
+            value=default_dur,
+            step=15,
+            key="student_checkin_duration",
+        )
+    with c2:
+        st.write("")
+        st.write("")
+        if st.button("立即簽到", type="primary", use_container_width=True, key="student_checkin_btn"):
+            check_in(name, duration_minutes=int(duration))
+            st.rerun()
+    st.caption("簽到記錄會顯示於「訓練時間表」月曆。")

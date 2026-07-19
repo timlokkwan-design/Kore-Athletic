@@ -24,7 +24,9 @@ from views.auth_view import render_auth_view
 from views.coach_view import COACH_NAV_CATEGORIES, COACH_SECTIONS, render_coach_view
 from views.components.brand import LOGO_PATH, logo_exists, render_brand_header, render_sidebar_brand
 from views.components.coach_pending_alert import render_coach_pending_sidebar
-from views.components.sidebar_nav import render_main_top_nav, render_nav_categories, render_top_nav
+from views.components.sidebar_nav import render_nav_categories, render_top_nav
+from views.components.pwa import inject_pwa_head, render_pwa_install_hint
+from views.components.mobile_nav import render_visitor_sidebar_nav
 from views.components.theme import inject_global_css, render_breadcrumb, render_theme_toggle
 from views.leaderboard_view import render_leaderboard
 from views.parent_view import render_parent_view
@@ -36,7 +38,7 @@ st.set_page_config(
     page_title=f"{APP_NAME} | 田徑訓練管理",
     page_icon=str(LOGO_PATH) if logo_exists() else "🏃",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 if "initialized" not in st.session_state:
@@ -115,10 +117,17 @@ def _render_page(
 
 
 def main() -> None:
-    inject_global_css()
     try_restore_session()
     user = get_current_user()
     role = user["role"] if user else "visitor"
+
+    if role == "visitor":
+        inject_global_css(role_class="visitor")
+    elif role == "student":
+        inject_global_css(role_class="student")
+    else:
+        inject_global_css(role_class="coach")
+    inject_pwa_head()
 
     if role == "visitor":
         top_options = _visitor_nav()
@@ -134,18 +143,16 @@ def main() -> None:
             username=user.get("username") if user and role == "student" else None,
         )
         st.markdown("---")
-        render_theme_toggle()
-        st.markdown("---")
+        if role == "coach":
+            render_theme_toggle()
+            st.markdown("---")
         if role == "coach":
             render_coach_pending_sidebar()
-        if role != "visitor":
+        if role == "visitor":
+            page = render_visitor_sidebar_nav(top_options, "main_page", default_page)
+        elif role != "visitor":
             st.markdown("<p class='ka-nav-label'>主選單</p>", unsafe_allow_html=True)
             page = render_top_nav(top_options, "main_page", default_page)
-        else:
-            page = st.session_state.get("main_page", default_page)
-            if page not in [v for _, v in top_options]:
-                page = default_page
-                st.session_state.main_page = default_page
 
         coach_section = None
         student_section = None
@@ -168,14 +175,15 @@ def main() -> None:
             )
 
         st.markdown("---")
-        st.caption(f"v{APP_VERSION}")
+        if role == "coach":
+            st.caption(f"v{APP_VERSION}")
         if user:
             if st.button("登出", use_container_width=True):
                 logout()
                 st.rerun()
 
-    if role == "visitor":
-        page = render_main_top_nav(top_options, "main_page", default_page)
+    if role in ("visitor", "student"):
+        render_pwa_install_hint()
 
     visitor_public_pages = ("訪客專區", "登入", "註冊新學員")
     if is_pb_public():
@@ -183,7 +191,7 @@ def main() -> None:
 
     if role == "visitor" and page == "PB 排行榜" and not is_pb_public():
         render_breadcrumb("PB 排行榜")
-        st.warning("PB 排行榜只供登入用戶查看。請登入或使用上方「訪客專區」了解本會資訊。")
+        st.warning("PB 排行榜只供登入用戶查看。請點選單（☰）→「登入」。")
         render_auth_view()
         return
 
@@ -207,7 +215,9 @@ def main() -> None:
         parts = [page, cat, student_section] if cat else [page, student_section or ""]
         render_breadcrumb(*[p for p in parts if p])
     elif page == "訪客專區":
-        render_breadcrumb("訪客專區")
+        pass
+    elif page in ("登入", "註冊新學員"):
+        pass
     elif user and page not in ("登入", "註冊新學員"):
         render_breadcrumb(page)
 

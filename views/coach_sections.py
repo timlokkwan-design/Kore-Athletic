@@ -255,7 +255,7 @@ def render_coach_program() -> None:
 
     if not copy_mode and not delete_mode:
         st.caption(
-            "同一日可為不同組別設定課表 · 列表模式點選日期 · 再按「編輯此日課表」"
+            "點選月曆日期直接編輯 · 列表模式可一次看清整月課表"
         )
 
     if copy_mode or delete_mode:
@@ -320,6 +320,7 @@ def _render_coach_program_editor() -> None:
             copy_mode=False,
             delete_mode=False,
             group_filter=cal_group,
+            goto_edit_on_select=True,
         )
         b_copy, b_delete = st.columns(2)
         with b_copy:
@@ -338,9 +339,8 @@ def _render_coach_program_editor() -> None:
                 st.session_state.delete_target_dates = []
                 st.rerun()
         st.caption(f"今日完成率：**{log_completion_rate()}%**")
-        sk = st.session_state.get("coach_cal", date.today().isoformat())
-        st.info(f"已選 **{format_timetable_date(sk)}**")
-        if st.button("✏️ 編輯此日課表", type="primary", use_container_width=True, key="coach_goto_edit"):
+        if st.button("📍 今日課表", use_container_width=True, key="coach_goto_today"):
+            st.session_state["coach_cal"] = date.today().isoformat()
             st.session_state.coach_prog_screen = "edit"
             st.rerun()
     else:
@@ -350,6 +350,9 @@ def _render_coach_program_editor() -> None:
         except ValueError:
             edit_date = date.today()
         st.caption(f"編輯 **{format_timetable_date(sk)}** · 組別篩選：{cal_group_label}")
+        if st.button("← 返回月曆", use_container_width=True, key="coach_back_cal"):
+            st.session_state.coach_prog_screen = "cal"
+            st.rerun()
         render_coach_day_editor(edit_date)
 
     with st.expander("📊 訓練日誌篩選", expanded=False):

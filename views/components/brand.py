@@ -85,7 +85,27 @@ def render_brand_header(*, compact: bool = False) -> None:
         _header_text(compact=compact, standalone=True)
 
 
-def render_auth_brand() -> None:
+def render_auth_brand(*, compact: bool = True) -> None:
+    """Login/register header — compact by default for mobile-first."""
+    if compact:
+        if logo_exists():
+            c1, c2, c3 = st.columns([1, 1.2, 1])
+            with c2:
+                st.markdown(
+                    f"""<div style="text-align:center;margin-bottom:0.35rem;">
+                    <img src="{_logo_data_uri()}" style="width:56px;display:inline-block;" />
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+        st.markdown(
+            f"""<div style="text-align:center;margin-bottom:0.75rem;">
+            <div style="font-size:1.15rem;font-weight:800;color:#0f172a;letter-spacing:0.06em;">
+            {APP_NAME}</div>
+            <div style="font-size:0.78rem;color:#64748b;">{APP_SUBTITLE}</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        return
     if logo_exists():
         _, mid, _ = st.columns([1, 1.2, 1])
         with mid:

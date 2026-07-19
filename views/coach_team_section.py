@@ -62,6 +62,20 @@ def _render_pending_specialty() -> None:
 
 def _render_pending_registrations() -> None:
     st.markdown("##### 待審批學員註冊")
+    flash = st.session_state.pop("wa_notify_flash", None)
+    if flash:
+        st.success(f"✅ 已核准 **{flash.get('name', '')}**（{flash.get('username', '')}）")
+        if flash.get("url"):
+            st.link_button(
+                "📱 WhatsApp 通知學員（一鍵發送）",
+                flash["url"],
+                use_container_width=True,
+                type="primary",
+            )
+            st.caption("按鈕會開啟 WhatsApp 並帶好核准訊息（傳送至**學員**電話，不公開你的號碼）。")
+        else:
+            st.warning("學員未填電話，請以其他方式通知。")
+
     pending = get_pending_users()
     if pending.empty:
         st.caption("無待審學員")
@@ -80,7 +94,11 @@ def _render_pending_registrations() -> None:
             unsafe_allow_html=True,
         )
         if b2.button("核准", key=f"appr_{u['username']}"):
-            approve_student(u["username"])
+            from utils.whatsapp_notify import build_approval_notify
+
+            approved = approve_student(u["username"])
+            if approved:
+                st.session_state["wa_notify_flash"] = build_approval_notify(approved)
             st.rerun()
 
 

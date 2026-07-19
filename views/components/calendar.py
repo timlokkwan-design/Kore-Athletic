@@ -1,6 +1,7 @@
 """V6-style month calendar grid."""
 
 from datetime import date
+from typing import Callable
 
 import streamlit as st
 
@@ -176,6 +177,14 @@ def _coach_compact_day_style(
     }
 
 
+def _coach_pick_for_edit(select_key: str) -> Callable[[str], None]:
+    def _pick(ds: str) -> None:
+        st.session_state[select_key] = ds
+        st.session_state["coach_prog_screen"] = "edit"
+
+    return _pick
+
+
 def _render_coach_compact_grid(
     select_key: str,
     year: int,
@@ -186,6 +195,8 @@ def _render_coach_compact_grid(
     copy_source: str,
     copy_targets: set,
     delete_targets: set,
+    *,
+    goto_edit_on_select: bool = False,
 ) -> None:
     dialog_key = f"{select_key}_dialog"
 
@@ -217,6 +228,8 @@ def _render_coach_compact_grid(
                 _toggle_delete_target(ds)
 
         on_pick = _on_delete_pick
+    elif goto_edit_on_select:
+        on_pick = _coach_pick_for_edit(select_key)
     else:
         on_pick = None
 
@@ -229,7 +242,7 @@ def _render_coach_compact_grid(
         on_pick=on_pick,
     )
 
-    if not copy_mode and not delete_mode:
+    if not copy_mode and not delete_mode and not goto_edit_on_select:
         open_dialog_if_requested(
             dialog_key,
             lambda ds: _render_coach_program_dialog(ds, prog_map),
@@ -243,8 +256,13 @@ def render_calendar(
     copy_mode: bool = False,
     delete_mode: bool = False,
     group_filter: str | None = None,
+    *,
+    goto_edit_on_select: bool = False,
 ) -> date | None:
-    return _render_calendar_impl(select_key, show_acwr, copy_mode, delete_mode, group_filter)
+    return _render_calendar_impl(
+        select_key, show_acwr, copy_mode, delete_mode, group_filter,
+        goto_edit_on_select=goto_edit_on_select,
+    )
 
 
 def _render_calendar_impl(
@@ -253,6 +271,8 @@ def _render_calendar_impl(
     copy_mode: bool,
     delete_mode: bool,
     group_filter: str | None = None,
+    *,
+    goto_edit_on_select: bool = False,
 ) -> date | None:
     if "cal_year" not in st.session_state:
         t = date.today()
@@ -335,11 +355,13 @@ def _render_calendar_impl(
             can_pick=(lambda ds, _p: ds in prog_map) if delete_mode else None,
             hide_past_days=not copy_mode and not delete_mode,
             day_priority=lambda ds, p: sync_status_priority(day_sync_status(prog_map.get(ds))),
+            goto_edit_on_select=goto_edit_on_select and not copy_mode and not delete_mode,
         )
     else:
         _render_coach_compact_grid(
             select_key, year, month, prog_map,
             copy_mode, delete_mode, copy_source, copy_targets, delete_targets,
+            goto_edit_on_select=goto_edit_on_select and not copy_mode and not delete_mode,
         )
         selected = date.fromisoformat(st.session_state[select_key])
 
@@ -366,5 +388,10 @@ def _render_calendar_impl(
             f"已選 **{len(targets)}** 日：{target_text}"
         )
     else:
-        st.caption(f"已選日期：**{st.session_state[select_key]}** · 格內色條=課表摘要 · 點格查看詳情")
+        hint = (
+            f"已選日期：**{st.session_state[select_key]}** · 點選日期直接編輯課表"
+            if goto_edit_on_select
+            else f"已選日期：**{st.session_state[select_key]}** · 格內色條=課表摘要 · 點格查看詳情"
+        )
+        st.caption(hint)
     return selected

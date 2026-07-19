@@ -263,6 +263,57 @@ def render_coach_day_editor(selected: date) -> None:
         train_type = "訓練"
         title = group_display_label(edit_group)
 
+    def _render_save_actions() -> None:
+        st.markdown('<div class="ka-prog-save-marker"></div>', unsafe_allow_html=True)
+        s1, s2 = st.columns([2, 1])
+        with s1:
+            if st.button(
+                "💾 儲存課表",
+                type="primary",
+                use_container_width=True,
+                key=f"psave_{sk}_{edit_group}",
+            ):
+                _save_program(
+                    sk=sk,
+                    edit_group=edit_group,
+                    day_status=day_status,
+                    prog=prog,
+                    workout_text=workout_text,
+                    tips=tips,
+                    rpe=rpe,
+                    train_type=train_type,
+                    title=title,
+                )
+                st.success(f"已儲存 {short_group_label(edit_group)} 課表")
+                st.rerun()
+        with s2:
+            if st.button("📁 存範本", use_container_width=True, key=f"ptpl_{sk}_{edit_group}"):
+                tpl_vol = (
+                    parse_workout_volume(workout_text)
+                    if day_status == "訓練"
+                    else {"total_meters": 0, "total_reps": 0}
+                )
+                save_as_template({
+                    "type": train_type,
+                    "title": title,
+                    "group": edit_group,
+                    "sets": 0,
+                    "reps": tpl_vol["total_reps"],
+                    "dist": tpl_vol["total_meters"],
+                    "rest": workout_text,
+                    "duration": int(round(estimate_workout_minutes(tpl_vol["total_meters"], train_type))),
+                    "rpe": rpe,
+                    "tips": tips,
+                    "phase": "",
+                    "week_theme": "",
+                    "target_seconds": 0,
+                    "exercises": "",
+                    "tech_focus": "",
+                    "field_event": "",
+                    "attempts": 0,
+                })
+                st.success("已存範本")
+
     if day_status == "訓練":
         render_workout_history_compare(
             selected,
@@ -301,6 +352,9 @@ def render_coach_day_editor(selected: date) -> None:
                 f"📊 總跑量 **{run_vol['total_meters']:,} m** · "
                 f"**{run_vol['total_reps']}** 趟 · 約 **{est:.0f}** 分鐘"
             )
+        _render_save_actions()
+    else:
+        _render_save_actions()
 
     if train_type not in ("比賽", "休息"):
         run_vol = parse_workout_volume(workout_text)
@@ -311,56 +365,6 @@ def render_coach_day_editor(selected: date) -> None:
         )
         vol_note = f"{run_vol['total_meters']:,} m" if run_vol["total_meters"] else "—"
         st.caption(f"加權負荷 {load} · 跑量 {vol_note} · ACWR {acwr_v}")
-
-    st.markdown('<div class="ka-prog-save-marker"></div>', unsafe_allow_html=True)
-    s1, s2 = st.columns([2, 1])
-    with s1:
-        if st.button(
-            "💾 儲存課表",
-            type="primary",
-            use_container_width=True,
-            key=f"psave_{sk}_{edit_group}",
-        ):
-            _save_program(
-                sk=sk,
-                edit_group=edit_group,
-                day_status=day_status,
-                prog=prog,
-                workout_text=workout_text,
-                tips=tips,
-                rpe=rpe,
-                train_type=train_type,
-                title=title,
-            )
-            st.success(f"已儲存 {short_group_label(edit_group)} 課表")
-            st.rerun()
-    with s2:
-        if st.button("📁 存範本", use_container_width=True, key=f"ptpl_{sk}_{edit_group}"):
-            tpl_vol = (
-                parse_workout_volume(workout_text)
-                if day_status == "訓練"
-                else {"total_meters": 0, "total_reps": 0}
-            )
-            save_as_template({
-                "type": train_type,
-                "title": title,
-                "group": edit_group,
-                "sets": 0,
-                "reps": tpl_vol["total_reps"],
-                "dist": tpl_vol["total_meters"],
-                "rest": workout_text,
-                "duration": int(round(estimate_workout_minutes(tpl_vol["total_meters"], train_type))),
-                "rpe": rpe,
-                "tips": tips,
-                "phase": "",
-                "week_theme": "",
-                "target_seconds": 0,
-                "exercises": "",
-                "tech_focus": "",
-                "field_event": "",
-                "attempts": 0,
-            })
-            st.success("已存範本")
 
     st.markdown('<div class="ka-prog-more-marker"></div>', unsafe_allow_html=True)
     m1, m2 = st.columns(2)

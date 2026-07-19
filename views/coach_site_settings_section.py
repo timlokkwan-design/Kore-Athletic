@@ -17,7 +17,20 @@ def render_coach_site_settings() -> None:
     with st.form("site_content_form"):
         club_intro = st.text_area("本會簡介", value=content.get("club_intro", ""), height=100)
         coach_intro = st.text_area("教練簡介", value=content.get("coach_intro", ""), height=100)
-        contact_info = st.text_area("聯絡方式", value=content.get("contact_info", ""), height=80)
+        contact_info = st.text_area("聯絡方式（公開顯示）", value=content.get("contact_info", ""), height=80)
+        instagram_handle = st.text_input(
+            "Instagram 帳號（公開）",
+            value=content.get("instagram_handle", ""),
+            placeholder="koreathletic_kwansir",
+            help="訪客／學員可見，用於查詢及忘記密碼等，不含電話。",
+        )
+        st.markdown("**教練專用（不公開）**")
+        coach_whatsapp = st.text_input(
+            "教練 WhatsApp（僅後台使用）",
+            value=content.get("coach_whatsapp", ""),
+            placeholder="85291234567",
+            help="不會顯示給訪客。填寫後，核准學員時可一鍵開 WhatsApp **通知該學員**（連結指向學員電話，不暴露教練號碼）。",
+        )
         join_process = st.text_area("如何加入（步驟）", value=content.get("join_process", ""), height=100)
 
         st.markdown("**公開設定**")
@@ -31,6 +44,8 @@ def render_coach_site_settings() -> None:
                 "club_intro": club_intro,
                 "coach_intro": coach_intro,
                 "contact_info": contact_info,
+                "instagram_handle": instagram_handle,
+                "coach_whatsapp": coach_whatsapp,
                 "join_process": join_process,
                 "public_pb_leaderboard": public_pb,
             })

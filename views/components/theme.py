@@ -49,9 +49,10 @@ def _sync_theme_from_toggle() -> None:
     st.session_state.ui_theme = "dark" if st.session_state.get("ui_theme_toggle") else "light"
 
 
-def inject_global_css(theme: str | None = None) -> None:
+def inject_global_css(theme: str | None = None, *, role_class: str = "") -> None:
     t = theme or get_ui_theme()
     c = DARK if t == "dark" else LIGHT
+    role_attr = f"ka-role-{role_class}" if role_class else ""
 
     dark_stat_override = ""
     if t == "dark":
@@ -67,7 +68,7 @@ def inject_global_css(theme: str | None = None) -> None:
         <style>
         section.main .block-container {{
             background-color: {c["main_bg"]};
-            padding-top: 1rem;
+            padding-top: 0.65rem;
         }}
         section.main {{
             background-color: {c["main_bg"]};
@@ -241,14 +242,55 @@ def inject_global_css(theme: str | None = None) -> None:
         @media (max-width: 768px) {{
             .ka-stat-grid {{ grid-template-columns: repeat(2, 1fr); }}
             section.main .block-container {{
-                padding-left: 0.75rem;
-                padding-right: 0.75rem;
+                padding-left: 0.65rem;
+                padding-right: 0.65rem;
+                max-width: 100% !important;
             }}
-            div[data-testid="stRadio"] label p {{
-                font-size: 0.85rem !important;
+            .ka-page-title {{ font-size: 1.25rem !important; }}
+            div[data-testid="stTextInput"] input,
+            div[data-testid="stNumberInput"] input,
+            div[data-testid="stTextArea"] textarea {{
+                min-height: 44px !important;
+                font-size: 16px !important;
+            }}
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) {{
+                position: sticky;
+                top: 0;
+                z-index: 99;
+                background: {c["main_bg"]};
+                padding-bottom: 0.35rem;
+                margin-bottom: 0.25rem;
+                border-bottom: 1px solid {c["border"]};
+            }}
+            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) button {{
+                min-height: 2.75rem !important;
+                font-weight: 700 !important;
+            }}
+            div[data-testid="stVerticalBlock"]:has(.ka-checkin-bar-marker) {{
+                background: {COLOR_WARN_BG};
+                border: 1px solid {COLOR_WARN_BORDER};
+                border-radius: {RADIUS};
+                padding: 0.65rem 0.75rem;
+                margin-bottom: 0.75rem;
+            }}
+            .ka-pwa-hint {{
+                background: #eff6ff;
+                border: 1px solid #93c5fd;
+                border-radius: {RADIUS};
+                padding: 0.65rem 0.85rem;
+                margin-bottom: 0.75rem;
+                font-size: 0.85rem;
+                color: #1e3a8a;
+            }}
+            .ka-pwa-hint-detail {{
+                display: block;
+                margin-top: 0.25rem;
+                font-size: 0.78rem;
+                color: #475569;
             }}
         }}
         </style>
+        <div class="{role_attr}" style="display:none"></div>
         """,
         unsafe_allow_html=True,
     )

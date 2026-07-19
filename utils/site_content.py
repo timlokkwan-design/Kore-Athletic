@@ -21,9 +21,14 @@ DEFAULT_SITE_CONTENT: dict = {
         "重視技術基礎、訓練紀律與比賽心理，"
         "並按學員專項及程度制訂個人化計劃。"
     ),
-    "contact_info": "查詢及報名：請聯絡關教練（電話/WhatsApp 由教練更新）",
+    "contact_info": (
+        "查詢及報名：請透過 Instagram 私信本會，或提交「註冊新學員」申請。"
+        "教練會在系統內審批，不公開電話號碼。"
+    ),
+    "instagram_handle": "koreathletic_kwansir",
+    "coach_whatsapp": "",
     "join_process": (
-        "1. 點選上方「註冊」填寫資料\n"
+        "1. 點選選單（☰）→「註冊新學員」填寫資料\n"
         "2. 等待教練審批\n"
         "3. 核准後使用帳號登入學生平台"
     ),
@@ -84,7 +89,10 @@ def save_site_content(data: dict) -> None:
     current["public_pb_leaderboard"] = bool(
         data.get("public_pb_leaderboard", current["public_pb_leaderboard"])
     )
-    for key in ("club_intro", "coach_intro", "contact_info", "join_process"):
+    for key in (
+        "club_intro", "coach_intro", "contact_info", "join_process",
+        "coach_whatsapp", "instagram_handle",
+    ):
         current[key] = safe_str(current.get(key))
 
     from utils.supabase_config import is_supabase_enabled

@@ -6,16 +6,16 @@ import plotly.express as px
 import streamlit as st
 
 from utils.auth import refresh_current_user, require_student_or_stop
-from utils.config import EVENTS, INJURY_OPTIONS
+from utils.config import EVENTS
 from utils.data_store import (
-    append_training_log, filter_logs, get_program,
+    append_training_log, get_program,
     get_today_menu, get_wellness, get_attendance_record, load_attendance, mark_leave,
     submit_pending_record, submit_wellness, load_race_records, days_until_competition,
 )
 from utils.helpers import format_train_duration, needs_wind, parse_time, program_specs, safe_int, safe_str
-from views.components.avatar import render_person
 from views.components.checkin import render_student_checkin_bar
 from views.components.comp_registration import render_student_comp_registration
+from views.components.mobile_nav import render_student_quick_dock
 from views.components.schedule import render_student_schedule_calendar
 from views.components.student_profile import render_student_profile
 from views.components.theme import render_page_header, render_stat_cards
@@ -38,8 +38,8 @@ def render_student_view(section: str) -> None:
         "學生平台",
         f"{user['name']} · 專項：{specialty}",
     )
-    if section != "出席":
-        render_student_checkin_bar(user["name"], specialty=user.get("specialty", ""))
+    render_student_quick_dock(section)
+    render_student_checkin_bar(user["name"], specialty=user.get("specialty", ""))
     st.divider()
 
     if section == "訓練時間表":
@@ -93,55 +93,47 @@ def _tab_training_log(user: dict) -> None:
     st.info(f"今日課表：**{program_specs(prog) or prog.get('type')}** · 專項：**{specialty}**")
 
     lap_times, lap_reactions = [], []
-    with st.expander("① 訓練數據", expanded=True):
-        if train_type in ("間歇跑", "節奏跑", "恢復跑"):
-            n_laps = st.number_input("組數", 1, 20, 1, key="n_lap_rows")
-            for i in range(int(n_laps)):
-                c1, c2 = st.columns([1, 2])
-                c1.markdown(f"**第 {i+1} 組**")
-                c2a, c2b = st.columns(2)
-                lap_times.append(c2a.number_input(f"時間(秒)", 0.0, 999.0, 0.0, step=0.1, key=f"lap_t_{i}"))
-                lap_reactions.append(c2b.text_input(f"身體反應", key=f"lap_r_{i}"))
-            if specialty == "短跑":
-                st.number_input("反應時 (選填)", step=0.001, key="log_reaction")
-            if specialty == "中長跑":
-                st.number_input("最後 200m 衝刺時間", key="log_kick")
-        elif specialty == "跨欄":
+    if train_type in ("間歇跑", "節奏跑", "恢復跑"):
+        if "n_lap_rows" not in st.session_state:
+            st.session_state.n_lap_rows = 1
+        n_laps = int(st.session_state.n_lap_rows)
+        st.caption(f"共 {n_laps} 組")
+        for i in range(n_laps):
+            with st.container(border=True):
+                st.markdown(f"**第 {i + 1} 組**")
+                c1, c2 = st.columns(2)
+                lap_times.append(
+                    c1.number_input("時間(秒)", 0.0, 999.0, 0.0, step=0.1, key=f"lap_t_{i}")
+                )
+                lap_reactions.append(c2.text_input("身體反應", key=f"lap_r_{i}"))
+        if st.button("＋ 新增一組", key="add_lap_row"):
+            st.session_state.n_lap_rows = n_laps + 1
+            st.rerun()
+        if specialty == "短跑":
+            st.number_input("反應時 (選填)", step=0.001, key="log_reaction")
+        if specialty == "中長跑":
+            st.number_input("最後 200m 衝刺時間", key="log_kick")
+    elif specialty == "跨欄":
             st.number_input("欄間節奏(秒)", step=0.01, key="hurdle_rhythm")
             st.number_input("順欄數", 1, 20, 10, key="hurdle_count")
-        elif train_type == "比賽" or specialty in ("田項", "田賽"):
-            st.text_input("最佳試跳/投", key="field_best")
-            st.number_input("試次數", 1, 20, 6, key="field_attempts")
-        elif train_type == "肌力課":
-            st.text_input("完成組數 x 次數", placeholder="深蹲 4x8", key="strength_note")
-        elif train_type == "技術課":
-            st.text_area("技術練習重點回報", key="tech_notes")
-        else:
-            st.caption("依今日課表類型填寫。")
+    elif train_type == "比賽" or specialty in ("田項", "田賽"):
+        st.text_input("最佳試跳/投", key="field_best")
+        st.number_input("試次數", 1, 20, 6, key="field_attempts")
+    elif train_type == "肌力課":
+        st.text_input("完成組數 x 次數", placeholder="深蹲 4x8", key="strength_note")
+    elif train_type == "技術課":
+        st.text_area("技術練習重點回報", key="tech_notes")
+    else:
+        st.caption("依今日課表類型填寫。")
 
-    with st.expander("② 強度與備註", expanded=True):
-        rpe = st.slider("RPE 自覺強度 (1-10)", 1, 10, 5)
-        duration = st.number_input("訓練時長 (分鐘) — Foster 負荷", 1, 300, int(prog.get("duration") or 60))
-        remark = st.text_area("總結備註")
+    rpe = st.slider("RPE 自覺強度 (1-10)", 1, 10, 5)
+    duration = st.number_input("訓練時長 (分鐘) — Foster 負荷", 1, 300, int(prog.get("duration") or 60))
+    remark = st.text_area("總結備註", height=80)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("#### 分圈計時器")
-        timer_laps = render_lap_timer()
-        if timer_laps and train_type in ("間歇跑", "節奏跑", "恢復跑"):
-            st.caption("計時器記圈結果可填入上方表單")
-
-    with col2:
-        st.markdown("#### 即時回報流")
-        logs = filter_logs(date.today().isoformat())
-        if logs.empty:
-            st.caption("今日尚無回報")
-        for _, log in logs.head(15).iterrows():
-            render_person(
-                str(log["student_name"]),
-                subtitle=f"{log.get('laps_text') or log.get('remark', '')} · RPE{log['rpe']} · Load{log.get('load', '')}",
-                size=32,
-            )
+    st.markdown("#### 分圈計時器")
+    timer_laps = render_lap_timer()
+    if timer_laps and train_type in ("間歇跑", "節奏跑", "恢復跑"):
+        st.caption("計時器記圈結果可填入上方表單")
 
     if st.button("提交訓練數據", type="primary", use_container_width=True):
         valid = [t for t in lap_times if t > 0]
@@ -219,7 +211,7 @@ def _tab_pb(name: str) -> None:
 
 def _tab_attendance(name: str) -> None:
     st.markdown("#### 📝 請假登記")
-    st.caption("簽到請使用頁面上方「訓練簽到」區；簽到後會記錄於「訓練時間表」月曆。")
+    st.caption("簽到請使用上方「立即簽到」；簽到後會記錄於「訓練時間表」月曆。")
     rec = get_attendance_record(name, date.today().isoformat())
     if rec and rec.get("status") == "present":
         dur = safe_int(rec.get("duration_minutes"), 0)

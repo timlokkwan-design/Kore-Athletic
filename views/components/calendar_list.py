@@ -20,6 +20,11 @@ def _select_list_date(select_key: str, ds: str) -> None:
     st.session_state[select_key] = ds
 
 
+def _select_list_date_coach_edit(select_key: str, ds: str) -> None:
+    st.session_state[select_key] = ds
+    st.session_state["coach_prog_screen"] = "edit"
+
+
 def _toggle_list_pick(pick_key: str, ds: str) -> None:
     picks_list = list(st.session_state.get(pick_key, []))
     if ds in picks_list:
@@ -121,6 +126,7 @@ def _render_list_day_row(
     can_pick: Callable[[str, dict | None], bool] | None,
     empty_label: str,
     today: date,
+    goto_edit_on_select: bool = False,
 ) -> None:
     prog = prog_map.get(ds)
     title, detail, type_label, bg = describe_day(ds, prog)
@@ -206,7 +212,7 @@ def _render_list_day_row(
         " ",
         key=f"list_sel_{select_key}_{ds}",
         use_container_width=True,
-        on_click=_select_list_date,
+        on_click=_select_list_date_coach_edit if goto_edit_on_select else _select_list_date,
         args=(select_key, ds),
     )
 
@@ -225,6 +231,7 @@ def render_month_day_list(
     can_pick: Callable[[str, dict | None], bool] | None = None,
     hide_past_days: bool = False,
     day_priority: Callable[[str, dict | None], int] | None = None,
+    goto_edit_on_select: bool = False,
 ) -> date:
     """
     Vertical list of days in month.
@@ -264,6 +271,7 @@ def render_month_day_list(
             can_pick=can_pick,
             empty_label=empty_label,
             today=today,
+            goto_edit_on_select=goto_edit_on_select,
         )
 
     use_hide = hide_past_days and not pick_mode and year == today.year and month == today.month

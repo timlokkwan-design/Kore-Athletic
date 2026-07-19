@@ -397,7 +397,7 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
 
     prog_map = build_student_prog_map(programs, student_specialty)
 
-    view_mode = render_view_mode_toggle("student_sched")
+    view_mode = render_view_mode_toggle("student_sched", default_mode="list")
     if view_mode == "list":
         _render_student_schedule_list(year, month, prog_map, student_specialty, att_map, today)
         st.markdown("---")
