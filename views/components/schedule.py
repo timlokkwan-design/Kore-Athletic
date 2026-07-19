@@ -23,16 +23,18 @@ from utils.data_store import (
     build_student_prog_map,
 )
 from utils.helpers import (
+    app_today,
     calendar_cell_bg,
     calendar_cell_tone,
     format_timetable_date,
     format_train_duration,
+    is_workout_content_unlocked,
     normalize_date_str,
     program_specs,
     resolve_venue,
     safe_int,
     safe_str,
-    workout_detail,
+    student_visible_workout_detail,
 )
 from views.components.calendar_fullcalendar import (
     build_student_fullcalendar_events,
@@ -127,23 +129,23 @@ def _render_day_detail_content(
     time_text, venue = _time_venue_text(prog)
     att = get_attendance_record(student_name, selected) if student_name else None
     att_line = _attendance_line(att)
-    is_future = sel_d > today
+    unlocked = reveal_all_content or is_workout_content_unlocked(sel_d, as_of=today)
 
     if sel_d < today:
         st.caption("ℹ️ 過往訓練")
-    elif is_future and not reveal_all_content:
-        st.caption("ℹ️ 未到訓練日 — 僅顯示時間與地點")
+    elif not unlocked:
+        st.caption("ℹ️ 未到訓練日 — 僅顯示時間與地點（跑案於當日 00:00 香港時間開放）")
 
-    if is_future and not reveal_all_content:
+    if not unlocked:
         tp = normalize_train_type(safe_str(prog.get("type")))
         label = "比賽" if tp == "比賽" else "訓練"
         st.markdown(f"**{label}**")
         st.markdown(f"🕐 **{time_text}**")
         st.markdown(f"📍 **{venue}**")
-        st.info("跑案內容於訓練當日開放，請當日再查看。")
+        st.info("跑案內容於訓練當日 **00:00（香港時間）** 開放，請到當日再查看。")
         return
 
-    detail = workout_detail(prog)
+    detail = student_visible_workout_detail(prog, sel_d, reveal_all=reveal_all_content)
 
     if detail:
         st.markdown("**跑案內容**")
@@ -393,8 +395,8 @@ def render_student_schedule_calendar(
     reveal_all_content: bool = False,
     heading_caption: str | None = None,
 ) -> None:
-    """Month calendar; full content today only (unless reveal_all_content for coach)."""
-    today = date.today()
+    """Month calendar; full 跑案 from training day 00:00 HKT (unless reveal_all for coach)."""
+    today = app_today()
     today_str = today.isoformat()
     year_key = f"{key_prefix}_year"
     month_key = f"{key_prefix}_month"
@@ -427,7 +429,11 @@ def render_student_schedule_calendar(
         st.caption(
             f"顯示 **全體組員** 及 **{mapped}** · "
             f"🔵 藍色=訓練 · 🔴 紅色=比賽 · 點選查看時間與地點"
-            + ("（教練可查看完整跑案）" if reveal_all_content else "（跑案內容於訓練當日開放）")
+            + (
+                "（教練可查看完整跑案）"
+                if reveal_all_content
+                else "（跑案內容於訓練當日 00:00 香港時間開放）"
+            )
         )
 
     programs = get_programs_for_month(year, month)
