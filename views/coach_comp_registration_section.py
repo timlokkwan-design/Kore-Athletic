@@ -150,44 +150,48 @@ def render_coach_comp_registration() -> None:
         count = comp.get("registration_count", 0)
         status = registration_status(comp, today=today)
         status_label = registration_status_label(status)
+        # Only auto-expand the next pending-deadline meet (or first with roster) —
+        # expanding every form on mobile made content look "empty" under the dock.
+        auto_open = (status == "pending_deadline" and next_comp and next_comp["id"] == comp["id"]) or (
+            count > 0 and status == "open"
+        )
         with st.expander(
             f"{comp['name']} · {comp['date']} · 報名 {count} 人 · {status_label}",
-            expanded=(status == "pending_deadline" and count >= 0) or count > 0,
+            expanded=auto_open,
         ):
-            c1, c2 = st.columns(2)
-            with c1:
-                edit_name = st.text_input("比賽名稱", comp["name"], key=f"comp_name_{comp['id']}")
-                edit_date = st.date_input(
-                    "比賽日期",
-                    value=date.fromisoformat(comp["date"]) if comp["date"] else date.today(),
-                    key=f"comp_date_{comp['id']}",
-                )
-                edit_location = st.text_input("地點", comp["location"], key=f"comp_loc_{comp['id']}")
-                edit_events = st.multiselect(
-                    "開放報名項目",
-                    EVENTS,
-                    default=comp["events"],
-                    key=f"comp_events_{comp['id']}",
-                )
-            with c2:
-                existing_deadline = _parse_deadline(comp.get("deadline") or "")
-                set_deadline = st.checkbox(
-                    "已設定報名截止日期（學生方可報名）",
-                    value=existing_deadline is not None,
-                    key=f"comp_set_deadline_{comp['id']}",
-                )
-                edit_deadline = st.date_input(
-                    "報名截止",
-                    value=existing_deadline or date.today(),
-                    key=f"comp_deadline_{comp['id']}",
-                    disabled=not set_deadline,
-                )
-                if status == "pending_deadline":
-                    st.caption("尚未填寫截止日 → 學生暫未能報名。填寫並儲存後即開放。")
-                elif status == "closed":
-                    st.caption("已過截止日 → 學生不能再報名。可為下一個比賽設定截止日以開放報名。")
-                edit_link = st.text_input("比賽連結", comp.get("link", ""), key=f"comp_link_{comp['id']}")
-                edit_notes = st.text_area("須知 / 備註", comp.get("notes", ""), key=f"comp_notes_{comp['id']}")
+            st.markdown(f"**報名狀態：** {status_label}")
+            if status == "pending_deadline":
+                st.caption("尚未填寫截止日 → 學生暫未能報名。填寫並儲存後即開放。")
+            elif status == "closed":
+                st.caption("已過截止日 → 學生不能再報名。可為下一個比賽設定截止日以開放報名。")
+
+            edit_name = st.text_input("比賽名稱", comp["name"], key=f"comp_name_{comp['id']}")
+            edit_date = st.date_input(
+                "比賽日期",
+                value=date.fromisoformat(comp["date"]) if comp["date"] else date.today(),
+                key=f"comp_date_{comp['id']}",
+            )
+            edit_location = st.text_input("地點", comp["location"], key=f"comp_loc_{comp['id']}")
+            edit_events = st.multiselect(
+                "開放報名項目",
+                EVENTS,
+                default=comp["events"],
+                key=f"comp_events_{comp['id']}",
+            )
+            existing_deadline = _parse_deadline(comp.get("deadline") or "")
+            set_deadline = st.checkbox(
+                "已設定報名截止日期（學生方可報名）",
+                value=existing_deadline is not None,
+                key=f"comp_set_deadline_{comp['id']}",
+            )
+            edit_deadline = st.date_input(
+                "報名截止",
+                value=existing_deadline or date.today(),
+                key=f"comp_deadline_{comp['id']}",
+                disabled=not set_deadline,
+            )
+            edit_link = st.text_input("比賽連結", comp.get("link", ""), key=f"comp_link_{comp['id']}")
+            edit_notes = st.text_area("須知 / 備註", comp.get("notes", ""), key=f"comp_notes_{comp['id']}")
             edit_published = st.checkbox(
                 "發布至學生平台",
                 value=comp["published"],
@@ -249,3 +253,6 @@ def render_coach_comp_registration() -> None:
 
             if comp.get("link"):
                 st.markdown(f"🔗 [比賽連結]({comp['link']})")
+
+    # Space so last expander content is not hidden under the fixed dock
+    st.markdown('<div style="height:5rem"></div>', unsafe_allow_html=True)

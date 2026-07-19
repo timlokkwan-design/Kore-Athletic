@@ -41,6 +41,66 @@ def render_visitor_sidebar_nav(
     return st.session_state[session_key]
 
 
+def _pin_innermost_dock_host() -> None:
+    """Mark only the innermost vertical block that holds the dock.
+
+    Broad CSS :has(.ka-bottom-tabbar-marker) would also match the page root and
+    position:fixed the whole coach/student view — expanders then look empty.
+    """
+    try:
+        st.html(
+            """
+            <script>
+            (function () {
+              function pinDock() {
+                document.querySelectorAll('.ka-bottom-dock-host').forEach(function (el) {
+                  el.classList.remove('ka-bottom-dock-host');
+                });
+                var markers = document.querySelectorAll(
+                  '.ka-bottom-tabbar-marker, .ka-student-dock-marker, .ka-coach-dock-marker'
+                );
+                markers.forEach(function (marker) {
+                  var node = marker;
+                  var best = null;
+                  while (node && node !== document.body) {
+                    if (
+                      node.getAttribute &&
+                      node.getAttribute('data-testid') === 'stVerticalBlock'
+                    ) {
+                      best = node; // keep walking so the deepest match wins last-assign… 
+                    }
+                    node = node.parentElement;
+                  }
+                  // Re-walk for the deepest (innermost) vertical block
+                  node = marker;
+                  var deepest = null;
+                  while (node && node !== document.body) {
+                    if (
+                      node.getAttribute &&
+                      node.getAttribute('data-testid') === 'stVerticalBlock'
+                    ) {
+                      deepest = node;
+                      break; // first upward hit is the innermost
+                    }
+                    node = node.parentElement;
+                  }
+                  if (deepest) deepest.classList.add('ka-bottom-dock-host');
+                });
+              }
+              pinDock();
+              setTimeout(pinDock, 50);
+              setTimeout(pinDock, 250);
+            })();
+            </script>
+            """,
+            unsafe_allow_javascript=True,
+        )
+    except TypeError:
+        pass
+    except Exception:
+        pass
+
+
 def _render_bottom_tabbar(
     *,
     marker_class: str,
@@ -55,62 +115,32 @@ def _render_bottom_tabbar(
     items: (icon, short_label, section_value)
     active_aliases: map dock section → other sections that should also light up the tile
     """
-    # Reinforce layout every render (Streamlit mobile CSS can wrap columns).
-    # Applies to BOTH student (.ka-student-dock-marker) and coach (.ka-coach-dock-marker).
     st.markdown(
         """
         <style>
-        @media (max-width: 768px) {
-          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
-          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
-          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"],
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            width: 100% !important;
-            gap: 0.18rem !important;
-          }
-          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
-          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
-          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div,
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div,
-          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="column"],
-          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stColumn"],
-          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="column"],
-          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stColumn"],
-          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="column"],
-          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stColumn"] {
-            flex: 1 1 0 !important;
-            min-width: 0 !important;
-            width: auto !important;
-            max-width: none !important;
-          }
+        .ka-bottom-dock-host [data-testid="stHorizontalBlock"] {
+          display: flex !important;
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+          width: 100% !important;
+          gap: 0.18rem !important;
         }
-        @media (min-width: 769px) {
-          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
-          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
-          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"],
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-          }
-          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
-          div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
-          div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div,
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
-          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div {
-            flex: 1 1 0 !important;
-            min-width: 0 !important;
-          }
+        .ka-bottom-dock-host [data-testid="stHorizontalBlock"] > div,
+        .ka-bottom-dock-host [data-testid="column"],
+        .ka-bottom-dock-host [data-testid="stColumn"] {
+          flex: 1 1 0 !important;
+          min-width: 0 !important;
+          width: auto !important;
+          max-width: none !important;
+        }
+        @keyframes ka-tab-pop {
+          0%   { transform: scale(0.86); filter: brightness(1.15); }
+          55%  { transform: scale(1.06); }
+          100% { transform: scale(1); }
+        }
+        .ka-bottom-dock-host button[kind="primary"],
+        .ka-bottom-dock-host button[data-testid="baseButton-primary"] {
+          animation: ka-tab-pop 0.3s ease !important;
         }
         </style>
         """,
@@ -118,25 +148,6 @@ def _render_bottom_tabbar(
     )
 
     flash = st.session_state.get("_bottom_tab_flash")
-    if flash:
-        st.markdown(
-            """
-            <style>
-            @keyframes ka-tab-pop {
-              0%   { transform: scale(0.86); filter: brightness(1.15); }
-              55%  { transform: scale(1.06); }
-              100% { transform: scale(1); }
-            }
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button[kind="primary"],
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button[data-testid="baseButton-primary"],
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button[kind="primary"],
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button[data-testid="baseButton-primary"] {
-              animation: ka-tab-pop 0.3s ease !important;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
 
     with st.container():
         st.markdown(f'<div class="{marker_class}" aria-hidden="true"></div>', unsafe_allow_html=True)
@@ -155,6 +166,8 @@ def _render_bottom_tabbar(
                     on_click=_set_section_with_feedback,
                     args=(session_key, section),
                 )
+
+    _pin_innermost_dock_host()
 
     if flash is not None:
         st.session_state.pop("_bottom_tab_flash", None)
