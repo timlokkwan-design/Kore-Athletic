@@ -643,7 +643,8 @@ def save_program_time_venue(
     *,
     group: str,
 ) -> None:
-    from utils.config import group_display_label
+    from utils.config import SCHEDULE_LINKED_GROUPS, group_display_label
+    from utils.helpers import has_time_venue
 
     target = normalize_date_str(date_str)
     grp = normalize_group(group)
@@ -653,23 +654,35 @@ def save_program_time_venue(
         "venue": safe_str(venue),
         "venue_other": safe_str(venue_other) if venue == "其他" else "",
     }
-    day_programs = get_programs_for_date(target)
-    match = [p for p in day_programs if normalize_group(safe_str(p.get("group"))) == grp]
-    if not match:
-        prog = schedule_placeholder_program(target, group=grp)
-        prog.update(updates)
-        prog["title"] = group_display_label(grp)
-        save_program(prog)
-        return
-    for prog in match:
-        merged = dict(prog)
-        merged.update(updates)
-        tp = normalize_train_type(safe_str(merged.get("type")))
-        if tp == "休息":
-            merged["type"] = "待排課"
-        if not safe_str(merged.get("title")) or merged.get("title") == "時間已定":
-            merged["title"] = group_display_label(grp)
-        save_program(merged)
+
+    def _upsert_group(g: str) -> None:
+        g_norm = normalize_group(g)
+        day_programs = get_programs_for_date(target)
+        match = [p for p in day_programs if normalize_group(safe_str(p.get("group"))) == g_norm]
+        if not match:
+            prog = schedule_placeholder_program(target, group=g_norm)
+            prog.update(updates)
+            prog["title"] = group_display_label(g_norm)
+            save_program(prog)
+            return
+        for prog in match:
+            merged = dict(prog)
+            merged.update(updates)
+            tp = normalize_train_type(safe_str(merged.get("type")))
+            if tp == "休息":
+                merged["type"] = "待排課"
+            if not safe_str(merged.get("title")) or merged.get("title") == "時間已定":
+                merged["title"] = group_display_label(g_norm)
+            save_program(merged)
+
+    _upsert_group(grp)
+    for linked in SCHEDULE_LINKED_GROUPS:
+        lg = normalize_group(linked)
+        if lg == grp:
+            continue
+        existing = get_group_program_for_date(target, lg)
+        if not existing or not has_time_venue(existing):
+            _upsert_group(lg)
 
 
 def _program_exists_on_date(date_str: str) -> bool:
@@ -2127,6 +2140,40 @@ def _seed_programs() -> None:
         save_programs(pd.concat([existing, pd.DataFrame(rows)], ignore_index=True))
 
 
+def ensure_testing_coach() -> None:
+    """Ensure TESTING AC coach account (T / T) exists."""
+    from utils.passwords import hash_password
+
+    users = load_users()
+    if not users.empty and (users["username"].astype(str) == "T").any():
+        return
+    row = {col: None for col in USER_COLUMNS}
+    row.update({
+        "username": "T",
+        "name": "TESTING AC",
+        "role": "coach",
+        "password": hash_password("T"),
+        "specialty": "",
+        "phone": "",
+        "child_name": "",
+        "school": "",
+        "emergency_contact": "",
+        "emergency_phone": "",
+        "health": "",
+        "gender": "",
+        "name_en": "",
+        "birth_year": "",
+        "birth_date": "",
+        "hkaaa_id": "",
+        "hk_permanent_resident": "",
+        "avatar": "",
+    })
+    if users.empty:
+        save_users(pd.DataFrame([row]))
+    else:
+        save_users(pd.concat([users, pd.DataFrame([row])], ignore_index=True))
+
+
 def ensure_coach_exists() -> None:
     """Ensure at least one coach account exists (production-safe)."""
     from utils.cloud_deploy import default_coach_credentials
@@ -2169,6 +2216,7 @@ def init_sample_data() -> None:
 
     if is_production() or is_supabase_enabled():
         ensure_coach_exists()
+        ensure_testing_coach()
         if _read(PERIOD_FILE, PERIOD_COLUMNS).empty:
             save_periodization(DEFAULT_PERIODIZATION)
         return
@@ -2182,6 +2230,9 @@ def init_sample_data() -> None:
 
         seed_users = [
             {"username": "ktll", "name": "關添樂", "role": "coach", "password": "170330",
+             "specialty": "", "phone": "", "child_name": "", "school": "", "gender": "",
+             "emergency_contact": "", "emergency_phone": "", "health": ""},
+            {"username": "T", "name": "TESTING AC", "role": "coach", "password": "T",
              "specialty": "", "phone": "", "child_name": "", "school": "", "gender": "",
              "emergency_contact": "", "emergency_phone": "", "health": ""},
             {"username": "student1", "name": "陳大文", "role": "student", "password": "123",
@@ -2219,6 +2270,8 @@ def init_sample_data() -> None:
              "submitted_at": pd.Timestamp.now().isoformat(timespec="seconds"), "remark": "", "laps_text": "64.5s"},
         ]))
         _seed_acwr_history()
+
+    ensure_testing_coach()
 
 
 def _seed_acwr_history() -> None:

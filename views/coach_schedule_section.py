@@ -257,7 +257,8 @@ def _render_sched_editor_ui() -> None:
         )
         st.session_state["sched_flash"] = (
             "success",
-            f"已儲存 {format_timetable_date(sk)} · {group_display_label(edit_group)}",
+            f"已儲存 {format_timetable_date(sk)} · {group_display_label(edit_group)}"
+            f"（已同步短跑＋中長跑課表時段）",
         )
         st.rerun()
 

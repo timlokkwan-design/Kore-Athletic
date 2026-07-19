@@ -6,7 +6,7 @@ from utils.grades import U18_GRADES, WIND_EVENTS
 
 APP_NAME = "KORE ATHLETIC"
 APP_SUBTITLE = "關添樂教練田徑訓練與成績管理系統"
-APP_VERSION = "2026.07.19-91"
+APP_VERSION = "2026.07.19-92"
 COACH_NAME = "關添樂"
 EMAIL_DOMAIN = "@kore-athletic.app"
 
@@ -46,6 +46,9 @@ CALENDAR_BG_REST = "#D5DCE5"
 CALENDAR_BG_EMPTY = "#E8EDF3"
 
 GROUP_OPTIONS = ["短跑組", "中長跑組", "跨欄組", "全體組員"]
+
+# 訓練時間表：儲存任一組時間時，自動確保兩組皆有課表時段
+SCHEDULE_LINKED_GROUPS = ["短跑組", "中長跑組"]
 
 GROUP_DISPLAY = {
     "短跑組": "短跑",
