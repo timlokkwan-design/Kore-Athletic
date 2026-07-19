@@ -9,6 +9,7 @@ from typing import Callable
 
 import streamlit as st
 
+from views.components.calendar_grid import calendar_week_row, render_weekday_header_row
 from views.components.calendar_theme import compact_tone_styles, get_calendar_palette, inject_calendar_theme
 
 
@@ -213,16 +214,17 @@ def render_seven_column_row(
     padded = list(cells[:7])
     while len(padded) < 7:
         padded.append(SquareCell(key_id=f"empty_{len(padded)}", label="", empty=True))
-    cols = st.columns(7)
-    for i, (col, cell) in enumerate(zip(cols, padded)):
-        with col:
-            args = click_args_fn(cell) if on_click and click_args_fn and not cell.empty else ()
-            _render_square_cell(
-                cell=cell,
-                button_key=f"{key_prefix}_r{row_idx}_c{i}_{cell.key_id}",
-                on_click=on_click if not cell.empty and not cell.disabled else None,
-                click_args=args,
-            )
+    with calendar_week_row(key=f"{key_prefix}_week_{row_idx}"):
+        cols = st.columns(7)
+        for i, (col, cell) in enumerate(zip(cols, padded)):
+            with col:
+                args = click_args_fn(cell) if on_click and click_args_fn and not cell.empty else ()
+                _render_square_cell(
+                    cell=cell,
+                    button_key=f"{key_prefix}_r{row_idx}_c{i}_{cell.key_id}",
+                    on_click=on_click if not cell.empty and not cell.disabled else None,
+                    click_args=args,
+                )
 
 
 def render_compact_month_grid(
@@ -236,12 +238,7 @@ def render_compact_month_grid(
     firstweekday: int = 6,
 ) -> None:
     inject_compact_calendar_css()
-
-    weekdays = ["日", "一", "二", "三", "四", "五", "六"]
-    hdr = st.columns(7)
-    for i, w in enumerate(weekdays):
-        with hdr[i]:
-            st.markdown(f"<div class='ka-ccell-hdr'><p>{w}</p></div>", unsafe_allow_html=True)
+    render_weekday_header_row(marker_class="ka-ccell-hdr")
 
     cal = calendar.Calendar(firstweekday=firstweekday)
     selected = st.session_state.get(select_key, "")

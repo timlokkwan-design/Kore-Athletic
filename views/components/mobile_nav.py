@@ -173,7 +173,40 @@ def _find_innermost_vertical_block_js() -> str:
                 document.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function (row) {
                   if (row.closest('.ka-bottom-dock-host') || row.closest('.ka-top-subtab-host')) return;
                   if (row.classList && row.classList.contains('ka-inline-row-forced')) return;
+                  if (row.classList && row.classList.contains('ka-cal-grid-forced')) return;
+                  if (row.querySelector && (
+                    row.querySelector('.ka-tt-marker')
+                    || row.querySelector('.ka-tt-empty')
+                    || row.querySelector('.ka-tt-hdr')
+                    || row.querySelector('.ka-ccell-marker')
+                    || row.querySelector('.ka-ccell-hdr')
+                    || row.querySelector('.ka-cal-week-marker')
+                  )) return;
                   clearRowInline(row);
+                });
+              }
+              function pinCalendarGrids() {
+                // Force 7-across calendar weeks even when Streamlit stacks columns.
+                document.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function (row) {
+                  var n = row.children ? row.children.length : 0;
+                  if (n < 5 || n > 8) return;
+                  var hit = row.querySelector(
+                    '.ka-tt-marker, .ka-tt-empty, .ka-tt-hdr, .ka-ccell-marker, .ka-ccell-hdr, .ka-cal-week-marker'
+                  );
+                  if (!hit) return;
+                  row.classList.add('ka-cal-grid-forced');
+                  row.style.setProperty('display', 'grid', 'important');
+                  row.style.setProperty('grid-template-columns', 'repeat(7, minmax(0, 1fr))', 'important');
+                  row.style.setProperty('flex-wrap', 'nowrap', 'important');
+                  row.style.setProperty('width', '100%', 'important');
+                  row.style.setProperty('max-width', '100%', 'important');
+                  Array.prototype.forEach.call(row.children, function (col) {
+                    if (!col || !col.style) return;
+                    col.style.setProperty('min-width', '0', 'important');
+                    col.style.setProperty('max-width', 'none', 'important');
+                    col.style.setProperty('width', 'auto', 'important');
+                    col.style.setProperty('flex', 'unset', 'important');
+                  });
                 });
               }
               function findChromeRow(marker) {
@@ -347,6 +380,8 @@ def _pin_innermost_dock_host() -> None:
                 }});
                 // Month nav / view toggles / paired action buttons — one row on mobile
                 pinInlineChrome();
+                // Calendar weeks: keep 日–六 / day cells side-by-side on phones
+                pinCalendarGrids();
                 placeTopHost();
                 unlockScroll();
               }}
