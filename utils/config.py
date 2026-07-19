@@ -6,7 +6,7 @@ from utils.grades import U18_GRADES, WIND_EVENTS
 
 APP_NAME = "KORE ATHLETIC"
 APP_SUBTITLE = "關添樂教練田徑訓練與成績管理系統"
-APP_VERSION = "2026.07.19-103"
+APP_VERSION = "2026.07.19-118"
 COACH_NAME = "關添樂"
 EMAIL_DOMAIN = "@kore-athletic.app"
 
@@ -111,6 +111,22 @@ EVENTS = [
     "鉛球", "鐵餅", "標槍", "鏈球",
 ]
 FIELD_EVENTS = ["跳遠", "三級跳", "跳高", "撐竿跳", "鉛球", "鐵餅", "標槍", "鏈球"]
+
+# 香港青少年分齡田徑賽 (五) — 已成功報名名單（預填）
+YOUTH_AGE_GROUP_V_REGISTRATIONS: list[dict] = [
+    {"athlete_name": "黃均豪", "events": ["200米", "400米"]},
+    {"athlete_name": "楊展麒", "events": ["100米"]},
+    {"athlete_name": "林俊杰", "events": ["400米"]},
+    {"athlete_name": "陳文軒", "events": ["800米"]},
+    {"athlete_name": "陸連心", "events": ["400米"]},
+    {"athlete_name": "蔡立珩", "events": ["100米"]},
+]
+YOUTH_AGE_GROUP_V_COMP = {
+    "name": "香港青少年分齡田徑賽 (五)",
+    "date": "2026-09-12",
+    "notes": "9月12–13日（星期六、日）",
+    "event": "100米,200米,400米,800米",
+}
 
 TECHNIQUE_LIB = [
     {"issue": "起跑反應慢", "fix": "加強聽令練習、爆發式深蹲跳"},
