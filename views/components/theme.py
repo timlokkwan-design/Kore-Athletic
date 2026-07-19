@@ -427,12 +427,22 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 color: {pwa_detail_style};
             }}
         }}
-        /* Hide decorative markers */
+        /* Markers must stay in DOM for :has() — do NOT use display:none (breaks mobile Safari matching) */
         .ka-bottom-tabbar-marker,
         .ka-student-dock-marker,
         .ka-coach-dock-marker,
         .ka-tab-tile {{
-            display: none !important;
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            margin: -1px !important;
+            overflow: hidden !important;
+            clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important;
+            border: 0 !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
         }}
         </style>
         <div class="{role_attr}" style="display:none"></div>
