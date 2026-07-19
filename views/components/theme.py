@@ -40,18 +40,63 @@ def get_ui_colors() -> dict[str, str]:
     return dict(DARK if get_ui_theme() == "dark" else LIGHT)
 
 
+def _set_ui_theme(theme: str) -> None:
+    theme = "dark" if theme == "dark" else "light"
+    st.session_state.ui_theme = theme
+    st.session_state.ui_theme_toggle = theme == "dark"
+
+
 def render_theme_toggle() -> None:
+    """Sidebar theme switch (kept for discoverability when menu is open)."""
     st.toggle(
-        "深色主內容區",
+        "夜光模式（主內容區）",
         value=get_ui_theme() == "dark",
         key="ui_theme_toggle",
-        help="切換主內容區深/淺色（側欄維持深色）",
+        help="開啟＝夜光／關閉＝日光（側欄維持深色）",
         on_change=_sync_theme_from_toggle,
     )
 
 
 def _sync_theme_from_toggle() -> None:
     st.session_state.ui_theme = "dark" if st.session_state.get("ui_theme_toggle") else "light"
+
+
+def render_theme_toggle_top() -> None:
+    """Fixed top-right 日光 / 夜光 controls — visible without opening the sidebar."""
+    dark = get_ui_theme() == "dark"
+
+    with st.container():
+        st.markdown('<div class="ka-theme-top-marker"></div>', unsafe_allow_html=True)
+        c1, c2 = st.columns(2, gap="small")
+        with c1:
+            if st.button(
+                "☀️ 日光",
+                key="ka_theme_light_btn",
+                use_container_width=True,
+                type="primary" if not dark else "secondary",
+                help="日光模式",
+            ):
+                _set_ui_theme("light")
+                st.rerun()
+        with c2:
+            if st.button(
+                "🌙 夜光",
+                key="ka_theme_dark_btn",
+                use_container_width=True,
+                type="primary" if dark else "secondary",
+                help="夜光模式",
+            ):
+                _set_ui_theme("dark")
+                st.rerun()
+
+    # Pin after marker exists in DOM (also re-pins dock/subtabs when present)
+    try:
+        from views.components.mobile_nav import _pin_innermost_dock_host
+
+        _pin_innermost_dock_host()
+    except Exception:
+        pass
+
 
 
 def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs) -> None:
@@ -450,7 +495,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 overflow: visible !important;
             }}
             /* Content blocks must never be fixed (that freezes scroll) */
-            section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
+            section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host):not(.ka-theme-top-host) {{
                 position: static !important;
                 height: auto !important;
                 max-height: none !important;
@@ -557,7 +602,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             }}
         }}
         /* Fixed top sub-tabs — same tile style as bottom dock (all widths) */
-        section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
+        section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host):not(.ka-theme-top-host) {{
             position: static !important;
             height: auto !important;
             max-height: none !important;
@@ -566,6 +611,53 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         section.main .block-container.ka-has-top-subtabs,
         section.main .block-container {{
             padding-top: var(--ka-top-pad, 0.65rem) !important;
+        }}
+        /* Top-right day / night theme toggle */
+        .ka-theme-top-host {{
+            position: fixed !important;
+            top: 0.4rem !important;
+            right: 0.4rem !important;
+            left: auto !important;
+            bottom: auto !important;
+            z-index: 2147483644 !important;
+            width: min(11.5rem, calc(100vw - 5.5rem)) !important;
+            max-width: 11.5rem !important;
+            height: auto !important;
+            max-height: 3.6rem !important;
+            margin: 0 !important;
+            padding: 0.2rem !important;
+            background: {c["main_bg"]} !important;
+            border: 1px solid {c["border"]} !important;
+            border-radius: 10px !important;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14) !important;
+            pointer-events: auto !important;
+            overflow: visible !important;
+        }}
+        .ka-theme-top-host [data-testid="stHorizontalBlock"] {{
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 0.2rem !important;
+            width: 100% !important;
+            margin: 0 !important;
+        }}
+        .ka-theme-top-host [data-testid="stHorizontalBlock"] > div,
+        .ka-theme-top-host [data-testid="column"],
+        .ka-theme-top-host [data-testid="stColumn"] {{
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            width: auto !important;
+        }}
+        .ka-theme-top-host button {{
+            min-height: 2.35rem !important;
+            width: 100% !important;
+            font-size: 0.72rem !important;
+            font-weight: 700 !important;
+            border-radius: 8px !important;
+            padding: 0.2rem 0.25rem !important;
+            white-space: nowrap !important;
+            box-shadow: none !important;
         }}
         .ka-top-subtab-host {{
             position: fixed !important;
