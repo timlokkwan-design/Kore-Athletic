@@ -25,7 +25,11 @@ from views.analysis_view import render_analysis
 from views.auth_view import render_auth_view
 from views.coach_view import COACH_NAV_CATEGORIES, COACH_SECTIONS, render_coach_view
 from views.components.brand import LOGO_PATH, logo_exists, render_brand_header, render_sidebar_brand
-from views.components.coach_pending_alert import maybe_show_coach_pending_popup, render_coach_pending_sidebar
+from views.components.coach_pending_alert import (
+    maybe_show_coach_pending_popup,
+    render_coach_pending_mobile_banner,
+    render_coach_pending_sidebar,
+)
 from views.components.sidebar_nav import render_nav_categories, render_top_nav
 from views.components.pwa import inject_pwa_head, render_pwa_install_hint
 from views.components.mobile_nav import render_visitor_sidebar_nav
@@ -188,7 +192,10 @@ def main() -> None:
         render_pwa_install_hint()
 
     if role == "coach":
+        # Popup first (covers login / new pending); banner stays visible on phone
+        # even after "稍後處理", since the sidebar is collapsed by default.
         maybe_show_coach_pending_popup()
+        render_coach_pending_mobile_banner()
 
     visitor_public_pages = ("訪客專區", "登入", "註冊新學員")
     if is_pb_public():

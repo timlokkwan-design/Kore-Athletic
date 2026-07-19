@@ -287,6 +287,21 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         .ka-sidebar-pending-list strong {{
             font-weight: 800;
         }}
+        .ka-pending-mobile-banner {{
+            {sidebar_pending_style}
+            border-radius: {RADIUS};
+            padding: 0.75rem 0.85rem;
+            margin: 0 0 0.65rem 0;
+        }}
+        .ka-pending-mobile-banner-title {{
+            font-size: 0.95rem;
+            font-weight: 800;
+            margin-bottom: 0.2rem;
+        }}
+        .ka-pending-mobile-banner-detail {{
+            font-size: 0.82rem;
+            opacity: 0.95;
+        }}
         {dark_stat_override}
         @media (max-width: 768px) {{
             .ka-stat-grid {{ grid-template-columns: repeat(2, 1fr); }}
@@ -296,6 +311,12 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 max-width: 100% !important;
             }}
             .ka-page-title {{ font-size: 1.25rem !important; }}
+            .ka-pending-mobile-banner {{
+                position: sticky;
+                top: 0;
+                z-index: 20;
+                box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+            }}
             div[data-testid="stTextInput"] input,
             div[data-testid="stNumberInput"] input,
             div[data-testid="stTextArea"] textarea {{
