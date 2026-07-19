@@ -8,6 +8,7 @@ import streamlit as st
 from utils.data_store import (
     add_schedule_competition,
     delete_competition,
+    ensure_season_competition_schedule,
     get_competition_schedule,
     get_competitions,
 )
@@ -42,7 +43,11 @@ def _render_schedule_list(comps: list[dict], *, show_delete: bool = False) -> No
         left, right = st.columns([5, 1] if show_delete else [1])
         with left:
             st.markdown(f"**{name}**")
-            st.caption(when + (f" · {loc}" if loc else ""))
+            notes = safe_str(comp.get("notes"))
+            detail = when + (f" · {loc}" if loc else "")
+            if notes and notes not in ("賽事預告",):
+                detail = f"{notes} · {detail}" if when else notes
+            st.caption(detail)
         if show_delete:
             with right:
                 if st.button("刪除", key=f"comp_sched_del_{comp.get('id')}", use_container_width=True):
@@ -52,6 +57,7 @@ def _render_schedule_list(comps: list[dict], *, show_delete: bool = False) -> No
 
 
 def render_coach_competition_schedule() -> None:
+    ensure_season_competition_schedule()
     st.markdown("#### 賽事時間表")
     st.caption("輸入比賽日期與名稱；學生平台「賽事時間表」會顯示賽事預告。")
 
@@ -82,6 +88,7 @@ def render_coach_competition_schedule() -> None:
 
 
 def render_student_competition_schedule() -> None:
+    ensure_season_competition_schedule()
     st.markdown("#### 賽事時間表")
     st.markdown("##### 賽事預告")
     st.caption("教練公布的比賽日期，方便你知道幾時有比賽。")
