@@ -353,7 +353,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 overflow: visible !important;
             }}
             /* Content blocks must never be fixed (that freezes scroll) */
-            section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host) {{
+            section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
                 position: static !important;
                 height: auto !important;
                 max-height: none !important;
@@ -448,10 +448,68 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 color: {pwa_detail_style};
             }}
         }}
+        /* Sticky top sub-tabs (比賽：時間表／報名表／管理) — all widths */
+        section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
+            position: static !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+        }}
+        .ka-top-subtab-host {{
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 100 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            height: auto !important;
+            max-height: 5.5rem !important;
+            margin: 0 0 0.55rem 0 !important;
+            padding: 0.35rem 0.25rem 0.4rem 0.25rem !important;
+            background: {c["main_bg"]} !important;
+            border-bottom: 1px solid {c["border"]} !important;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08) !important;
+            pointer-events: auto !important;
+            overflow: visible !important;
+        }}
+        .ka-top-subtab-host [data-testid="stHorizontalBlock"] {{
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: stretch !important;
+            justify-content: space-between !important;
+            gap: 0.2rem !important;
+            width: 100% !important;
+            margin: 0 !important;
+        }}
+        .ka-top-subtab-host [data-testid="stHorizontalBlock"] > div,
+        .ka-top-subtab-host [data-testid="column"],
+        .ka-top-subtab-host [data-testid="stColumn"] {{
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            width: auto !important;
+        }}
+        .ka-top-subtab-host button {{
+            min-height: 2.85rem !important;
+            width: 100% !important;
+            white-space: pre-line !important;
+            line-height: 1.1 !important;
+            font-size: 0.68rem !important;
+            font-weight: 700 !important;
+            border-radius: 10px !important;
+            padding: 0.22rem 0.1rem !important;
+            transition: transform 0.12s ease, filter 0.12s ease !important;
+            box-shadow: none !important;
+        }}
+        .ka-top-subtab-host button:active {{
+            transform: scale(0.88) !important;
+            filter: brightness(0.9) !important;
+        }}
         /* Markers stay in DOM; visually hidden */
         .ka-bottom-tabbar-marker,
         .ka-student-dock-marker,
         .ka-coach-dock-marker,
+        .ka-top-subtab-marker,
         .ka-tab-tile {{
             position: absolute !important;
             width: 1px !important;

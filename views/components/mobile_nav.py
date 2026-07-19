@@ -1,9 +1,15 @@
-"""Mobile-first navigation — Instagram-style bottom tab bars."""
+"""Mobile-first navigation — Instagram-style bottom / top tab bars."""
 from __future__ import annotations
 
 import time
 
 import streamlit as st
+
+# Competition cluster shown as sticky top sub-tabs when bottom「比賽」is active.
+COACH_COMP_SECTIONS = ("賽事時間表", "比賽報名表", "比賽管理")
+STUDENT_COMP_SECTIONS = ("賽事時間表", "比賽報名", "提交比賽成績")
+# Training cluster for coach bottom「課表」.
+COACH_TRAIN_SECTIONS = ("訓練時間表", "設定課表")
 
 
 def _set_main_page(session_key: str, page: str) -> None:
@@ -41,14 +47,42 @@ def render_visitor_sidebar_nav(
     return st.session_state[session_key]
 
 
+def _find_innermost_vertical_block_js() -> str:
+    """Shared JS snippet: from marker → nearest stVerticalBlock."""
+    return """
+              function findHost(marker) {
+                var node = marker.parentElement;
+                while (node && node !== document.body) {
+                  if (node.getAttribute && node.getAttribute('data-testid') === 'stVerticalBlock') {
+                    return node;
+                  }
+                  node = node.parentElement;
+                }
+                return null;
+              }
+              function isBadHost(el, maxH, minBtns, maxBtns) {
+                if (!el) return true;
+                var h = el.getBoundingClientRect().height;
+                var btns = el.querySelectorAll('button').length;
+                return h > maxH
+                  || el.querySelector('[data-testid="stExpander"]')
+                  || el.querySelector('[data-testid="stDataFrame"]')
+                  || el.querySelector('section.main')
+                  || btns < minBtns
+                  || btns > maxBtns;
+              }
+    """
+
+
 def _pin_innermost_dock_host() -> None:
     """Pin only a small dock-only block. Never fix the page root (locks scroll)."""
     try:
         st.html(
-            """
+            f"""
             <script>
-            (function () {
-              function unlockScroll() {
+            (function () {{
+              {_find_innermost_vertical_block_js()}
+              function unlockScroll() {{
                 var unlock = [
                   document.documentElement,
                   document.body,
@@ -57,64 +91,64 @@ def _pin_innermost_dock_host() -> None:
                   document.querySelector('section.main'),
                   document.querySelector('section.main .block-container')
                 ];
-                unlock.forEach(function (el) {
+                unlock.forEach(function (el) {{
                   if (!el || !el.style) return;
                   el.style.setProperty('overflow', 'visible', 'important');
                   el.style.setProperty('overflow-y', 'auto', 'important');
                   el.style.setProperty('height', 'auto', 'important');
                   el.style.setProperty('max-height', 'none', 'important');
-                  if (el.classList && el.classList.contains('ka-bottom-dock-host')) return;
+                  if (el.classList && (
+                    el.classList.contains('ka-bottom-dock-host')
+                    || el.classList.contains('ka-top-subtab-host')
+                  )) return;
                   // Never leave the page shell position:fixed
-                  if (el.style.position === 'fixed') {
+                  if (el.style.position === 'fixed') {{
                     el.style.setProperty('position', 'relative', 'important');
-                  }
-                });
-                // Strip mistaken host class from large blocks
-                document.querySelectorAll('.ka-bottom-dock-host').forEach(function (el) {
-                  var h = el.getBoundingClientRect().height;
-                  var bad = h > 180
-                    || el.querySelector('[data-testid="stExpander"]')
-                    || el.querySelector('[data-testid="stDataFrame"]')
-                    || el.querySelector('section.main')
-                    || (el.querySelectorAll('button').length > 8);
-                  if (bad) el.classList.remove('ka-bottom-dock-host');
-                });
-              }
+                  }}
+                }});
+                document.querySelectorAll('.ka-bottom-dock-host').forEach(function (el) {{
+                  if (isBadHost(el, 180, 2, 8)) el.classList.remove('ka-bottom-dock-host');
+                }});
+                document.querySelectorAll('.ka-top-subtab-host').forEach(function (el) {{
+                  if (isBadHost(el, 160, 2, 6)) el.classList.remove('ka-top-subtab-host');
+                }});
+              }}
 
-              function pinDock() {
+              function pinDock() {{
                 unlockScroll();
-                document.querySelectorAll('.ka-bottom-dock-host').forEach(function (el) {
+                document.querySelectorAll('.ka-bottom-dock-host').forEach(function (el) {{
                   el.classList.remove('ka-bottom-dock-host');
-                });
-                var markers = document.querySelectorAll('.ka-bottom-tabbar-marker');
-                markers.forEach(function (marker) {
-                  var node = marker.parentElement;
-                  var deepest = null;
-                  while (node && node !== document.body) {
-                    if (node.getAttribute && node.getAttribute('data-testid') === 'stVerticalBlock') {
-                      deepest = node;
-                      break;
-                    }
-                    node = node.parentElement;
-                  }
-                  if (!deepest) return;
-                  var h = deepest.getBoundingClientRect().height;
-                  var btns = deepest.querySelectorAll('button').length;
-                  var bad = h > 180
-                    || deepest.querySelector('[data-testid="stExpander"]')
-                    || deepest.querySelector('[data-testid="stDataFrame"]')
-                    || btns < 2
-                    || btns > 8;
-                  if (bad) return;
+                }});
+                document.querySelectorAll('.ka-bottom-tabbar-marker').forEach(function (marker) {{
+                  var deepest = findHost(marker);
+                  if (isBadHost(deepest, 180, 2, 8)) return;
                   deepest.classList.add('ka-bottom-dock-host');
-                });
+                }});
                 unlockScroll();
-              }
-              pinDock();
-              setTimeout(pinDock, 50);
-              setTimeout(pinDock, 200);
-              setTimeout(pinDock, 500);
-            })();
+              }}
+
+              function pinTopSubtabs() {{
+                unlockScroll();
+                document.querySelectorAll('.ka-top-subtab-host').forEach(function (el) {{
+                  el.classList.remove('ka-top-subtab-host');
+                }});
+                document.querySelectorAll('.ka-top-subtab-marker').forEach(function (marker) {{
+                  var deepest = findHost(marker);
+                  if (isBadHost(deepest, 160, 2, 6)) return;
+                  deepest.classList.add('ka-top-subtab-host');
+                }});
+                unlockScroll();
+              }}
+
+              function pinAll() {{
+                pinDock();
+                pinTopSubtabs();
+              }}
+              pinAll();
+              setTimeout(pinAll, 50);
+              setTimeout(pinAll, 200);
+              setTimeout(pinAll, 500);
+            }})();
             </script>
             """,
             unsafe_allow_javascript=True,
@@ -123,6 +157,111 @@ def _pin_innermost_dock_host() -> None:
         pass
     except Exception:
         pass
+
+
+def _render_top_subtabbar(
+    *,
+    items: list[tuple[str, str, str]],
+    current_section: str,
+    session_key: str,
+    key_prefix: str,
+) -> None:
+    """Sticky top sub-tabs — same horizontal tile style as the bottom dock.
+
+    items: (icon, short_label, section_value)
+    """
+    if current_section not in {s for _, _, s in items}:
+        return
+
+    st.markdown(
+        """
+        <style>
+        section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {
+          position: static !important;
+          height: auto !important;
+          max-height: none !important;
+          overflow: visible !important;
+        }
+        .ka-top-subtab-host [data-testid="stHorizontalBlock"] {
+          display: flex !important;
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+          width: 100% !important;
+          gap: 0.18rem !important;
+        }
+        .ka-top-subtab-host [data-testid="stHorizontalBlock"] > div,
+        .ka-top-subtab-host [data-testid="column"],
+        .ka-top-subtab-host [data-testid="stColumn"] {
+          flex: 1 1 0 !important;
+          min-width: 0 !important;
+          width: auto !important;
+          max-width: none !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    with st.container():
+        st.markdown(
+            '<div class="ka-top-subtab-marker" aria-hidden="true"></div>',
+            unsafe_allow_html=True,
+        )
+        cols = st.columns(len(items), gap="small")
+        for col, (icon, label, section) in zip(cols, items):
+            is_active = current_section == section
+            with col:
+                st.button(
+                    f"{icon}\n{label}",
+                    key=f"{key_prefix}_{section}",
+                    use_container_width=True,
+                    type="primary" if is_active else "secondary",
+                    on_click=_set_section_with_feedback,
+                    args=(session_key, section),
+                )
+
+    _pin_innermost_dock_host()
+
+
+def render_coach_top_subtabs(current_section: str) -> None:
+    """Top sub-tabs for coach 比賽事務 (and 訓練規劃 when on 課表)."""
+    if current_section in COACH_COMP_SECTIONS:
+        _render_top_subtabbar(
+            items=[
+                ("📅", "時間表", "賽事時間表"),
+                ("📋", "報名表", "比賽報名表"),
+                ("⚙️", "管理", "比賽管理"),
+            ],
+            current_section=current_section,
+            session_key="coach_section",
+            key_prefix="coach_top_comp",
+        )
+    elif current_section in COACH_TRAIN_SECTIONS:
+        _render_top_subtabbar(
+            items=[
+                ("📅", "時間表", "訓練時間表"),
+                ("✏️", "設定", "設定課表"),
+            ],
+            current_section=current_section,
+            session_key="coach_section",
+            key_prefix="coach_top_train",
+        )
+
+
+def render_student_top_subtabs(current_section: str) -> None:
+    """Top sub-tabs for student 比賽 cluster."""
+    if current_section not in STUDENT_COMP_SECTIONS:
+        return
+    _render_top_subtabbar(
+        items=[
+            ("📅", "時間表", "賽事時間表"),
+            ("📝", "報名", "比賽報名"),
+            ("🏁", "成績", "提交比賽成績"),
+        ],
+        current_section=current_section,
+        session_key="student_section",
+        key_prefix="stu_top_comp",
+    )
 
 
 def _render_bottom_tabbar(
@@ -152,7 +291,7 @@ def _render_bottom_tabbar(
           height: auto !important;
           max-height: none !important;
         }
-        section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host) {
+        section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {
           position: static !important;
           height: auto !important;
           max-height: none !important;
