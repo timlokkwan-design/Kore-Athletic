@@ -14,7 +14,6 @@ from utils.data_store import (
     get_programs_for_date,
     get_programs_for_month,
     has_schedule_slot,
-    load_periodization,
     save_program_time_venue,
 )
 from utils.helpers import (
@@ -255,12 +254,8 @@ def render_coach_schedule() -> None:
         kind, msg = flash
         (st.success if kind == "success" else st.error)(msg)
 
-    per = load_periodization()
-    c1, c2, c3 = st.columns(3)
-    c1.metric("訓練階段", per.get("global_phase", "—"))
-    c2.metric("本週主題", per.get("global_week_theme", "—"))
     countdown = days_until_competition()
-    c3.metric("校際賽倒數", f"{countdown} 天" if countdown is not None else "—")
+    st.metric("校際賽倒數", f"{countdown} 天" if countdown is not None else "—")
 
     if not pick_mode:
         st.caption("💡 選日期 → 填時間地點 → 儲存（全隊同步）")

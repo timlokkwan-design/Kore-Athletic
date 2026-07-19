@@ -10,13 +10,11 @@ from utils.config import (
     CALENDAR_GROUP_FILTERS,
     EVENTS,
     GROUP_OPTIONS,
-    PHASE_OPTIONS,
     SPECIALTY_OPTIONS,
     TAPER_DAYS,
     TECHNIQUE_LIB,
     VENUE_OPTIONS,
     WEEKDAY_OPTIONS,
-    WEEK_THEME_OPTIONS,
     default_program,
     group_display_label,
     normalize_train_type,
@@ -219,32 +217,21 @@ def render_coach_program() -> None:
         comp_date = date.fromisoformat(str(per["comp_target_date"]))
     except ValueError:
         comp_date = date.today()
-    with st.expander("⚙️ 週期化設定（階段 / 本週主題 / 賽事倒數）", expanded=False):
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            gp = st.selectbox(
-                "全局訓練階段",
-                PHASE_OPTIONS,
-                index=_select_index(PHASE_OPTIONS, per["global_phase"]),
-                key="prog_global_phase",
-            )
-        with c2:
-            gw = st.selectbox(
-                "本週主題",
-                WEEK_THEME_OPTIONS,
-                index=_select_index(WEEK_THEME_OPTIONS, per["global_week_theme"]),
-                key="prog_global_week",
-            )
-        with c3:
+
+    countdown = days_until_competition()
+    m1, m2 = st.columns([1, 2])
+    m1.metric("校際賽倒數", f"{countdown} 天" if countdown is not None else "—")
+    with m2:
+        with st.expander("⚙️ 賽事倒數設定", expanded=False):
             cd = st.date_input("校際賽倒數目標日", value=comp_date, key="prog_comp_date")
-        if st.button("儲存週期化設定", key="prog_save_period"):
-            save_periodization({
-                "global_phase": gp,
-                "global_week_theme": gw,
-                "comp_target_date": cd.isoformat(),
-            })
-            st.success("已儲存")
-            st.rerun()
+            if st.button("儲存賽事倒數", key="prog_save_period"):
+                save_periodization({
+                    "global_phase": per.get("global_phase", ""),
+                    "global_week_theme": per.get("global_week_theme", ""),
+                    "comp_target_date": cd.isoformat(),
+                })
+                st.success("已儲存賽事倒數")
+                st.rerun()
 
     copy_mode = st.session_state.get("copy_mode", False)
     delete_mode = st.session_state.get("delete_mode", False)
