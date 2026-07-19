@@ -113,7 +113,7 @@ def render_visitor_sidebar_nav(
 
 
 def _find_innermost_vertical_block_js() -> str:
-    """Shared JS snippet: from marker → nearest stVerticalBlock."""
+    """Shared JS snippet: from marker → nearest stVerticalBlock + row force."""
     return """
               function findHost(marker) {
                 var node = marker.parentElement;
@@ -125,12 +125,26 @@ def _find_innermost_vertical_block_js() -> str:
                 }
                 return null;
               }
-              function isBadHost(el, maxH, minBtns, maxBtns) {
+              function forceRowLayout(el) {
+                if (!el) return;
+                el.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function (row) {
+                  row.style.setProperty('display', 'flex', 'important');
+                  row.style.setProperty('flex-direction', 'row', 'important');
+                  row.style.setProperty('flex-wrap', 'nowrap', 'important');
+                  row.style.setProperty('width', '100%', 'important');
+                  row.style.setProperty('align-items', 'stretch', 'important');
+                  Array.prototype.forEach.call(row.children, function (col) {
+                    col.style.setProperty('flex', '1 1 0', 'important');
+                    col.style.setProperty('min-width', '0', 'important');
+                    col.style.setProperty('max-width', 'none', 'important');
+                    col.style.setProperty('width', 'auto', 'important');
+                  });
+                });
+              }
+              function isWrongHost(el, minBtns, maxBtns) {
                 if (!el) return true;
-                var h = el.getBoundingClientRect().height;
                 var btns = el.querySelectorAll('button').length;
-                return h > maxH
-                  || el.querySelector('[data-testid="stExpander"]')
+                return el.querySelector('[data-testid="stExpander"]')
                   || el.querySelector('[data-testid="stDataFrame"]')
                   || el.querySelector('section.main')
                   || btns < minBtns
@@ -140,7 +154,7 @@ def _find_innermost_vertical_block_js() -> str:
 
 
 def _pin_innermost_dock_host() -> None:
-    """Pin only small dock/subtab blocks. Never fix the page root (locks scroll)."""
+    """Pin only small dock/subtab blocks. Force horizontal row BEFORE height checks."""
     try:
         st.html(
             f"""
@@ -171,10 +185,12 @@ def _pin_innermost_dock_host() -> None:
                   }}
                 }});
                 document.querySelectorAll('.ka-bottom-dock-host').forEach(function (el) {{
-                  if (isBadHost(el, 200, 2, 10)) el.classList.remove('ka-bottom-dock-host');
+                  if (isWrongHost(el, 2, 10)) el.classList.remove('ka-bottom-dock-host');
+                  else forceRowLayout(el);
                 }});
                 document.querySelectorAll('.ka-top-subtab-host').forEach(function (el) {{
-                  if (isBadHost(el, 200, 2, 10)) el.classList.remove('ka-top-subtab-host');
+                  if (isWrongHost(el, 2, 10)) el.classList.remove('ka-top-subtab-host');
+                  else forceRowLayout(el);
                 }});
               }}
 
@@ -194,9 +210,13 @@ def _pin_innermost_dock_host() -> None:
                   if (bc) bc.classList.remove('ka-has-top-subtabs');
                   return;
                 }}
-                var top = headerBottom();
+                forceRowLayout(host);
+                var top = Math.max(headerBottom(), 2.75 * 16);
                 host.style.setProperty('top', top + 'px', 'important');
                 host.style.setProperty('position', 'fixed', 'important');
+                host.style.setProperty('left', '0', 'important');
+                host.style.setProperty('right', '0', 'important');
+                host.style.setProperty('z-index', '2147482900', 'important');
                 var h = host.getBoundingClientRect().height || 56;
                 document.documentElement.style.setProperty('--ka-top-pad', (top + h + 10) + 'px');
                 if (bc) bc.classList.add('ka-has-top-subtabs');
@@ -209,8 +229,10 @@ def _pin_innermost_dock_host() -> None:
                 }});
                 document.querySelectorAll('.ka-bottom-tabbar-marker').forEach(function (marker) {{
                   var deepest = findHost(marker);
-                  if (isBadHost(deepest, 200, 2, 10)) return;
+                  if (isWrongHost(deepest, 2, 10)) return;
+                  forceRowLayout(deepest);
                   deepest.classList.add('ka-bottom-dock-host');
+                  forceRowLayout(deepest);
                 }});
                 unlockScroll();
               }}
@@ -222,8 +244,11 @@ def _pin_innermost_dock_host() -> None:
                 }});
                 document.querySelectorAll('.ka-top-subtab-marker').forEach(function (marker) {{
                   var deepest = findHost(marker);
-                  if (isBadHost(deepest, 200, 2, 10)) return;
+                  // Do NOT reject on height — mobile columns stack first and look "tall".
+                  if (isWrongHost(deepest, 2, 10)) return;
+                  forceRowLayout(deepest);
                   deepest.classList.add('ka-top-subtab-host');
+                  forceRowLayout(deepest);
                 }});
                 placeTopHost();
                 unlockScroll();
@@ -248,6 +273,112 @@ def _pin_innermost_dock_host() -> None:
         )
     except TypeError:
         pass
+    except Exception:
+        pass
+
+
+def render_sidebar_menu_button() -> None:
+    """Always-visible control to open the left sidebar (coach + student + visitor)."""
+    st.markdown(
+        """
+        <style>
+        /* Keep Streamlit sidebar expand controls visible & tappable */
+        [data-testid="stSidebarCollapsedControl"],
+        [data-testid="collapsedControl"],
+        [data-testid="stSidebarCollapseButton"],
+        [data-testid="stExpandSidebarButton"] {
+          display: flex !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          pointer-events: auto !important;
+          z-index: 2147483646 !important;
+        }
+        [data-testid="stSidebarCollapsedControl"] button,
+        [data-testid="collapsedControl"] button,
+        [data-testid="stSidebarCollapseButton"] button,
+        [data-testid="stExpandSidebarButton"] button {
+          min-width: 2.75rem !important;
+          min-height: 2.75rem !important;
+          pointer-events: auto !important;
+        }
+        .ka-sidebar-open-btn {
+          position: fixed !important;
+          top: 0.55rem !important;
+          left: 0.45rem !important;
+          z-index: 2147483647 !important;
+          min-height: 2.6rem !important;
+          padding: 0.35rem 0.75rem !important;
+          border-radius: 10px !important;
+          border: 1px solid #cbd5e1 !important;
+          background: #ffffff !important;
+          color: #0f172a !important;
+          font-size: 0.85rem !important;
+          font-weight: 700 !important;
+          box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14) !important;
+          cursor: pointer !important;
+          pointer-events: auto !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    try:
+        st.html(
+            """
+            <button type="button" class="ka-sidebar-open-btn" id="ka-open-sidebar">☰ 選單</button>
+            <script>
+            (function () {
+              function findSidebarToggle() {
+                var sels = [
+                  '[data-testid="stSidebarCollapsedControl"] button',
+                  '[data-testid="collapsedControl"] button',
+                  '[data-testid="stSidebarCollapseButton"] button',
+                  '[data-testid="stExpandSidebarButton"] button',
+                  '[data-testid="stSidebarCollapsedControl"]',
+                  '[data-testid="collapsedControl"]',
+                  '[data-testid="stSidebarCollapseButton"]',
+                  'button[kind="headerNoPadding"]',
+                  'button[kind="header"]'
+                ];
+                for (var i = 0; i < sels.length; i++) {
+                  var el = document.querySelector(sels[i]);
+                  if (el) return el;
+                }
+                return null;
+              }
+              function openSidebar() {
+                var el = findSidebarToggle();
+                if (!el) return false;
+                el.click();
+                return true;
+              }
+              function bind() {
+                var btn = document.getElementById('ka-open-sidebar');
+                if (!btn || btn.dataset.bound === '1') return;
+                btn.dataset.bound = '1';
+                btn.addEventListener('click', function (e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (!openSidebar()) {
+                    // Retry shortly — Streamlit header may still be mounting
+                    setTimeout(openSidebar, 100);
+                    setTimeout(openSidebar, 400);
+                  }
+                });
+              }
+              bind();
+              setTimeout(bind, 200);
+              setTimeout(bind, 800);
+            })();
+            </script>
+            """,
+            unsafe_allow_javascript=True,
+        )
+    except TypeError:
+        st.markdown(
+            '<button type="button" class="ka-sidebar-open-btn" id="ka-open-sidebar">☰ 選單</button>',
+            unsafe_allow_html=True,
+        )
     except Exception:
         pass
 

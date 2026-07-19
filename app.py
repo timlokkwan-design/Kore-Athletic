@@ -32,7 +32,7 @@ from views.components.coach_pending_alert import (
 )
 from views.components.sidebar_nav import render_nav_categories, render_top_nav
 from views.components.pwa import inject_pwa_head, render_pwa_install_hint
-from views.components.mobile_nav import render_visitor_sidebar_nav
+from views.components.mobile_nav import render_visitor_sidebar_nav, render_sidebar_menu_button
 from views.components.theme import inject_global_css, render_breadcrumb, render_theme_toggle
 from views.leaderboard_view import render_leaderboard
 from views.parent_view import render_parent_view
@@ -130,6 +130,7 @@ def main() -> None:
     try_restore_nav_state(role)
 
     inject_global_css()
+    render_sidebar_menu_button()
     inject_pwa_head()
 
     if role == "visitor":
