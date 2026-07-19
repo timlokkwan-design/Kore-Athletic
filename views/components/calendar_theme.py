@@ -201,6 +201,13 @@ def build_calendar_theme_css(theme: str | None = None) -> str:
     t_comp = tones["competition"]
     t_rest = tones["rest"]
     t_picked = tones["picked"]
+    # Scope list overlay CSS away from page chrome (view toggle / month nav)
+    _lh = (
+        'div[data-testid="stVerticalBlock"]:has(.ka-tt-list-wrap)'
+        ":not(:has(.ka-cal-view-marker))"
+        ":not(:has(.ka-cal-month-nav-marker))"
+        ":not(:has(.ka-coach-screen-marker))"
+    )
 
     return f"""
 :root {{
@@ -344,56 +351,69 @@ div[data-testid="column"]:has(.ka-tt-empty) {{
 }}
 
 /* ── List / agenda cards ── */
-div[data-testid="stVerticalBlock"]:has(.ka-tt-list-wrap) {{
+{_lh} {{
     position: relative; margin-bottom: 0.45rem;
 }}
-div[data-testid="stVerticalBlock"]:has(.ka-tt-list-wrap) .ka-tt-list-card {{
+{_lh} .ka-tt-list-card {{
     background: {p['list_card_bg']};
     border: 1px solid {p['list_card_border']};
     border-radius: 12px; padding: 12px 14px;
     pointer-events: none;
     box-shadow: 0 1px 3px {p['list_shadow']};
 }}
-div[data-testid="stVerticalBlock"]:has(.ka-tt-list-wrap) .ka-tt-list-card.ka-tt-list-active {{
+{_lh} .ka-tt-list-card.ka-tt-list-active {{
     border-color: {ACCENT_SELECTED_RING};
     background: {selected_tint};
     box-shadow: inset 0 0 0 1px {ACCENT_SELECTED_RING}, 0 2px 6px rgba(21,101,192,0.12);
 }}
-div[data-testid="stVerticalBlock"]:has(.ka-tt-list-wrap) .ka-tt-list-head {{
+{_lh} .ka-tt-list-head {{
     display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
 }}
-div[data-testid="stVerticalBlock"]:has(.ka-tt-list-wrap) .ka-tt-list-date {{
+{_lh} .ka-tt-list-date {{
     font-size: 1.05rem; font-weight: 800; color: {p['text_primary']};
 }}
-div[data-testid="stVerticalBlock"]:has(.ka-tt-list-wrap) .ka-tt-list-wd {{
+{_lh} .ka-tt-list-wd {{
     font-size: 0.85rem; color: {p['text_secondary']}; font-weight: 700;
 }}
-div[data-testid="stVerticalBlock"]:has(.ka-tt-list-wrap) .ka-tt-list-today-tag {{
+{_lh} .ka-tt-list-today-tag {{
     font-size: 0.7rem; background: {ACCENT_TODAY}; color: {TEXT_ON_ACCENT};
     padding: 3px 9px; border-radius: 999px; font-weight: 800;
 }}
-div[data-testid="stVerticalBlock"]:has(.ka-tt-list-wrap) .ka-tt-list-chips {{
+{_lh} .ka-tt-list-chips {{
     display: flex; flex-direction: column; gap: 5px;
 }}
-div[data-testid="stVerticalBlock"]:has(.ka-tt-list-wrap) .ka-tt-chip {{
+{_lh} .ka-tt-chip {{
     display: block;
 }}
-{_chip_rules('div[data-testid="stVerticalBlock"]:has(.ka-tt-list-wrap)', tones, compact=False)}
+{_chip_rules(_lh, tones, compact=False)}
 
-div[data-testid="stVerticalBlock"]:has(.ka-tt-list-wrap) .ka-tt-list-rest {{
+{_lh} .ka-tt-list-rest {{
     font-size: 0.85rem; color: {p['text_muted']}; font-weight: 700;
     padding: 6px 10px; background: {p['cell_empty_bg']}; border-radius: 7px;
     border: 1px dashed {p['rest_border']};
 }}
-div[data-testid="stVerticalBlock"]:has(.ka-tt-list-wrap) .ka-tt-list-detail {{
+{_lh} .ka-tt-list-detail {{
     font-size: 0.78rem; color: {p['text_secondary']}; margin-top: 8px; font-weight: 600;
 }}
-div[data-testid="stVerticalBlock"]:has(.ka-tt-list-wrap) [data-testid="stButton"] {{
+{_lh} [data-testid="stButton"] {{
     position: absolute !important; inset: 0 !important; z-index: 2 !important;
 }}
-div[data-testid="stVerticalBlock"]:has(.ka-tt-list-wrap) [data-testid="stButton"] button {{
+{_lh} [data-testid="stButton"] button {{
     opacity: 0 !important; width: 100% !important; height: 100% !important;
     min-height: 3.75rem !important;
+}}
+
+/* View toggle — never hide 日曆 / 列表 labels */
+div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) [data-testid="stButton"] {{
+    position: static !important;
+    inset: auto !important;
+}}
+div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) button {{
+    opacity: 1 !important;
+    visibility: visible !important;
+    color: {p['text_primary']} !important;
+    font-weight: 800 !important;
+    min-height: 2.75rem !important;
 }}
 
 /* ── Pick-mode list rows (inline HTML) ── */

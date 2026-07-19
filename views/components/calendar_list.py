@@ -23,12 +23,20 @@ from views.components.calendar_ui import (
 
 
 def _select_list_date(select_key: str, ds: str) -> None:
+    from utils.coach_calendar_state import set_coach_calendar_date
+
     st.session_state[select_key] = ds
+    set_coach_calendar_date(ds)
 
 
 def _select_list_date_coach_edit(select_key: str, ds: str) -> None:
+    from utils.coach_calendar_state import set_coach_calendar_date
+
     st.session_state[select_key] = ds
+    set_coach_calendar_date(ds)
     st.session_state["coach_prog_screen"] = "edit"
+    st.session_state["copy_mode"] = False
+    st.session_state["delete_mode"] = False
 
 
 def _toggle_list_pick(pick_key: str, ds: str) -> None:
@@ -259,6 +267,7 @@ def render_month_day_list(
         past = [e for e in entries if e[2] < today]
         upcoming = [e for e in entries if e[2] >= today]
         if day_priority:
+            # Lower priority number first (need_workout=0), then today, then date
             upcoming.sort(
                 key=lambda e: (
                     day_priority(e[0], prog_map.get(e[0])),
@@ -266,8 +275,25 @@ def render_month_day_list(
                     e[2],
                 )
             )
+            past.sort(
+                key=lambda e: (
+                    day_priority(e[0], prog_map.get(e[0])),
+                    e[2],
+                )
+            )
         else:
             upcoming.sort(key=lambda e: (0 if e[2] == today else 1, e[2]))
+        # Pin「時間已定 · 待寫跑案」days to a labeled block at the top
+        if day_priority and upcoming:
+            pending = [e for e in upcoming if day_priority(e[0], prog_map.get(e[0])) == 0]
+            rest = [e for e in upcoming if day_priority(e[0], prog_map.get(e[0])) != 0]
+            if pending:
+                st.markdown("**⚠️ 時間已定 · 待寫跑案（點選即編輯）**")
+                for ds, day, d in pending:
+                    _row(ds, day, d)
+                if rest:
+                    st.caption("其他日子")
+                upcoming = rest
         for ds, day, d in upcoming:
             _row(ds, day, d)
         if past:
@@ -277,6 +303,15 @@ def render_month_day_list(
     else:
         if day_priority:
             entries.sort(key=lambda e: (day_priority(e[0], prog_map.get(e[0])), e[2]))
+            pending = [e for e in entries if day_priority(e[0], prog_map.get(e[0])) == 0]
+            rest = [e for e in entries if day_priority(e[0], prog_map.get(e[0])) != 0]
+            if pending:
+                st.markdown("**⚠️ 時間已定 · 待寫跑案（點選即編輯）**")
+                for ds, day, d in pending:
+                    _row(ds, day, d)
+                if rest:
+                    st.caption("其他日子")
+                entries = rest
         for ds, day, d in entries:
             _row(ds, day, d)
 

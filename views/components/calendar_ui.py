@@ -387,10 +387,19 @@ def _render_multi_view_toggle(
         }}
         div[data-testid="stHorizontalBlock"] {{ gap: 4px !important; }}
         button {{
-            min-height: 2.65rem !important;
-            font-weight: 700 !important;
+            min-height: 2.75rem !important;
+            font-weight: 800 !important;
             border-radius: 8px !important;
-            font-size: 0.82rem !important;
+            font-size: 0.88rem !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            color: {p['text_primary']} !important;
+        }}
+        /* Primary stays accent; secondary still needs readable label */
+        button[kind="secondary"] {{
+            background: {p['cell_bg']} !important;
+            border: 1px solid {p['list_card_border']} !important;
+            color: {p['text_primary']} !important;
         }}
         """,
     ):
