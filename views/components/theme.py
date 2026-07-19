@@ -238,7 +238,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             min-width: 2.75rem !important;
             min-height: 2.75rem !important;
         }}
-        hr {{ margin: 0.75rem 0; border-color: {c["border"]}; }}
+        hr {{ margin: 0.45rem 0; border-color: {c["border"]}; }}
         section.main [data-testid="stMarkdownContainer"] h1,
         section.main [data-testid="stMarkdownContainer"] h2,
         section.main [data-testid="stMarkdownContainer"] h3,
@@ -525,16 +525,11 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             .ka-stat-grid {{ grid-template-columns: repeat(2, 1fr); }}
             .ka-stat-grid.ka-stat-grid-3 {{
                 grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-                gap: 0.4rem !important;
+                gap: 0.35rem !important;
             }}
             .ka-stat-grid-3 .ka-stat-value {{ font-size: 0.98rem !important; }}
             .ka-stat-grid-3 .ka-stat-label {{ font-size: 0.62rem !important; }}
-            section.main .block-container {{
-                padding-left: 0.65rem;
-                padding-right: 0.65rem;
-                max-width: 100% !important;
-            }}
-            .ka-page-title {{ font-size: 1.25rem !important; }}
+            .ka-page-title {{ font-size: 1.2rem !important; }}
             .ka-pending-mobile-banner {{
                 position: sticky;
                 top: 0;
@@ -544,15 +539,87 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             div[data-testid="stTextInput"] input,
             div[data-testid="stNumberInput"] input,
             div[data-testid="stTextArea"] textarea {{
-                min-height: 44px !important;
+                min-height: 40px !important;
                 font-size: 16px !important;
             }}
+
+            /*
+             * Dense mobile layout — cut Streamlit's default vertical air
+             * across all pages (檢視／時間／設定／總覽…).
+             */
+            section.main [data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
+                gap: 0.28rem !important;
+            }}
+            section.main [data-testid="stElementContainer"] {{
+                margin-top: 0 !important;
+                margin-bottom: 0 !important;
+            }}
+            section.main [data-testid="stMarkdownContainer"] {{
+                margin-bottom: 0 !important;
+            }}
+            section.main [data-testid="stMarkdownContainer"] > * {{
+                margin-top: 0 !important;
+            }}
+            section.main [data-testid="stMarkdownContainer"] p {{
+                margin: 0 0 0.2rem 0 !important;
+                line-height: 1.35 !important;
+            }}
+            section.main [data-testid="stMarkdownContainer"] h1,
+            section.main [data-testid="stMarkdownContainer"] h2,
+            section.main [data-testid="stMarkdownContainer"] h3,
+            section.main [data-testid="stMarkdownContainer"] h4 {{
+                margin: 0.2rem 0 0.15rem 0 !important;
+                line-height: 1.25 !important;
+            }}
+            section.main [data-testid="stCaptionContainer"],
+            section.main [data-testid="stCaption"] {{
+                margin: 0 0 0.1rem 0 !important;
+                line-height: 1.3 !important;
+            }}
+            section.main [data-testid="stHeadingWithActionElements"],
+            section.main [data-testid="stHeader"] {{
+                margin: 0 0 0.15rem 0 !important;
+                padding: 0 !important;
+            }}
+            section.main [data-testid="stButton"] {{
+                margin: 0 !important;
+            }}
+            section.main [data-testid="stMetric"] {{
+                margin: 0 !important;
+                padding: 0.15rem 0 !important;
+            }}
+            section.main [data-testid="stAlert"] {{
+                margin: 0.15rem 0 !important;
+                padding: 0.4rem 0.55rem !important;
+            }}
+            section.main [data-testid="stWidgetLabel"] {{
+                margin-bottom: 0.05rem !important;
+                min-height: 0 !important;
+            }}
+            section.main [data-testid="stExpander"] {{
+                margin: 0.2rem 0 !important;
+            }}
+            section.main hr {{
+                margin: 0.4rem 0 !important;
+            }}
+            section.main div[data-testid="stDivider"] {{
+                margin: 0.35rem 0 !important;
+                padding: 0 !important;
+            }}
+            /* Chip / action strips — less outer chrome */
+            section.main [class*="st-key-"] {{
+                margin-top: 0.1rem !important;
+                margin-bottom: 0.25rem !important;
+            }}
+
             /* Instagram-style fixed bottom tab bar — ONE horizontal row.
                IMPORTANT: do NOT use :has(marker) on stVerticalBlock for position:fixed —
                that matches the whole page root and clips expander content. */
             section.main .block-container {{
-                padding-bottom: 7.25rem !important;
-                padding-top: var(--ka-top-pad, 0.65rem) !important;
+                padding-left: 0.5rem !important;
+                padding-right: 0.5rem !important;
+                padding-bottom: 6.4rem !important;
+                padding-top: var(--ka-top-pad, 0.4rem) !important;
                 height: auto !important;
                 max-height: none !important;
                 overflow-x: hidden !important;
@@ -586,7 +653,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 height: auto !important;
                 max-height: 7rem !important;
                 margin: 0 !important;
-                padding: 0.35rem 0.3rem calc(0.45rem + env(safe-area-inset-bottom, 0px)) 0.3rem !important;
+                padding: 0.25rem 0.25rem calc(0.35rem + env(safe-area-inset-bottom, 0px)) 0.25rem !important;
                 background: {c["main_bg"]} !important;
                 border-top: 1px solid {c["border"]} !important;
                 box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.10) !important;
@@ -696,7 +763,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             height: auto !important;
             max-height: 6.5rem !important;
             margin: 0 !important;
-            padding: 0.35rem 0.35rem 0.4rem 0.35rem !important;
+            padding: 0.22rem 0.3rem 0.28rem 0.3rem !important;
             background: {c["main_bg"]} !important;
             border-bottom: 1px solid {c["border"]} !important;
             box-shadow: 0 6px 16px rgba(15, 23, 42, 0.10) !important;

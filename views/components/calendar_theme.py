@@ -230,7 +230,7 @@ def build_calendar_theme_css(theme: str | None = None) -> str:
 
 /* ── Legend ── */
 div[data-testid="stVerticalBlock"]:has(.ka-cal-legend-marker) .ka-cal-legend {{
-    display: flex; flex-wrap: wrap; gap: 8px; margin: 0.35rem 0 0.75rem;
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 0.15rem 0 0.35rem;
 }}
 div[data-testid="stVerticalBlock"]:has(.ka-cal-legend-marker) .ka-cal-legend span {{
     font-size: 0.78rem; font-weight: 700; padding: 6px 12px;

@@ -27,6 +27,10 @@ def inject_coach_mobile_css() -> None:
                 max-width: 100% !important;
                 -webkit-overflow-scrolling: touch !important;
             }
+            /* Extra density on coach program / schedule screens */
+            section.main [data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {
+                gap: 0.26rem !important;
+            }
         }
         </style>
         """,
@@ -122,19 +126,19 @@ def force_button_row(
         {{
             background: {p['cell_empty_bg']};
             border: 1px solid {p['list_card_border']};
-            border-radius: 14px;
-            padding: 5px;
-            margin: 0.2rem 0 0.55rem;
+            border-radius: 12px;
+            padding: 3px;
+            margin: 0.08rem 0 0.28rem;
         }}
         """
         btn_css = """
         button {
-            min-height: 2.7rem !important;
+            min-height: 2.45rem !important;
             font-weight: 700 !important;
-            border-radius: 10px !important;
-            font-size: clamp(0.64rem, 2.7vw, 0.88rem) !important;
-            padding-left: 0.2rem !important;
-            padding-right: 0.2rem !important;
+            border-radius: 9px !important;
+            font-size: clamp(0.62rem, 2.6vw, 0.85rem) !important;
+            padding-left: 0.15rem !important;
+            padding-right: 0.15rem !important;
             white-space: nowrap !important;
         }
         """
@@ -149,7 +153,7 @@ def force_button_row(
                 flex-direction: row !important;
                 flex-wrap: nowrap !important;
                 align-items: stretch !important;
-                gap: 6px !important;
+                gap: 4px !important;
                 width: 100% !important;
                 max-width: 100% !important;
             }
