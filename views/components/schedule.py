@@ -36,7 +36,7 @@ from utils.helpers import (
 )
 from views.components.calendar_fullcalendar import (
     build_student_fullcalendar_events,
-    render_student_fullcalendar,
+    render_fullcalendar,
 )
 from views.components.calendar_compact import open_dialog_if_requested, render_compact_month_grid
 from views.components.calendar_ui import render_calendar_month_nav, render_student_schedule_view_toggle
@@ -106,6 +106,7 @@ def _render_day_detail_content(
     student_name: str = "",
     *,
     show_heading: bool = True,
+    reveal_all_content: bool = False,
 ) -> None:
     """Training detail body — used inline or inside st.dialog."""
     today_str = today.isoformat()
@@ -130,10 +131,10 @@ def _render_day_detail_content(
 
     if sel_d < today:
         st.caption("ℹ️ 過往訓練")
-    elif is_future:
+    elif is_future and not reveal_all_content:
         st.caption("ℹ️ 未到訓練日 — 僅顯示時間與地點")
 
-    if is_future:
+    if is_future and not reveal_all_content:
         tp = normalize_train_type(safe_str(prog.get("type")))
         label = "比賽" if tp == "比賽" else "訓練"
         st.markdown(f"**{label}**")
@@ -171,9 +172,17 @@ def _render_selected_day_detail(
     student_specialty: str,
     today: date,
     student_name: str = "",
+    *,
+    reveal_all_content: bool = False,
 ) -> None:
     _render_day_detail_content(
-        selected, prog_map, student_specialty, today, student_name, show_heading=True
+        selected,
+        prog_map,
+        student_specialty,
+        today,
+        student_name,
+        show_heading=True,
+        reveal_all_content=reveal_all_content,
     )
 
 
@@ -316,22 +325,24 @@ def _student_day_cell(
     return "—", "", "休息", "#f8fafc", str(d.day)
 
 
-def _student_sched_prev() -> None:
-    year = st.session_state.student_sched_year
-    month = st.session_state.student_sched_month
+def _student_sched_prev(key_prefix: str = "student_sched") -> None:
+    year = st.session_state[f"{key_prefix}_year"]
+    month = st.session_state[f"{key_prefix}_month"]
     if month == 1:
-        st.session_state.student_sched_month, st.session_state.student_sched_year = 12, year - 1
+        st.session_state[f"{key_prefix}_month"] = 12
+        st.session_state[f"{key_prefix}_year"] = year - 1
     else:
-        st.session_state.student_sched_month -= 1
+        st.session_state[f"{key_prefix}_month"] = month - 1
 
 
-def _student_sched_next() -> None:
-    year = st.session_state.student_sched_year
-    month = st.session_state.student_sched_month
+def _student_sched_next(key_prefix: str = "student_sched") -> None:
+    year = st.session_state[f"{key_prefix}_year"]
+    month = st.session_state[f"{key_prefix}_month"]
     if month == 12:
-        st.session_state.student_sched_month, st.session_state.student_sched_year = 1, year + 1
+        st.session_state[f"{key_prefix}_month"] = 1
+        st.session_state[f"{key_prefix}_year"] = year + 1
     else:
-        st.session_state.student_sched_month += 1
+        st.session_state[f"{key_prefix}_month"] = month + 1
 
 
 def _render_student_schedule_list(
@@ -341,86 +352,83 @@ def _render_student_schedule_list(
     student_specialty: str,
     att_map: dict[str, dict],
     today: date,
+    *,
+    key_prefix: str = "student_sched",
 ) -> None:
-    if "student_sched_selected" not in st.session_state:
-        st.session_state.student_sched_selected = today.isoformat()
+    select_key = f"{key_prefix}_selected"
+    if select_key not in st.session_state:
+        st.session_state[select_key] = today.isoformat()
 
     cal = calendar.Calendar(firstweekday=6)
     weeks = cal.monthdayscalendar(year, month)
-    wd_names = ["一", "二", "三", "四", "五", "六", "日"]
-    c = get_ui_colors()
-    accent = "#3b82f6" if get_ui_theme() == "dark" else "#1d4ed8"
-
     for week in weeks:
         for day in week:
             if day == 0:
                 continue
-            ds = f"{year}-{month:02d}-{day:02d}"
-            d = date.fromisoformat(ds)
-            title_line, detail_line, type_label, bg, _btn = _student_day_cell(
+            ds = date(year, month, day).isoformat()
+            title, detail, _tp, bg, _btn = _student_day_cell(
                 ds, prog_map, student_specialty, att_map, today
             )
-            wd_cn = wd_names[d.weekday()]
-            selected = st.session_state.get("student_sched_selected") == ds
-            border = f"2px solid {accent}" if selected else f"1px solid {c['border']}"
-
-            type_badge = (
-                f"<span style='background:{c['card_bg']};color:{c['text']};padding:2px 8px;"
-                f"border-radius:999px;font-size:12px;margin-left:8px;"
-                f"border:1px solid {c['border']};'>{type_label}</span>"
-                if type_label and type_label != "—" else ""
-            )
-            detail_html = (
-                f"<div style='font-size:13px;color:{c['muted']};margin-top:6px;'>{detail_line}</div>"
-                if detail_line else ""
-            )
-
-            label_col, btn_col = st.columns([5, 1])
-            with label_col:
+            c = get_ui_colors()
+            left, btn_col = st.columns([5.2, 1])
+            with left:
                 st.markdown(
-                    f"<div style='background:{bg};border:{border};border-radius:10px;"
-                    f"padding:12px 14px;margin-bottom:6px;'>"
-                    f"<div style='font-size:15px;font-weight:700;color:{c['text']};'>"
-                    f"{month}/{day:02d}（{wd_cn}）{type_badge}</div>"
-                    f"<div style='font-size:14px;font-weight:600;margin-top:4px;color:{c['text']};'>"
-                    f"{title_line}</div>"
-                    f"{detail_html}</div>",
+                    f"<div style='background:{bg};border:1px solid {c['border']};"
+                    f"border-radius:8px;padding:8px 10px;margin-bottom:6px;'>"
+                    f"<div style='font-weight:700;color:{c['text']};'>{day} · {title}</div>"
+                    f"<div style='font-size:12px;color:{c['muted']};'>{detail}</div></div>",
                     unsafe_allow_html=True,
                 )
             with btn_col:
-                if st.button("選", key=f"student_sched_list_{ds}", use_container_width=True):
-                    st.session_state.student_sched_selected = ds
+                if st.button("選", key=f"{key_prefix}_list_{ds}", use_container_width=True):
+                    st.session_state[select_key] = ds
                     st.rerun()
 
 
-def render_student_schedule_calendar(student_specialty: str = "", student_name: str = "") -> None:
-    """Month calendar; full content today only; time/venue for all training days."""
+def render_student_schedule_calendar(
+    student_specialty: str = "",
+    student_name: str = "",
+    *,
+    key_prefix: str = "student_sched",
+    reveal_all_content: bool = False,
+    heading_caption: str | None = None,
+) -> None:
+    """Month calendar; full content today only (unless reveal_all_content for coach)."""
     today = date.today()
     today_str = today.isoformat()
+    year_key = f"{key_prefix}_year"
+    month_key = f"{key_prefix}_month"
+    select_key = f"{key_prefix}_selected"
 
-    if "student_sched_year" not in st.session_state:
-        st.session_state.student_sched_year = today.year
-        st.session_state.student_sched_month = today.month
+    if year_key not in st.session_state:
+        st.session_state[year_key] = today.year
+        st.session_state[month_key] = today.month
 
-    year = st.session_state.student_sched_year
-    month = st.session_state.student_sched_month
+    year = st.session_state[year_key]
+    month = st.session_state[month_key]
 
     render_calendar_month_nav(
         year=year,
         month=month,
-        prev_key="student_sched_prev",
-        next_key="student_sched_next",
+        prev_key=f"{key_prefix}_prev",
+        next_key=f"{key_prefix}_next",
         on_prev=_student_sched_prev,
         on_next=_student_sched_next,
-        year_state_key="student_sched_year",
-        month_state_key="student_sched_month",
+        prev_args=(key_prefix,),
+        next_args=(key_prefix,),
+        year_state_key=year_key,
+        month_state_key=month_key,
     )
 
     mapped = SPECIALTY_TO_GROUP.get(student_specialty, "—")
-    st.caption(
-        f"顯示 **全體組員** 及 **{mapped}** · "
-        f"🔵 藍色=訓練 · 🔴 紅色=比賽 · 點選查看時間與地點（跑案內容於訓練當日開放）"
-    )
+    if heading_caption is not None:
+        st.caption(heading_caption)
+    else:
+        st.caption(
+            f"顯示 **全體組員** 及 **{mapped}** · "
+            f"🔵 藍色=訓練 · 🔴 紅色=比賽 · 點選查看時間與地點"
+            + ("（教練可查看完整跑案）" if reveal_all_content else "（跑案內容於訓練當日開放）")
+        )
 
     programs = get_programs_for_month(year, month)
     att_map = get_attendance_map_for_month(student_name, year, month) if student_name else {}
@@ -434,12 +442,21 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
 
     prog_map = build_student_prog_map(programs, student_specialty)
 
-    view_mode = render_student_schedule_view_toggle("student_sched", default_mode="fullcalendar")
+    view_mode = render_student_schedule_view_toggle(key_prefix, default_mode="fullcalendar")
     if view_mode == "list":
-        _render_student_schedule_list(year, month, prog_map, student_specialty, att_map, today)
+        _render_student_schedule_list(
+            year, month, prog_map, student_specialty, att_map, today, key_prefix=key_prefix
+        )
         st.markdown("---")
-        selected = st.session_state.get("student_sched_selected", today_str)
-        _render_selected_day_detail(selected, prog_map, student_specialty, today, student_name)
+        selected = st.session_state.get(select_key, today_str)
+        _render_selected_day_detail(
+            selected,
+            prog_map,
+            student_specialty,
+            today,
+            student_name,
+            reveal_all_content=reveal_all_content,
+        )
     else:
         events = build_student_fullcalendar_events(
             prog_map,
@@ -447,15 +464,50 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
             visible_day_fn=_student_prog_for_day,
             today=today,
         )
-        render_student_fullcalendar(
+        render_fullcalendar(
             year=year,
             month=month,
             events=events,
+            select_key=select_key,
+            fc_key_prefix=f"{key_prefix}_fc",
         )
         st.markdown("---")
-        selected = st.session_state.get("student_sched_selected", today_str)
-        _render_selected_day_detail(selected, prog_map, student_specialty, today, student_name)
-        st.caption("💡 點擊色塊或空白日期查看詳情；未到訓練日僅顯示時間與地點。左右橫滑日曆可換月；點月份可選年月。")
+        selected = st.session_state.get(select_key, today_str)
+        _render_selected_day_detail(
+            selected,
+            prog_map,
+            student_specialty,
+            today,
+            student_name,
+            reveal_all_content=reveal_all_content,
+        )
+        tip = "💡 點擊色塊或空白日期查看詳情；左右橫滑日曆可換月；點月份可選年月。"
+        if not reveal_all_content:
+            tip += "未到訓練日僅顯示時間與地點。"
+        st.caption(tip)
+
+
+def render_coach_schedule_preview() -> None:
+    """Coach read-only calendar — same UI as student platform."""
+    from utils.config import SPECIALTY_OPTIONS
+
+    st.subheader("📅 課表檢視")
+    st.caption(
+        "與學生平台相同的日曆（只讀）。選專項模擬該組學生所見；"
+        "教練可查看完整跑案內容。"
+    )
+    specialty = st.selectbox(
+        "檢視專項",
+        SPECIALTY_OPTIONS,
+        key="coach_preview_specialty",
+        help="與學生專項對應，顯示全體組員 + 該組課表",
+    )
+    render_student_schedule_calendar(
+        specialty,
+        student_name="",
+        key_prefix="coach_preview_sched",
+        reveal_all_content=True,
+    )
 
 
 def _entry_card(prog: dict, *, highlight: bool = False) -> str:

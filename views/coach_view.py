@@ -18,11 +18,12 @@ from views.coach_site_settings_section import render_coach_site_settings
 from views.components.announcements import render_coach_announcements
 from views.components.competition_schedule import render_coach_competition_schedule
 from views.components.mobile_nav import render_coach_bottom_dock, render_coach_top_subtabs
+from views.components.schedule import render_coach_schedule_preview
 from views.components.theme import render_page_header
 
 COACH_NAV_CATEGORIES: list[tuple[str, list[str]]] = [
     ("📊 總覽", ["總覽"]),
-    ("📅 訓練規劃", ["訓練時間表", "設定課表"]),
+    ("📅 訓練規劃", ["課表檢視", "訓練時間表", "設定課表"]),
     ("👥 隊伍與健康", ["出席表", "ACWR/健康", "隊伍管理"]),
     ("🏅 比賽事務", ["賽事時間表", "比賽報名表", "比賽管理"]),
     ("🎬 分析與溝通", ["最新消息", "影片分析", "家長溝通"]),
@@ -33,6 +34,7 @@ COACH_SECTIONS = [item for _, items in COACH_NAV_CATEGORIES for item in items]
 
 _SECTION_RENDERERS = {
     "總覽": render_coach_dashboard,
+    "課表檢視": render_coach_schedule_preview,
     "設定課表": render_coach_program,
     "訓練時間表": render_coach_schedule,
     "出席表": render_coach_attendance,

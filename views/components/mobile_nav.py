@@ -11,7 +11,8 @@ COACH_TOP_CLUSTERS: list[tuple[str, list[tuple[str, str, str]]]] = [
     (
         "train",
         [
-            ("📅", "時間表", "訓練時間表"),
+            ("👀", "檢視", "課表檢視"),
+            ("📅", "時間", "訓練時間表"),
             ("✏️", "設定", "設定課表"),
         ],
     ),
@@ -639,7 +640,7 @@ def render_coach_bottom_dock(current_section: str) -> None:
         key_prefix="coach_dock",
         active_aliases={
             "比賽報名表": {"賽事時間表", "比賽管理"},
-            "訓練時間表": {"設定課表"},
+            "訓練時間表": {"設定課表", "課表檢視"},
             "出席表": {"ACWR/健康"},
             # 分析與溝通 has no bottom tile; top sub-tabs cover it via sidebar.
         },
