@@ -142,6 +142,13 @@ def render_student_comp_registration(user: dict) -> None:
         st.info("暫無可報名比賽。賽事日期預告請見「賽事時間表」。")
         return
 
+    # Roster overview first so mobile users see who already signed up.
+    st.markdown("##### ✅ 成功報名名單")
+    for comp in open_for_signup:
+        entries_title = f"{comp['name']} · {comp.get('date') or '—'}"
+        with st.expander(entries_title, expanded=False):
+            render_successful_registration_roster(comp["id"])
+
     if upcoming:
         st.markdown("##### 可報名比賽")
         for comp in upcoming:

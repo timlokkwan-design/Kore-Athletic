@@ -48,10 +48,12 @@ def _render_bottom_tabbar(
     current_section: str,
     session_key: str,
     key_prefix: str,
+    active_aliases: dict[str, set[str]] | None = None,
 ) -> None:
     """Fixed bottom tab bar.
 
     items: (icon, short_label, section_value)
+    active_aliases: map dock section → other sections that should also light up the tile
     """
     flash = st.session_state.get("_bottom_tab_flash")
     if flash:
@@ -65,7 +67,9 @@ def _render_bottom_tabbar(
               100% { transform: scale(1); }
             }
             div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button[kind="primary"],
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button[data-testid="baseButton-primary"] {
+            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button[data-testid="baseButton-primary"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button[kind="primary"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button[data-testid="baseButton-primary"] {
               animation: ka-tab-pop 0.3s ease !important;
             }
             </style>
@@ -73,21 +77,24 @@ def _render_bottom_tabbar(
             unsafe_allow_html=True,
         )
 
-    st.markdown(f'<div class="{marker_class}"></div>', unsafe_allow_html=True)
-
-    cols = st.columns(len(items))
-    for col, (icon, label, section) in zip(cols, items):
-        is_active = current_section == section
-        btn_label = f"{icon}\n{label}"
-        with col:
-            st.button(
-                btn_label,
-                key=f"{key_prefix}_{section}",
-                use_container_width=True,
-                type="primary" if is_active else "secondary",
-                on_click=_set_section_with_feedback,
-                args=(session_key, section),
-            )
+    # One container so sticky/fixed CSS can reliably target the whole dock.
+    with st.container():
+        st.markdown(f'<div class="{marker_class}" aria-hidden="true"></div>', unsafe_allow_html=True)
+        cols = st.columns(len(items))
+        aliases = active_aliases or {}
+        for col, (icon, label, section) in zip(cols, items):
+            related = aliases.get(section, set())
+            is_active = current_section == section or current_section in related
+            btn_label = f"{icon}\n{label}"
+            with col:
+                st.button(
+                    btn_label,
+                    key=f"{key_prefix}_{section}",
+                    use_container_width=True,
+                    type="primary" if is_active else "secondary",
+                    on_click=_set_section_with_feedback,
+                    args=(session_key, section),
+                )
 
     if flash is not None:
         st.session_state.pop("_bottom_tab_flash", None)
@@ -101,11 +108,12 @@ def render_student_quick_dock(current_section: str) -> None:
             ("📅", "課表", "訓練時間表"),
             ("✅", "簽到", "出席"),
             ("📝", "日誌", "訓練日誌"),
-            ("🏅", "比賽", "賽事時間表"),
+            ("🏅", "比賽", "比賽報名"),
         ],
         current_section=current_section,
         session_key="student_section",
         key_prefix="stu_dock",
+        active_aliases={"比賽報名": {"賽事時間表", "提交比賽成績"}},
     )
 
 
@@ -118,9 +126,10 @@ def render_coach_bottom_dock(current_section: str) -> None:
             ("📅", "課表", "設定課表"),
             ("✅", "出席", "出席表"),
             ("👥", "隊伍", "隊伍管理"),
-            ("🏅", "比賽", "賽事時間表"),
+            ("🏅", "比賽", "比賽報名表"),
         ],
         current_section=current_section,
         session_key="coach_section",
         key_prefix="coach_dock",
+        active_aliases={"比賽報名表": {"賽事時間表", "比賽管理"}, "設定課表": {"訓練時間表"}},
     )

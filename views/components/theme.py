@@ -325,9 +325,11 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             }}
             /* Instagram-style fixed bottom tab bar (student + coach) */
             section.main .block-container {{
-                padding-bottom: 5.75rem !important;
+                padding-bottom: 6.25rem !important;
             }}
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) {{
+            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker),
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker),
+            div[data-testid="element-container"]:has(.ka-bottom-tabbar-marker) {{
                 position: fixed !important;
                 left: 0 !important;
                 right: 0 !important;
@@ -341,10 +343,25 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 border-top: 1px solid {c["border"]} !important;
                 box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.08) !important;
             }}
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] {{
+            /* Keep the marker's own element-container from becoming a tiny fixed strip */
+            div[data-testid="element-container"]:has(> .ka-bottom-tabbar-marker),
+            div[data-testid="element-container"]:has(> div > .ka-bottom-tabbar-marker) {{
+                position: absolute !important;
+                width: 0 !important;
+                height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                border: 0 !important;
+                box-shadow: none !important;
+                overflow: hidden !important;
+                pointer-events: none !important;
+            }}
+            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] {{
                 gap: 0.25rem !important;
             }}
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button {{
+            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button {{
                 min-height: 3.35rem !important;
                 white-space: pre-line !important;
                 line-height: 1.15 !important;
@@ -356,12 +373,14 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 box-shadow: none !important;
             }}
             /* Press feedback — proves the tile was tapped */
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button:active {{
+            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button:active,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button:active {{
                 transform: scale(0.88) !important;
                 filter: brightness(0.9) !important;
                 box-shadow: inset 0 0 0 2px {c["text"]}33 !important;
             }}
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button:focus-visible {{
+            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button:focus-visible,
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button:focus-visible {{
                 outline: 2px solid {c["text"]}55 !important;
                 outline-offset: 2px !important;
             }}

@@ -44,7 +44,6 @@ def render_student_view(section: str) -> None:
         "學生平台",
         f"{user['name']} · 專項：{specialty}",
     )
-    render_student_quick_dock(section)
     render_student_checkin_bar(user["name"], specialty=user.get("specialty", ""))
     st.divider()
 
@@ -68,6 +67,9 @@ def render_student_view(section: str) -> None:
         _tab_attendance(user["name"])
     else:
         _tab_schedule(user)
+
+    # Dock last in DOM; CSS pins it to the viewport bottom on mobile.
+    render_student_quick_dock(section)
 
 
 def _tab_schedule(user: dict) -> None:

@@ -52,7 +52,9 @@ def render_coach_view(section: str) -> None:
     from utils.auth import require_coach_or_stop
     require_coach_or_stop()
     render_page_header("教練平台", f"目前分頁：{section}")
-    render_coach_bottom_dock(section)
 
     renderer = _SECTION_RENDERERS.get(section, render_coach_dashboard)
     renderer()
+
+    # Dock last in DOM; CSS pins it to the viewport bottom on mobile.
+    render_coach_bottom_dock(section)
