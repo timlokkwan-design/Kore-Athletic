@@ -17,6 +17,7 @@ from views.components.checkin import render_student_checkin_bar
 from views.components.comp_registration import render_student_comp_registration
 from views.components.mobile_nav import render_student_quick_dock
 from views.components.schedule import render_student_schedule_calendar
+from views.components.student_goals import render_student_goals
 from views.components.student_profile import render_student_profile
 from views.components.student_training_log import render_student_training_log
 from views.components.theme import render_page_header, render_stat_cards
@@ -77,6 +78,8 @@ def _tab_schedule(user: dict) -> None:
         ("簽到", checkin_label, checkin_tone),
         ("距離比賽", countdown_label, "normal"),
     ])
+
+    render_student_goals(user)
 
     st.markdown("#### 訓練時間表")
     st.caption(f"專項：**{user.get('specialty', '—')}**")

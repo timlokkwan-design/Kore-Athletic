@@ -24,6 +24,7 @@ from utils.config import (
     PERIOD_FILE,
     PROGRAMS_FILE,
     RACE_RECORDS_FILE,
+    STUDENT_GOALS_FILE,
     TEMPLATES_FILE,
     TRAIN_TYPES,
     USERS_FILE,
@@ -69,6 +70,9 @@ PENDING_SPECIALTY_COLUMNS = [
     "id", "username", "name", "current_specialty", "requested_specialty", "reason", "date",
 ]
 RACE_COLUMNS = ["id", "athlete_name", "item", "score", "date", "wind", "comp_name", "grade", "valid"]
+STUDENT_GOAL_COLUMNS = [
+    "id", "username", "athlete_name", "event", "target_score", "updated_at", "active",
+]
 
 TEST_USERNAMES = frozenset({"student1", "student2", "student3", "parent1"})
 TEST_STUDENT_NAMES = frozenset({"陳大文", "林明美", "張豪傑", "陳家長"})
@@ -1948,6 +1952,144 @@ def load_race_records() -> pd.DataFrame:
 
 def save_race_records(df: pd.DataFrame) -> None:
     _write(RACE_RECORDS_FILE, df, RACE_COLUMNS)
+
+
+def load_student_goals() -> pd.DataFrame:
+    df = _read(STUDENT_GOALS_FILE, STUDENT_GOAL_COLUMNS)
+    if df.empty:
+        return df
+    df = df.copy()
+    df["target_score"] = df["target_score"].map(
+        lambda v: "" if is_missing(v) else safe_str(v)
+    )
+    return df
+
+
+def save_student_goals(df: pd.DataFrame) -> None:
+    out = df.copy() if not df.empty else df
+    if not out.empty:
+        out["target_score"] = out["target_score"].map(
+            lambda v: "" if is_missing(v) else safe_str(v)
+        )
+        out["active"] = out["active"].map(
+            lambda v: True if is_missing(v) else bool(v) if isinstance(v, bool)
+            else str(v).strip().lower() in ("1", "true", "yes", "y")
+        )
+    _write(STUDENT_GOALS_FILE, out, STUDENT_GOAL_COLUMNS)
+
+
+def get_active_goals_for_user(username: str) -> pd.DataFrame:
+    df = load_student_goals()
+    if df.empty:
+        return df
+    uname = safe_str(username)
+
+    def _is_active(v) -> bool:
+        if is_missing(v):
+            return True
+        return str(v).strip().lower() in ("1", "true", "yes", "y")
+
+    out = df[
+        (df["username"].astype(str) == uname) & df["active"].apply(_is_active)
+    ].copy()
+    if out.empty:
+        return out
+    return out.sort_values("updated_at", ascending=False)
+
+
+def upsert_student_goal(
+    *,
+    username: str,
+    athlete_name: str,
+    event: str,
+    target_score: str,
+) -> tuple[bool, str]:
+    """Create or update one active goal for (username, event)."""
+    from utils.permissions import PermissionDenied, require_self_username
+
+    try:
+        user = require_self_username(username)
+        if safe_str(user.get("role")) == "student" and safe_str(user.get("name")) != safe_str(athlete_name):
+            return False, "只能設定自己的目標"
+    except PermissionDenied as exc:
+        return False, exc.message
+
+    event = safe_str(event)
+    target = safe_str(target_score)
+    if not event:
+        return False, "請選擇項目"
+    if not target:
+        return False, "請輸入目標時間／成績"
+
+    from utils.config import EVENTS, FIELD_EVENTS
+    from utils.helpers import parse_field_score, parse_time
+
+    if event not in EVENTS:
+        return False, "項目無效"
+    if event in FIELD_EVENTS:
+        if parse_field_score(target) <= 0:
+            return False, "請輸入有效成績（例如 6.50）"
+    else:
+        secs = parse_time(target)
+        if secs <= 0 or secs >= 9999.0:
+            return False, "請輸入有效時間（例如 11.50 或 2:05.00）"
+
+    df = load_student_goals()
+    now = pd.Timestamp.now().isoformat(timespec="seconds")
+    uname = safe_str(username)
+    aname = safe_str(athlete_name)
+
+    if not df.empty:
+        same = (
+            (df["username"].astype(str) == uname)
+            & (df["event"].astype(str) == event)
+        )
+        if same.any():
+            idx = df.index[same][0]
+            # Keep score as text (avoid float dtype blocking "11.20" updates)
+            df["target_score"] = df["target_score"].astype(object)
+            df["athlete_name"] = df["athlete_name"].astype(object)
+            df["updated_at"] = df["updated_at"].astype(object)
+            df["active"] = df["active"].astype(object)
+            df.at[idx, "athlete_name"] = aname
+            df.at[idx, "target_score"] = target
+            df.at[idx, "updated_at"] = now
+            df.at[idx, "active"] = True
+            save_student_goals(df)
+            return True, "已更新目標"
+
+    row = {
+        "id": _uid(),
+        "username": uname,
+        "athlete_name": aname,
+        "event": event,
+        "target_score": target,
+        "updated_at": now,
+        "active": True,
+    }
+    save_student_goals(pd.concat([df, pd.DataFrame([row])], ignore_index=True))
+    return True, "已儲存目標"
+
+
+def deactivate_student_goal(goal_id: str, username: str) -> tuple[bool, str]:
+    from utils.permissions import PermissionDenied, require_self_username
+
+    try:
+        require_self_username(username)
+    except PermissionDenied as exc:
+        return False, exc.message
+
+    df = load_student_goals()
+    if df.empty:
+        return False, "找不到目標"
+    gid = safe_str(goal_id)
+    mask = (df["id"].astype(str) == gid) & (df["username"].astype(str) == safe_str(username))
+    if not mask.any():
+        return False, "找不到目標"
+    df.loc[mask, "active"] = False
+    df.loc[mask, "updated_at"] = pd.Timestamp.now().isoformat(timespec="seconds")
+    save_student_goals(df)
+    return True, "已移除目標"
 
 
 def add_race_record(data: dict) -> None:
