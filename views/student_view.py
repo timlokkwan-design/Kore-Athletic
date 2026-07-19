@@ -15,6 +15,7 @@ from utils.data_store import (
 from utils.helpers import format_train_duration, needs_wind, parse_time, program_specs, safe_int, safe_str
 from views.components.checkin import render_student_checkin_bar
 from views.components.comp_registration import render_student_comp_registration
+from views.components.competition_schedule import render_student_competition_schedule
 from views.components.mobile_nav import render_student_quick_dock
 from views.components.schedule import render_student_schedule_calendar
 from views.components.student_goals import render_student_goals
@@ -24,7 +25,7 @@ from views.components.theme import render_page_header, render_stat_cards
 
 STUDENT_NAV_CATEGORIES: list[tuple[str, list[str]]] = [
     ("📅 每日訓練", ["訓練時間表", "訓練日誌", "健康問卷", "出席"]),
-    ("🏅 比賽", ["比賽報名", "提交比賽成績"]),
+    ("🏅 比賽", ["賽事時間表", "比賽報名", "提交比賽成績"]),
     ("👤 帳戶", ["個人資料"]),
 ]
 
@@ -51,6 +52,8 @@ def render_student_view(section: str) -> None:
         _tab_training_log(user)
     elif section == "健康問卷":
         _tab_wellness(user["name"])
+    elif section == "賽事時間表":
+        render_student_competition_schedule()
     elif section == "比賽報名":
         render_student_comp_registration(user)
     elif section == "提交比賽成績":

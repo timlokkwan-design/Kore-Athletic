@@ -112,6 +112,22 @@ EVENTS = [
 ]
 FIELD_EVENTS = ["跳遠", "三級跳", "跳高", "撐竿跳", "鉛球", "鐵餅", "標槍", "鏈球"]
 
+# 香港青少年分齡田徑賽 (五) — 已成功報名名單（預填）
+YOUTH_AGE_GROUP_V_REGISTRATIONS: list[dict] = [
+    {"athlete_name": "黃均豪", "events": ["200米", "400米"]},
+    {"athlete_name": "楊展麒", "events": ["100米"]},
+    {"athlete_name": "林俊杰", "events": ["400米"]},
+    {"athlete_name": "陳文軒", "events": ["800米"]},
+    {"athlete_name": "陸連心", "events": ["400米"]},
+    {"athlete_name": "蔡立珩", "events": ["100米"]},
+]
+YOUTH_AGE_GROUP_V_COMP = {
+    "name": "香港青少年分齡田徑賽 (五)",
+    "date": "2026-09-12",
+    "notes": "9月12–13日（星期六、日）",
+    "event": "100米,200米,400米,800米",
+}
+
 TECHNIQUE_LIB = [
     {"issue": "起跑反應慢", "fix": "加強聽令練習、爆發式深蹲跳"},
     {"issue": "途中步頻低", "fix": "小欄架步頻訓練、節拍器輔助"},
@@ -150,6 +166,72 @@ TEMPLATES_FILE = "templates.csv"
 PENDING_FILE = "pending_records.csv"
 PENDING_SPECIALTY_FILE = "pending_specialty.csv"
 RACE_RECORDS_FILE = "race_records.csv"
+STUDENT_GOALS_FILE = "student_goals.csv"
+ANNOUNCEMENTS_FILE = "announcements.csv"
+
+# 賽事時間表預填（啟動時 idempotent 寫入；date = 該段開始日）
+SEASON_COMPETITION_SCHEDULE: list[dict[str, str]] = [
+    {
+        "date": "2026-09-12",
+        "name": "香港青少年分齡田徑賽 (五)",
+        "notes": "9月12–13日（星期六、日）",
+    },
+    {
+        "date": "2026-09-19",
+        "name": "香港田徑公開賽 暨 七項全能",
+        "notes": "9月19–20日（星期六、日）",
+    },
+    {
+        "date": "2026-09-26",
+        "name": "香港青少年田徑分齡賽 (六)",
+        "notes": "9月26–27日（星期六、日）",
+    },
+    {
+        "date": "2026-10-03",
+        "name": "香港青少年田徑分齡賽 (六)",
+        "notes": "10月3–4日（星期六、日）",
+    },
+    {
+        "date": "2026-10-17",
+        "name": "香港田徑公開賽 暨 十項全能",
+        "notes": "10月17–18日（星期六、日）",
+    },
+    {
+        "date": "2026-10-24",
+        "name": "香港青少年分齡田徑賽 (七)",
+        "notes": "10月24–25日（星期六、日）",
+    },
+    {
+        "date": "2026-11-17",
+        "name": "學界越野賽",
+        "notes": "2026年11月17日",
+    },
+    {
+        "date": "2026-12-12",
+        "name": "香港青少年分齡田徑錦標賽",
+        "notes": "12月12–13日（星期六、日）",
+    },
+    {
+        "date": "2026-12-19",
+        "name": "香港青少年分齡田徑錦標賽",
+        "notes": "12月19–20日（星期六、日）",
+    },
+    {
+        "date": "2027-01-20",
+        "name": "學界田徑",
+        "notes": "2027年1月20日",
+    },
+    {
+        "date": "2027-01-25",
+        "name": "學界田徑",
+        "notes": "2027年1月25日",
+    },
+    {
+        "date": "2027-01-29",
+        "name": "學界田徑",
+        "notes": "2027年1月29日",
+    },
+]
 
 MENUS_FILE = PROGRAMS_FILE
 

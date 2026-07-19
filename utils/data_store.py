@@ -1872,6 +1872,75 @@ def get_competitions(*, published_only: bool = False) -> list[dict]:
     return comps
 
 
+def get_competition_schedule(*, upcoming_only: bool = True, published_only: bool = True) -> list[dict]:
+    """賽事時間表／預告：按日期排序；預設只回傳已發布且未過期的賽事。"""
+    today = date.today().isoformat()
+    comps = get_competitions(published_only=published_only)
+    if upcoming_only:
+        comps = [c for c in comps if safe_str(c.get("date")) >= today]
+    return comps
+
+
+def add_schedule_competition(
+    name: str,
+    comp_date: date | str,
+    *,
+    notes: str = "賽事預告",
+) -> tuple[bool, str]:
+    """教練快速新增賽事預告（只需名稱＋日期）。"""
+    from utils.permissions import enforce_coach_if_logged_in
+
+    enforce_coach_if_logged_in()
+    title = safe_str(name)
+    if not title:
+        return False, "請輸入比賽名稱"
+    if isinstance(comp_date, date):
+        ds = comp_date.isoformat()
+    else:
+        ds = normalize_date_str(comp_date)
+    if len(ds) < 10:
+        return False, "請選擇比賽日期"
+    add_competition({
+        "name": title,
+        "date": ds,
+        "event": "",
+        "location": "",
+        "published": "1",
+        "notes": safe_str(notes) or "賽事預告",
+    })
+    return True, "已加入賽事時間表"
+
+
+def ensure_season_competition_schedule() -> int:
+    """預填賽季賽事時間表；已存在相同名稱＋日期則略過。回傳新增筆數。"""
+    from utils.config import SEASON_COMPETITION_SCHEDULE
+
+    existing = {
+        (safe_str(c.get("name")), safe_str(c.get("date"))[:10])
+        for c in get_competitions(published_only=False)
+    }
+    added = 0
+    for row in SEASON_COMPETITION_SCHEDULE:
+        name = safe_str(row.get("name"))
+        ds = normalize_date_str(row.get("date"))
+        if not name or len(ds) < 10:
+            continue
+        key = (name, ds[:10])
+        if key in existing:
+            continue
+        add_competition({
+            "name": name,
+            "date": ds[:10],
+            "event": "",
+            "location": "",
+            "published": "1",
+            "notes": safe_str(row.get("notes")) or "賽事預告",
+        })
+        existing.add(key)
+        added += 1
+    return added
+
+
 def get_student_competitions(student_name: str) -> list[dict]:
     name = safe_str(student_name)
     result = []
@@ -2436,6 +2505,7 @@ def init_sample_data() -> None:
         ensure_testing_coach()
         if _read(PERIOD_FILE, PERIOD_COLUMNS).empty:
             save_periodization(DEFAULT_PERIODIZATION)
+        ensure_season_competition_schedule()
         return
 
     _seed_programs()
@@ -2489,6 +2559,7 @@ def init_sample_data() -> None:
         _seed_acwr_history()
 
     ensure_testing_coach()
+    ensure_season_competition_schedule()
 
 
 def _seed_acwr_history() -> None:
