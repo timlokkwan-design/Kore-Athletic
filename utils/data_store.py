@@ -2269,16 +2269,21 @@ def publish_announcement(title: str, body: str, author: str = "") -> tuple[bool,
         return False, "請輸入標題"
     if not b:
         return False, "請輸入內容"
-    df = load_announcements()
-    row = {
-        "id": _uid(),
-        "title": t,
-        "body": b,
-        "published_at": pd.Timestamp.now().isoformat(timespec="seconds"),
-        "published": True,
-        "author": safe_str(author) or "教練",
-    }
-    save_announcements(pd.concat([df, pd.DataFrame([row])], ignore_index=True))
+    try:
+        df = load_announcements()
+        row = {
+            "id": _uid(),
+            "title": t,
+            "body": b,
+            "published_at": pd.Timestamp.now().isoformat(timespec="seconds"),
+            "published": True,
+            "author": safe_str(author) or "教練",
+        }
+        save_announcements(pd.concat([df, pd.DataFrame([row])], ignore_index=True))
+    except RuntimeError as exc:
+        return False, str(exc)
+    except Exception as exc:
+        return False, f"發佈失敗：{exc}"
     return True, "已發佈最新消息"
 
 
@@ -2286,14 +2291,19 @@ def delete_announcement(announcement_id: str) -> tuple[bool, str]:
     from utils.permissions import enforce_coach_if_logged_in
 
     enforce_coach_if_logged_in()
-    df = load_announcements()
-    if df.empty:
-        return False, "找不到消息"
-    aid = safe_str(announcement_id)
-    mask = df["id"].astype(str) == aid
-    if not mask.any():
-        return False, "找不到消息"
-    save_announcements(df[~mask])
+    try:
+        df = load_announcements()
+        if df.empty:
+            return False, "找不到消息"
+        aid = safe_str(announcement_id)
+        mask = df["id"].astype(str) == aid
+        if not mask.any():
+            return False, "找不到消息"
+        save_announcements(df[~mask])
+    except RuntimeError as exc:
+        return False, str(exc)
+    except Exception as exc:
+        return False, f"刪除失敗：{exc}"
     return True, "已刪除"
 
 
@@ -2301,15 +2311,20 @@ def unpublish_announcement(announcement_id: str) -> tuple[bool, str]:
     from utils.permissions import enforce_coach_if_logged_in
 
     enforce_coach_if_logged_in()
-    df = load_announcements()
-    if df.empty:
-        return False, "找不到消息"
-    aid = safe_str(announcement_id)
-    mask = df["id"].astype(str) == aid
-    if not mask.any():
-        return False, "找不到消息"
-    df.loc[mask, "published"] = False
-    save_announcements(df)
+    try:
+        df = load_announcements()
+        if df.empty:
+            return False, "找不到消息"
+        aid = safe_str(announcement_id)
+        mask = df["id"].astype(str) == aid
+        if not mask.any():
+            return False, "找不到消息"
+        df.loc[mask, "published"] = False
+        save_announcements(df)
+    except RuntimeError as exc:
+        return False, str(exc)
+    except Exception as exc:
+        return False, f"取消發佈失敗：{exc}"
     return True, "已取消發佈"
 
 
@@ -2408,35 +2423,40 @@ def upsert_student_goal(
     uname = safe_str(username)
     aname = safe_str(athlete_name)
 
-    if not df.empty:
-        same = (
-            (df["username"].astype(str) == uname)
-            & (df["event"].astype(str) == event)
-        )
-        if same.any():
-            idx = df.index[same][0]
-            # Keep score as text (avoid float dtype blocking "11.20" updates)
-            df["target_score"] = df["target_score"].astype(object)
-            df["athlete_name"] = df["athlete_name"].astype(object)
-            df["updated_at"] = df["updated_at"].astype(object)
-            df["active"] = df["active"].astype(object)
-            df.at[idx, "athlete_name"] = aname
-            df.at[idx, "target_score"] = target
-            df.at[idx, "updated_at"] = now
-            df.at[idx, "active"] = True
-            save_student_goals(df)
-            return True, "已更新目標"
+    try:
+        if not df.empty:
+            same = (
+                (df["username"].astype(str) == uname)
+                & (df["event"].astype(str) == event)
+            )
+            if same.any():
+                idx = df.index[same][0]
+                # Keep score as text (avoid float dtype blocking "11.20" updates)
+                df["target_score"] = df["target_score"].astype(object)
+                df["athlete_name"] = df["athlete_name"].astype(object)
+                df["updated_at"] = df["updated_at"].astype(object)
+                df["active"] = df["active"].astype(object)
+                df.at[idx, "athlete_name"] = aname
+                df.at[idx, "target_score"] = target
+                df.at[idx, "updated_at"] = now
+                df.at[idx, "active"] = True
+                save_student_goals(df)
+                return True, "已更新目標"
 
-    row = {
-        "id": _uid(),
-        "username": uname,
-        "athlete_name": aname,
-        "event": event,
-        "target_score": target,
-        "updated_at": now,
-        "active": True,
-    }
-    save_student_goals(pd.concat([df, pd.DataFrame([row])], ignore_index=True))
+        row = {
+            "id": _uid(),
+            "username": uname,
+            "athlete_name": aname,
+            "event": event,
+            "target_score": target,
+            "updated_at": now,
+            "active": True,
+        }
+        save_student_goals(pd.concat([df, pd.DataFrame([row])], ignore_index=True))
+    except RuntimeError as exc:
+        return False, str(exc)
+    except Exception as exc:
+        return False, f"儲存目標失敗：{exc}"
     return True, "已儲存目標"
 
 
@@ -2448,16 +2468,21 @@ def deactivate_student_goal(goal_id: str, username: str) -> tuple[bool, str]:
     except PermissionDenied as exc:
         return False, exc.message
 
-    df = load_student_goals()
-    if df.empty:
-        return False, "找不到目標"
-    gid = safe_str(goal_id)
-    mask = (df["id"].astype(str) == gid) & (df["username"].astype(str) == safe_str(username))
-    if not mask.any():
-        return False, "找不到目標"
-    df.loc[mask, "active"] = False
-    df.loc[mask, "updated_at"] = pd.Timestamp.now().isoformat(timespec="seconds")
-    save_student_goals(df)
+    try:
+        df = load_student_goals()
+        if df.empty:
+            return False, "找不到目標"
+        gid = safe_str(goal_id)
+        mask = (df["id"].astype(str) == gid) & (df["username"].astype(str) == safe_str(username))
+        if not mask.any():
+            return False, "找不到目標"
+        df.loc[mask, "active"] = False
+        df.loc[mask, "updated_at"] = pd.Timestamp.now().isoformat(timespec="seconds")
+        save_student_goals(df)
+    except RuntimeError as exc:
+        return False, str(exc)
+    except Exception as exc:
+        return False, f"移除失敗：{exc}"
     return True, "已移除目標"
 
 

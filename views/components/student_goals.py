@@ -29,7 +29,11 @@ def render_student_goals(user: dict) -> None:
         return
 
     st.markdown("#### 我的目標")
-    goals = get_active_goals_for_user(username)
+    try:
+        goals = get_active_goals_for_user(username)
+    except Exception:
+        st.caption("目標功能暫時未能載入。若剛更新，請教練於 Supabase 執行 schema_patch_v202.sql。")
+        return
 
     if goals.empty:
         st.caption("尚未訂立目標 — 揀項目、輸入目標時間，幫自己定方向。")

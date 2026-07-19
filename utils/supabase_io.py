@@ -1,11 +1,14 @@
 """Read/write pandas tables via Supabase PostgreSQL."""
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pandas as pd
 
 from utils.supabase_config import get_supabase_client
+
+logger = logging.getLogger(__name__)
 
 CSV_TO_TABLE: dict[str, str] = {
     "programs.csv": "ka_programs",
@@ -22,13 +25,48 @@ CSV_TO_TABLE: dict[str, str] = {
     "pending_records.csv": "ka_pending_records",
     "pending_specialty.csv": "ka_pending_specialty",
     "race_records.csv": "ka_race_records",
-    "race_records.csv": "ka_race_records",
     "student_goals.csv": "ka_student_goals",
     "announcements.csv": "ka_announcements",
 }
 
 INTERNAL_COLUMNS = {"row_id"}
 INSERT_BATCH = 200
+
+# Tables added after older deployments — missing ones must not crash the student home page.
+_MISSING_TABLE_WARNED: set[str] = set()
+
+
+def _api_error_fields(exc: BaseException) -> tuple[str, str]:
+    code = str(getattr(exc, "code", "") or "")
+    message = str(getattr(exc, "message", "") or exc)
+    return code, message
+
+
+def is_missing_relation_error(exc: BaseException) -> bool:
+    """True when PostgREST/Postgres says the table is absent from the schema cache."""
+    code, message = _api_error_fields(exc)
+    text = f"{code} {message}".lower()
+    return (
+        code in {"PGRST205", "42P01"}
+        or "could not find the table" in text
+        or "does not exist" in text
+        or "schema cache" in text
+    )
+
+
+def _warn_missing_table(table: str, filename: str, exc: BaseException) -> None:
+    if table in _MISSING_TABLE_WARNED:
+        return
+    _MISSING_TABLE_WARNED.add(table)
+    code, message = _api_error_fields(exc)
+    logger.warning(
+        "Supabase table %s (for %s) is missing (%s: %s). "
+        "Returning empty data. Run supabase/schema_patch_v202.sql in the SQL Editor.",
+        table,
+        filename,
+        code or "?",
+        message,
+    )
 
 
 def _ensure_cols(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
@@ -71,7 +109,14 @@ def _sanitize_records(records: list[dict]) -> list[dict]:
 def read_csv_table(filename: str, columns: list[str]) -> pd.DataFrame:
     table = _table_for_file(filename)
     client = get_supabase_client()
-    resp = client.table(table).select("*").execute()
+    try:
+        resp = client.table(table).select("*").execute()
+    except Exception as exc:
+        # Missing new tables (e.g. ka_announcements) must not take down student pages.
+        if is_missing_relation_error(exc):
+            _warn_missing_table(table, filename, exc)
+            return pd.DataFrame(columns=columns)
+        raise
     rows = resp.data or []
     if not rows:
         return pd.DataFrame(columns=columns)
@@ -107,12 +152,20 @@ def write_csv_table_replace(filename: str, df: pd.DataFrame, columns: list[str])
 
     table = _table_for_file(filename)
     client = get_supabase_client()
-    client.rpc("ka_clear_table", {"tname": table}).execute()
-    records = _sanitize_records(_df_to_records(df, columns))
-    if not records:
-        return
-    for i in range(0, len(records), INSERT_BATCH):
-        client.table(table).insert(records[i : i + INSERT_BATCH]).execute()
+    try:
+        client.rpc("ka_clear_table", {"tname": table}).execute()
+        records = _sanitize_records(_df_to_records(df, columns))
+        if not records:
+            return
+        for i in range(0, len(records), INSERT_BATCH):
+            client.table(table).insert(records[i : i + INSERT_BATCH]).execute()
+    except Exception as exc:
+        if is_missing_relation_error(exc):
+            raise RuntimeError(
+                f"Supabase 未有資料表 `{table}`（對應 {filename}）。"
+                f"請到 Supabase → SQL Editor 執行 supabase/schema_patch_v202.sql 後再試。"
+            ) from exc
+        raise
 
 
 def upsert_users_table(df: pd.DataFrame, columns: list[str]) -> None:
