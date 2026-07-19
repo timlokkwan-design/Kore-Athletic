@@ -64,8 +64,6 @@ def _sync_theme_from_toggle() -> None:
 def render_theme_toggle_top() -> None:
     """Fixed top-right 日光 / 夜光 controls — visible without opening the sidebar."""
     dark = get_ui_theme() == "dark"
-    # Keep sidebar toggle key in sync when only top buttons are used
-    st.session_state.ui_theme_toggle = dark
 
     with st.container():
         st.markdown('<div class="ka-theme-top-marker"></div>', unsafe_allow_html=True)
