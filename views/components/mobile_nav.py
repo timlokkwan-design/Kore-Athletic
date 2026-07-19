@@ -171,7 +171,7 @@ def _find_innermost_vertical_block_js() -> str:
               }
               function scrubLeakedRowStyles() {
                 document.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function (row) {
-                  if (row.closest('.ka-bottom-dock-host') || row.closest('.ka-top-subtab-host') || row.closest('.ka-theme-top-host')) return;
+                  if (row.closest('.ka-bottom-dock-host') || row.closest('.ka-top-subtab-host')) return;
                   if (row.classList && row.classList.contains('ka-inline-row-forced')) return;
                   clearRowInline(row);
                 });
@@ -234,7 +234,6 @@ def _find_innermost_vertical_block_js() -> str:
                 if (el.querySelector('.ka-cal-month-nav-marker')) return true;
                 if (el.querySelector('.ka-cal-view-marker')) return true;
                 if (el.querySelector('.ka-cal-shell-marker')) return true;
-                if (el.querySelector('.ka-theme-top-marker')) return true;
                 if (el.querySelector('.ka-inline-row-marker')) return true;
                 if (el.querySelector('.ka-coach-screen-marker')) return true;
                 var rows = directRows(el);
@@ -272,7 +271,6 @@ def _pin_innermost_dock_host() -> None:
                   if (el.classList && (
                     el.classList.contains('ka-bottom-dock-host')
                     || el.classList.contains('ka-top-subtab-host')
-                    || el.classList.contains('ka-theme-top-host')
                   )) return;
                   if (el.style.position === 'fixed') {{
                     el.style.setProperty('position', 'relative', 'important');
@@ -338,11 +336,10 @@ def _pin_innermost_dock_host() -> None:
                 unlockScroll();
                 pinByMarker('.ka-bottom-tabbar-marker', 'ka-bottom-dock-host');
                 pinByMarker('.ka-top-subtab-marker', 'ka-top-subtab-host');
-                pinByMarker('.ka-theme-top-marker', 'ka-theme-top-host');
                 // Strip any leftover inline flex hacks from calendar / content rows
                 scrubLeakedRowStyles();
                 // Re-apply only on real hosts after scrub
-                document.querySelectorAll('.ka-bottom-dock-host, .ka-top-subtab-host, .ka-theme-top-host').forEach(function (host) {{
+                document.querySelectorAll('.ka-bottom-dock-host, .ka-top-subtab-host').forEach(function (host) {{
                   var rows = directRows(host);
                   if (rows[0]) forceRowOn(rows[0]);
                 }});
@@ -489,7 +486,7 @@ def _render_top_subtabbar(
     st.markdown(
         """
         <style>
-        section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host):not(.ka-theme-top-host) {
+        section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {
           position: static !important;
           height: auto !important;
           max-height: none !important;
@@ -591,7 +588,7 @@ def _render_bottom_tabbar(
           height: auto !important;
           max-height: none !important;
         }
-        section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host):not(.ka-theme-top-host) {
+        section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {
           position: static !important;
           height: auto !important;
           max-height: none !important;
