@@ -341,7 +341,8 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                IMPORTANT: do NOT use :has(marker) on stVerticalBlock for position:fixed —
                that matches the whole page root and clips expander content. */
             section.main .block-container {{
-                padding-bottom: 6.5rem !important;
+                padding-bottom: 7.25rem !important;
+                padding-top: var(--ka-top-pad, 0.65rem) !important;
                 height: auto !important;
                 max-height: none !important;
                 overflow: visible !important;
@@ -359,8 +360,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 max-height: none !important;
                 overflow: visible !important;
             }}
-            /* Only the innermost dock host (class added by JS) is fixed.
-               Leave right clearance for Streamlit Cloud "Manage app" FAB (host overlay). */
+            /* Fixed bottom dock — trailing empty column clears Streamlit Manage crown FAB */
             .ka-bottom-dock-host {{
                 position: fixed !important;
                 left: 0 !important;
@@ -370,10 +370,9 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 width: 100vw !important;
                 max-width: 100vw !important;
                 height: auto !important;
-                max-height: 6rem !important;
+                max-height: 7rem !important;
                 margin: 0 !important;
-                /* Extra right padding so 隊伍／比賽 are not under the crown Manage button */
-                padding: 0.3rem 3.75rem calc(0.4rem + env(safe-area-inset-bottom, 0px)) 0.35rem !important;
+                padding: 0.35rem 0.3rem calc(0.45rem + env(safe-area-inset-bottom, 0px)) 0.3rem !important;
                 background: {c["main_bg"]} !important;
                 border-top: 1px solid {c["border"]} !important;
                 box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.10) !important;
@@ -386,7 +385,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 flex-wrap: nowrap !important;
                 align-items: stretch !important;
                 justify-content: space-between !important;
-                gap: 0.2rem !important;
+                gap: 0.18rem !important;
                 width: 100% !important;
                 margin: 0 !important;
             }}
@@ -398,15 +397,28 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 max-width: none !important;
                 width: auto !important;
             }}
+            /* Last column = FAB spacer (not a tab) */
+            .ka-bottom-dock-host [data-testid="stHorizontalBlock"] > div:last-child,
+            .ka-bottom-dock-host [data-testid="column"]:last-child,
+            .ka-bottom-dock-host [data-testid="stColumn"]:last-child {{
+                flex: 0 0 3.85rem !important;
+                max-width: 3.85rem !important;
+                min-width: 3.6rem !important;
+                pointer-events: none !important;
+            }}
+            .ka-dock-fab-spacer {{
+                width: 100%;
+                min-height: 3.35rem;
+            }}
             .ka-bottom-dock-host button {{
-                min-height: 3.1rem !important;
+                min-height: 3.45rem !important;
                 width: 100% !important;
                 white-space: pre-line !important;
-                line-height: 1.1 !important;
-                font-size: 0.68rem !important;
+                line-height: 1.12 !important;
+                font-size: 0.72rem !important;
                 font-weight: 700 !important;
-                border-radius: 10px !important;
-                padding: 0.28rem 0.1rem !important;
+                border-radius: 12px !important;
+                padding: 0.32rem 0.12rem !important;
                 transition: transform 0.12s ease, filter 0.12s ease !important;
                 box-shadow: none !important;
             }}
@@ -448,26 +460,32 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 color: {pwa_detail_style};
             }}
         }}
-        /* Sticky top sub-tabs (比賽：時間表／報名表／管理) — all widths */
+        /* Fixed top sub-tabs — same tile style as bottom dock (all widths) */
         section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
             position: static !important;
             height: auto !important;
             max-height: none !important;
             overflow: visible !important;
         }}
+        section.main .block-container.ka-has-top-subtabs,
+        section.main .block-container {{
+            padding-top: var(--ka-top-pad, 0.65rem) !important;
+        }}
         .ka-top-subtab-host {{
-            position: sticky !important;
+            position: fixed !important;
+            left: 0 !important;
+            right: 0 !important;
             top: 0 !important;
-            z-index: 100 !important;
-            width: 100% !important;
-            max-width: 100% !important;
+            z-index: 2147482900 !important;
+            width: 100vw !important;
+            max-width: 100vw !important;
             height: auto !important;
-            max-height: 6rem !important;
-            margin: 0 0 0.55rem 0 !important;
-            padding: 0.35rem 0.25rem 0.4rem 0.25rem !important;
+            max-height: 6.5rem !important;
+            margin: 0 !important;
+            padding: 0.35rem 0.35rem 0.4rem 0.35rem !important;
             background: {c["main_bg"]} !important;
             border-bottom: 1px solid {c["border"]} !important;
-            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08) !important;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.10) !important;
             pointer-events: auto !important;
             overflow: visible !important;
         }}
@@ -490,14 +508,14 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             width: auto !important;
         }}
         .ka-top-subtab-host button {{
-            min-height: 2.85rem !important;
+            min-height: 3.15rem !important;
             width: 100% !important;
             white-space: pre-line !important;
-            line-height: 1.1 !important;
-            font-size: 0.68rem !important;
+            line-height: 1.12 !important;
+            font-size: 0.72rem !important;
             font-weight: 700 !important;
-            border-radius: 10px !important;
-            padding: 0.22rem 0.1rem !important;
+            border-radius: 12px !important;
+            padding: 0.28rem 0.1rem !important;
             transition: transform 0.12s ease, filter 0.12s ease !important;
             box-shadow: none !important;
         }}
