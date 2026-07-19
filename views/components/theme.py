@@ -329,20 +329,23 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             section.main .block-container {{
                 padding-bottom: 6.5rem !important;
             }}
-            /* Only the innermost dock host (class added by JS) is fixed */
+            /* Only the innermost dock host (class added by JS) is fixed.
+               Leave right clearance for Streamlit Cloud "Manage app" FAB (host overlay). */
             .ka-bottom-dock-host {{
                 position: fixed !important;
                 left: 0 !important;
                 right: 0 !important;
                 bottom: 0 !important;
-                z-index: 1000 !important;
+                z-index: 2147483000 !important;
                 width: 100vw !important;
                 max-width: 100vw !important;
                 margin: 0 !important;
-                padding: 0.3rem 0.35rem calc(0.4rem + env(safe-area-inset-bottom, 0px)) !important;
+                /* Extra right padding so 隊伍／比賽 are not under the crown Manage button */
+                padding: 0.3rem 3.75rem calc(0.4rem + env(safe-area-inset-bottom, 0px)) 0.35rem !important;
                 background: {c["main_bg"]} !important;
                 border-top: 1px solid {c["border"]} !important;
                 box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.10) !important;
+                pointer-events: auto !important;
             }}
             .ka-bottom-dock-host [data-testid="stHorizontalBlock"] {{
                 display: flex !important;

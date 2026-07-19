@@ -1,0 +1,7 @@
+[client]
+# Hide developer toolbar / Deploy options for everyone (owners still may see
+# Streamlit Cloud host "Manage app"; dock leaves right padding for that FAB).
+toolbarMode = "viewer"
+
+[browser]
+gatherUsageStats = false
