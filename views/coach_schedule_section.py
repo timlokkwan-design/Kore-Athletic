@@ -7,6 +7,7 @@ from utils.config import SPECIALTY_OPTIONS, VENUE_OPTIONS, schedule_placeholder_
 from utils.data_store import (
     apply_time_venue_to_dates,
     build_coach_prog_map,
+    clear_program_time_venue,
     copy_time_venue_to_dates,
     days_until_competition,
     ensure_program_dict,
@@ -198,6 +199,30 @@ def _render_sched_editor_ui() -> None:
             f"已儲存 {format_timetable_date(sk)} 全隊時間地點",
         )
         st.rerun()
+
+    has_slot = has_schedule_slot(sk)
+    a1, a2 = st.columns(2)
+    with a1:
+        if st.button(
+            "🗑 取消當日訓練時間",
+            key=f"sched_clear_{rk}",
+            use_container_width=True,
+            disabled=not has_slot,
+            help="清除此日已設定的開始／結束時間與地點（全隊同步）",
+        ):
+            if clear_program_time_venue(sk):
+                # Drop widget state so empty fields show after clear
+                for suffix in ("st", "et", "vn", "vo"):
+                    st.session_state.pop(f"sched_{suffix}_{rk}", None)
+                st.session_state["sched_flash"] = (
+                    "success",
+                    f"已取消 {format_timetable_date(sk)} 的訓練時間與地點",
+                )
+            else:
+                st.session_state["sched_flash"] = ("error", "此日沒有可取消的時間地點")
+            st.rerun()
+    with a2:
+        st.caption("更改：改時間後再按「儲存」。取消：按左方按鈕清除當日時間。")
 
     b1, b2 = st.columns(2)
     with b1:
