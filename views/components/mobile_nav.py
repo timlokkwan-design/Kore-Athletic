@@ -188,9 +188,9 @@ def _find_innermost_vertical_block_js() -> str:
                   if (row.querySelector('[data-testid="stExpander"]')) return;
                   var colCount = row.children.length;
                   var btns = row.querySelectorAll('button').length;
-                  // Month nav (3) / toggles (2) / picker (3 cols) — never week grids (7)
-                  if (colCount < 2 || colCount > 4) return;
-                  if (btns > 4) return;
+                  // Month nav (3) / toggles (2) / group chips (≤5) — never week grids (7)
+                  if (colCount < 2 || colCount > 5) return;
+                  if (btns > 5) return;
                   if (btns < 1) return;
                   var h = row.getBoundingClientRect().height;
                   if (h > 160) return;

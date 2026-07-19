@@ -42,7 +42,16 @@ from utils.helpers import (
     sync_status_label,
     whatsapp_program_text,
 )
+from views.components.coach_mobile_ui import force_button_row
 from views.components.coach_workout_compare import render_workout_history_compare
+
+# Compact chip labels so 4 groups fit one phone row
+_GROUP_CHIP_LABEL = {
+    "短跑組": "短跑",
+    "中長跑組": "中長跑",
+    "跨欄組": "跨欄",
+    "全體組員": "全體",
+}
 
 
 def _apply_workout_copy(sk: str, edit_group: str, source: dict) -> None:
@@ -173,16 +182,11 @@ def _render_group_picker(day_programs: list[dict], sk: str) -> tuple[int, dict, 
         st.session_state[pick_key] = 0
 
     st.caption("切換要編輯的組別")
-    with st.container():
-        st.markdown(
-            '<div class="ka-prog-grp-marker" aria-hidden="true"></div>',
-            unsafe_allow_html=True,
-        )
-        cols = st.columns(len(GROUP_OPTIONS), gap="small")
+    with force_button_row(key=f"prog_grp_row_{sk}", n_cols=len(GROUP_OPTIONS)) as cols:
         for i, (col, group) in enumerate(zip(cols, GROUP_OPTIONS)):
             with col:
                 st.button(
-                    group_display_label(group),
+                    _GROUP_CHIP_LABEL.get(group, group_display_label(group)),
                     key=f"pgbtn_{sk}_{i}",
                     use_container_width=True,
                     type="primary" if i == cur else "secondary",
@@ -216,12 +220,8 @@ def _render_day_status_picker(sk: str, edit_group: str, prog: dict) -> str:
         st.session_state[state_key] = current
 
     st.caption("當日安排")
-    with st.container():
-        st.markdown(
-            '<div class="ka-prog-status-marker" aria-hidden="true"></div>',
-            unsafe_allow_html=True,
-        )
-        c1, c2, c3 = st.columns(3, gap="small")
+    with force_button_row(key=f"prog_status_row_{sk}_{edit_group}", n_cols=3) as cols:
+        c1, c2, c3 = cols
         with c1:
             st.button(
                 "🏃 訓練",

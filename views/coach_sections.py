@@ -294,11 +294,17 @@ def _render_coach_log_filter() -> None:
 
 def _render_calendar_group_filter() -> tuple[str, str | None]:
     """Compact one-row group filter (replaces selectbox on mobile)."""
-    from views.components.coach_mobile_ui import inject_coach_mobile_css, mark_force_row
+    from views.components.coach_mobile_ui import force_button_row
 
-    inject_coach_mobile_css()
     labels = [label for label, _ in CALENDAR_GROUP_FILTERS]
     values = [value for _, value in CALENDAR_GROUP_FILTERS]
+    chip = {
+        "全部組別": "全部",
+        "短跑": "短跑",
+        "中長跑": "中長跑",
+        "跨欄": "跨欄",
+        "全部學員": "全體",
+    }
     key = "coach_cal_group_filter_idx"
     if key not in st.session_state:
         # Migrate legacy selectbox label if present
@@ -313,13 +319,11 @@ def _render_calendar_group_filter() -> tuple[str, str | None]:
         st.session_state[key] = 0
 
     st.caption("選擇組別")
-    with st.container():
-        mark_force_row()
-        cols = st.columns(len(labels), gap="small")
+    with force_button_row(key="coach_cal_grp_row", n_cols=len(labels)) as cols:
         for i, (col, label) in enumerate(zip(cols, labels)):
             with col:
                 if st.button(
-                    label.replace("全部組別", "全部"),
+                    chip.get(label, label),
                     key=f"coach_cal_grp_{i}",
                     use_container_width=True,
                     type="primary" if i == cur else "secondary",
