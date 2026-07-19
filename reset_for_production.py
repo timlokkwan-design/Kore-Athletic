@@ -169,7 +169,8 @@ def reset_for_production(*, keep_coach_password: bool = True) -> dict:
     stored = str(coach.get("password", ""))
     if not is_hashed(stored):
         coach["password"] = hash_password(stored)
-    save_users(pd.DataFrame([coach]))
+    # Intentional wipe of non-coach accounts — full data/ backup already made above.
+    save_users(pd.DataFrame([coach]), allow_account_loss=True, reason="reset_for_production")
 
     for filename, columns in EMPTY_CSVS.items():
         _write_empty_csv(DATA / filename, columns)

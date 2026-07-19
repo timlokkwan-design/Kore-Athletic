@@ -108,6 +108,13 @@ def _write(filename: str, df: pd.DataFrame, columns: list[str]) -> None:
     from utils.session_cache import invalidate_data_cache
     from utils.supabase_config import is_supabase_enabled
 
+    if filename == USERS_FILE:
+        # Forever rule: users never go through unprotected replace writes.
+        from utils.user_protection import protected_save_users
+
+        protected_save_users(df, columns, reason=f"_write:{filename}")
+        return
+
     if is_supabase_enabled():
         from utils.supabase_io import write_csv_table
         write_csv_table(filename, df, columns)
@@ -818,8 +825,23 @@ def load_users() -> pd.DataFrame:
     return df
 
 
-def save_users(df: pd.DataFrame) -> None:
-    _write(USERS_FILE, df, USER_COLUMNS)
+def save_users(
+    df: pd.DataFrame,
+    *,
+    allow_account_loss: bool = False,
+    drop_usernames: set[str] | frozenset[str] | None = None,
+    reason: str = "save_users",
+) -> None:
+    """Persist users with merge-protect so student accounts cannot vanish on update."""
+    from utils.user_protection import protected_save_users
+
+    protected_save_users(
+        df,
+        USER_COLUMNS,
+        allow_account_loss=allow_account_loss,
+        drop_usernames=drop_usernames,
+        reason=reason,
+    )
 
 
 def get_user(username: str) -> dict | None:
@@ -2051,7 +2073,8 @@ def clear_test_data(*, clear_programs: bool = True) -> dict[str, int]:
     stats["users_removed"] = int(users["username"].astype(str).isin(TEST_USERNAMES).sum())
     users = users[~users["username"].astype(str).isin(TEST_USERNAMES)]
     users = users.drop_duplicates(subset=["username"], keep="first").reset_index(drop=True)
-    save_users(users)
+    # Explicitly drop only disposable demo usernames — never wipe real students.
+    save_users(users, drop_usernames=TEST_USERNAMES, reason="clear_test_data")
 
     pending_sp = load_pending_specialty()
     if not pending_sp.empty and "username" in pending_sp.columns:

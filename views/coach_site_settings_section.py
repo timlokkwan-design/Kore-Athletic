@@ -1,11 +1,101 @@
 """Coach — edit public site content for visitor zone."""
 from __future__ import annotations
 
+import io
+
+import pandas as pd
 import streamlit as st
 
 from utils.backup import build_data_backup_zip
 from utils.cloud_deploy import is_streamlit_cloud
+from utils.data_store import USER_COLUMNS, load_users
 from utils.site_content import DEFAULT_SITE_CONTENT, load_site_content, save_site_content
+from utils.user_protection import (
+    build_users_only_backup,
+    count_protected,
+    load_users_backup_payload,
+    restore_users_from_backup,
+    snapshot_users_backup,
+)
+
+
+def _render_user_account_protection() -> None:
+    st.markdown("##### 學員帳號保護（獨立）")
+    st.caption(
+        "更新程式／重新部署時，系統會自動合併現有帳號，避免學生用戶消失。"
+        "你亦可單獨下載／還原「用戶帳號」備份。"
+    )
+
+    users = load_users()
+    protected = count_protected(users)
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("受保護帳號", protected["total"])
+    c2.metric("學員", protected["student"])
+    c3.metric("待審", protected["pending"])
+    c4.metric("家長", protected["parent"])
+
+    payload = load_users_backup_payload()
+    if payload:
+        st.success(
+            f"最近自動備份：{payload.get('saved_at', '—')} · "
+            f"{payload.get('count', 0)} 個帳號"
+        )
+    else:
+        st.warning("尚未有用戶帳號自動備份。按下方按鈕可立即建立。")
+
+    if st.button("立即備份用戶帳號", key="users_backup_now", use_container_width=True):
+        info = snapshot_users_backup(users, USER_COLUMNS, reason="manual-coach")
+        st.success(f"已備份 {info['count']} 個帳號")
+        st.rerun()
+
+    users_csv, users_name = build_users_only_backup()
+    st.download_button(
+        "只下載用戶帳號（CSV）",
+        data=users_csv,
+        file_name=users_name,
+        mime="text/csv",
+        use_container_width=True,
+        key="coach_users_only_backup",
+    )
+
+    uploaded = st.file_uploader(
+        "還原用戶帳號（上傳 users CSV）",
+        type=["csv"],
+        key="coach_users_restore_upload",
+        help="會與現有帳號合併，不會刪除已存在的其他學生。",
+    )
+    if uploaded is not None and st.button(
+        "從上傳檔合併還原",
+        key="coach_users_restore_btn",
+        type="primary",
+        use_container_width=True,
+    ):
+        try:
+            df = pd.read_csv(io.BytesIO(uploaded.getvalue()))
+            result = restore_users_from_backup(uploaded_df=df)
+            st.success(
+                f"已合併還原 {result['restored_rows']} 列；"
+                f"現共 {result['total_after']} 帳號"
+                f"（受保護 {result['protected_after']['total']}）"
+            )
+            st.rerun()
+        except Exception as exc:
+            st.error(f"還原失敗：{exc}")
+
+    if payload and st.button(
+        "從最近自動備份合併還原",
+        key="coach_users_restore_auto",
+        use_container_width=True,
+    ):
+        try:
+            result = restore_users_from_backup(payload=payload)
+            st.success(
+                f"已合併還原；現共 {result['total_after']} 帳號"
+                f"（受保護 {result['protected_after']['total']}）"
+            )
+            st.rerun()
+        except Exception as exc:
+            st.error(f"還原失敗：{exc}")
 
 
 def render_coach_site_settings() -> None:
@@ -63,7 +153,10 @@ def render_coach_site_settings() -> None:
             st.rerun()
 
     st.markdown("---")
-    st.markdown("##### 資料備份")
+    _render_user_account_protection()
+
+    st.markdown("---")
+    st.markdown("##### 完整資料備份")
     st.caption(
         "雲端上線後，學員資料存於伺服器。請定期下載備份；"
         "更新 GitHub 程式碼重新部署前，務必先備份。"

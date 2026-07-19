@@ -44,6 +44,15 @@ def invalidate_data_cache() -> None:
     st.session_state[_CACHE_KEY] = {}
 
 
+def drop_cache_keys(*keys: str) -> None:
+    """Drop specific cache entries without bumping the global version."""
+    if not _in_streamlit() or not keys:
+        return
+    bucket = _cache_bucket()
+    for key in keys:
+        bucket.pop(key, None)
+
+
 def cached_dataframe(key: str, loader: Callable[[], pd.DataFrame]) -> pd.DataFrame:
     if not _in_streamlit():
         return loader()

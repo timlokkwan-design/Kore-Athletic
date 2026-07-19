@@ -1,0 +1,15 @@
+---
+description: Never wipe student user accounts on app updates or deploys
+alwaysApply: true
+---
+
+# Protect student user accounts (forever)
+
+When changing Kore Athletic (any update, deploy, refactor, seed, migration, or "reset"):
+
+1. **Never** clear-and-replace `users.csv` / `ka_users` with a partial list.
+2. **Always** go through `utils.data_store.save_users` → `utils.user_protection.protected_save_users` (merge-preserve).
+3. Real accounts (`student` / `parent` / `pending` / `removed` / `coach`, excluding demo `student1`–`3` / `parent1`) must survive redeploys.
+4. Use `allow_account_loss=True` **only** for explicit production wipe tools after a full backup (e.g. `reset_for_production.py`).
+5. Keep independent users backups (`data/backups/users/` + Supabase `users_account_backup` setting) working.
+6. If a change could touch users storage, add/extend a guard test for merge-protect behavior.
