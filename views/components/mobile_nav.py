@@ -264,7 +264,9 @@ def _pin_innermost_dock_host() -> None:
                 ];
                 unlock.forEach(function (el) {{
                   if (!el || !el.style) return;
-                  el.style.setProperty('overflow', 'visible', 'important');
+                  // Keep vertical scroll; never open horizontal page pan
+                  // (overflow:visible was defeating overflow-x:hidden).
+                  el.style.setProperty('overflow-x', 'hidden', 'important');
                   el.style.setProperty('overflow-y', 'auto', 'important');
                   el.style.setProperty('height', 'auto', 'important');
                   el.style.setProperty('max-height', 'none', 'important');

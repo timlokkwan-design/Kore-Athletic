@@ -43,10 +43,13 @@ def inject_coach_mobile_css() -> None:
             padding-right: 0.15rem !important;
         }
         @media (max-width: 768px) {
+            html, body, .stApp,
             [data-testid="stAppViewContainer"],
             section.main,
             section.main .block-container {
-                overflow-y: visible !important;
+                overflow-x: hidden !important;
+                overflow-y: auto !important;
+                max-width: 100% !important;
                 -webkit-overflow-scrolling: touch !important;
             }
             div[data-testid="stVerticalBlock"]:has(.ka-coach-screen-marker) [data-testid="stHorizontalBlock"] button {
@@ -145,10 +148,6 @@ def render_coach_screen_switcher(*, current: str) -> None:
     inject_coach_mobile_css()
     inject_calendar_theme()
     p = get_calendar_palette()
-    st.markdown(
-        '<div class="ka-coach-screen-marker ka-inline-row-marker"></div>',
-        unsafe_allow_html=True,
-    )
     with stylable_container(
         key="coach_scr_switch",
         css_styles=f"""
@@ -163,7 +162,7 @@ def render_coach_screen_switcher(*, current: str) -> None:
         """,
     ):
         st.markdown(
-            '<div class="ka-inline-row-marker"></div>',
+            '<div class="ka-coach-screen-marker ka-inline-row-marker"></div>',
             unsafe_allow_html=True,
         )
         c1, c2 = st.columns(2)
