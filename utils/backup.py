@@ -30,6 +30,7 @@ def _backup_from_supabase(buffer: io.BytesIO) -> None:
         "pending_records.csv": data_store.PENDING_COLUMNS,
         "pending_specialty.csv": data_store.PENDING_SPECIALTY_COLUMNS,
         "race_records.csv": data_store.RACE_COLUMNS,
+        "student_goals.csv": data_store.STUDENT_GOAL_COLUMNS,
     }
 
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:

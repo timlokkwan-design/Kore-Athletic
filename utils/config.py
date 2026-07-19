@@ -6,7 +6,7 @@ from utils.grades import U18_GRADES, WIND_EVENTS
 
 APP_NAME = "KORE ATHLETIC"
 APP_SUBTITLE = "關添樂教練田徑訓練與成績管理系統"
-APP_VERSION = "2026.07.19-103"
+APP_VERSION = "2026.07.19-114"
 COACH_NAME = "關添樂"
 EMAIL_DOMAIN = "@kore-athletic.app"
 
@@ -150,6 +150,7 @@ TEMPLATES_FILE = "templates.csv"
 PENDING_FILE = "pending_records.csv"
 PENDING_SPECIALTY_FILE = "pending_specialty.csv"
 RACE_RECORDS_FILE = "race_records.csv"
+STUDENT_GOALS_FILE = "student_goals.csv"
 
 MENUS_FILE = PROGRAMS_FILE
 
