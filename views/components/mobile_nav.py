@@ -172,7 +172,55 @@ def _find_innermost_vertical_block_js() -> str:
               function scrubLeakedRowStyles() {
                 document.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function (row) {
                   if (row.closest('.ka-bottom-dock-host') || row.closest('.ka-top-subtab-host')) return;
+                  if (row.classList && row.classList.contains('ka-inline-row-forced')) return;
                   clearRowInline(row);
+                });
+              }
+              function findChromeRow(marker) {
+                if (!marker) return null;
+                var host = findHost(marker);
+                if (!host) return null;
+                var found = null;
+                host.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function (row) {
+                  if (found) return;
+                  if (!(marker.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING)) return;
+                  if (row.querySelector('iframe') || row.querySelector('.fc')) return;
+                  if (row.querySelector('[data-testid="stExpander"]')) return;
+                  var colCount = row.children.length;
+                  var btns = row.querySelectorAll('button').length;
+                  // Month nav (3) / toggles (2) / picker (3 cols) — never week grids (7)
+                  if (colCount < 2 || colCount > 4) return;
+                  if (btns > 4) return;
+                  if (btns < 1) return;
+                  var h = row.getBoundingClientRect().height;
+                  if (h > 160) return;
+                  found = row;
+                });
+                return found;
+              }
+              function pinInlineChrome() {
+                var sels = [
+                  '.ka-cal-month-nav-marker',
+                  '.ka-cal-view-marker',
+                  '.ka-coach-screen-marker',
+                  '.ka-inline-row-marker'
+                ];
+                sels.forEach(function (sel) {
+                  document.querySelectorAll(sel).forEach(function (marker) {
+                    var row = findChromeRow(marker);
+                    if (!row) return;
+                    forceRowOn(row);
+                    row.classList.add('ka-inline-row-forced');
+                    var kids = row.children;
+                    if (
+                      marker.classList.contains('ka-cal-month-nav-marker')
+                      && kids && kids.length >= 3
+                    ) {
+                      kids[0].style.setProperty('flex', '0.85 1 0', 'important');
+                      kids[1].style.setProperty('flex', '3.2 1 0', 'important');
+                      kids[2].style.setProperty('flex', '0.85 1 0', 'important');
+                    }
+                  });
                 });
               }
               function isWrongHost(el, minBtns, maxBtns) {
@@ -186,6 +234,8 @@ def _find_innermost_vertical_block_js() -> str:
                 if (el.querySelector('.ka-cal-month-nav-marker')) return true;
                 if (el.querySelector('.ka-cal-view-marker')) return true;
                 if (el.querySelector('.ka-cal-shell-marker')) return true;
+                if (el.querySelector('.ka-inline-row-marker')) return true;
+                if (el.querySelector('.ka-coach-screen-marker')) return true;
                 var rows = directRows(el);
                 if (rows.length !== 1) return true;
                 var h = el.getBoundingClientRect().height;
@@ -293,6 +343,8 @@ def _pin_innermost_dock_host() -> None:
                   var rows = directRows(host);
                   if (rows[0]) forceRowOn(rows[0]);
                 }});
+                // Month nav / view toggles / paired action buttons — one row on mobile
+                pinInlineChrome();
                 placeTopHost();
                 unlockScroll();
               }}

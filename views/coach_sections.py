@@ -314,22 +314,27 @@ def _render_coach_program_editor() -> None:
             goto_edit_on_select=True,
             schedule_only=True,
         )
-        b_copy, b_delete = st.columns(2)
-        with b_copy:
-            if st.button("📋 複製課表到其他日期", key="prog_copy_btn", use_container_width=True):
-                src = st.session_state.get("coach_cal", selected.isoformat())
-                st.session_state.copy_mode = True
-                st.session_state.delete_mode = False
-                st.session_state.copy_source_date = src
-                st.session_state.copy_source_payload = get_programs_for_date(selected)
-                st.session_state.copy_target_dates = []
-                st.rerun()
-        with b_delete:
-            if st.button("🗑 多選刪除課表", key="prog_delete_btn", use_container_width=True):
-                st.session_state.delete_mode = True
-                st.session_state.copy_mode = False
-                st.session_state.delete_target_dates = []
-                st.rerun()
+        with st.container():
+            st.markdown(
+                '<div class="ka-inline-row-marker"></div>',
+                unsafe_allow_html=True,
+            )
+            b_copy, b_delete = st.columns(2)
+            with b_copy:
+                if st.button("📋 複製課表到其他日期", key="prog_copy_btn", use_container_width=True):
+                    src = st.session_state.get("coach_cal", selected.isoformat())
+                    st.session_state.copy_mode = True
+                    st.session_state.delete_mode = False
+                    st.session_state.copy_source_date = src
+                    st.session_state.copy_source_payload = get_programs_for_date(selected)
+                    st.session_state.copy_target_dates = []
+                    st.rerun()
+            with b_delete:
+                if st.button("🗑 多選刪除課表", key="prog_delete_btn", use_container_width=True):
+                    st.session_state.delete_mode = True
+                    st.session_state.copy_mode = False
+                    st.session_state.delete_target_dates = []
+                    st.rerun()
         st.caption(f"今日完成率：**{log_completion_rate()}%**")
         if st.button("📍 今日課表", use_container_width=True, key="coach_goto_today"):
             set_coach_calendar_date(date.today().isoformat())

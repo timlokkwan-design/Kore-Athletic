@@ -55,7 +55,10 @@ def render_coach_screen_switcher(*, current: str) -> None:
     inject_coach_mobile_css()
     inject_calendar_theme()
     p = get_calendar_palette()
-    st.markdown('<div class="ka-coach-screen-marker"></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="ka-coach-screen-marker ka-inline-row-marker"></div>',
+        unsafe_allow_html=True,
+    )
     with stylable_container(
         key="coach_scr_switch",
         css_styles=f"""
@@ -69,6 +72,10 @@ def render_coach_screen_switcher(*, current: str) -> None:
         button {{ min-height: 2.75rem !important; font-weight: 700 !important; border-radius: 8px !important; }}
         """,
     ):
+        st.markdown(
+            '<div class="ka-inline-row-marker"></div>',
+            unsafe_allow_html=True,
+        )
         c1, c2 = st.columns(2)
         with c1:
             st.button(
