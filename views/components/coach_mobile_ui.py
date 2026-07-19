@@ -181,7 +181,8 @@ def render_option_chips(
     cur = st.session_state.get(session_key, options[0])
     if cur not in options:
         cur = options[0]
-        st.session_state[session_key] = cur
+    # Always persist so return never KeyErrors on first paint.
+    st.session_state[session_key] = cur
 
     for row_i in range(0, len(options), per_row):
         chunk = options[row_i : row_i + per_row]
@@ -196,7 +197,7 @@ def render_option_chips(
                     ):
                         st.session_state[session_key] = opt
                         st.rerun()
-    return st.session_state[session_key]
+    return str(st.session_state.get(session_key, options[0]))
 
 
 def render_calendar_legend() -> None:
