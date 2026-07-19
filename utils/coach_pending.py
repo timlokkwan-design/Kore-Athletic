@@ -20,7 +20,8 @@ def _load_pending_summary() -> dict[str, int]:
 
 
 def get_coach_pending_summary() -> dict[str, int]:
-    return cached_value("coach_pending_summary", _load_pending_summary)
+    # Short TTL so registrations from other sessions surface quickly
+    return cached_value("coach_pending_summary", _load_pending_summary, ttl_seconds=5)
 
 
 def get_coach_pending_total() -> int:

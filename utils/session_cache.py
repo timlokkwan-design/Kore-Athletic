@@ -1,6 +1,7 @@
 """In-memory cache for Supabase/CSV reads within a Streamlit session."""
 from __future__ import annotations
 
+import time
 from typing import Callable, TypeVar
 
 import pandas as pd
@@ -9,6 +10,10 @@ T = TypeVar("T")
 
 _CACHE_KEY = "_ka_data_cache"
 _VERSION_KEY = "_ka_data_version"
+
+# Soft TTL so multi-user writes (e.g. new registration) surface without a write
+# in the current browser session. Soft refresh / writes still bump version.
+DEFAULT_TTL_SECONDS = 20
 
 
 def _in_streamlit() -> bool:
@@ -44,27 +49,58 @@ def invalidate_data_cache() -> None:
     st.session_state[_CACHE_KEY] = {}
 
 
-def cached_dataframe(key: str, loader: Callable[[], pd.DataFrame]) -> pd.DataFrame:
+def soft_refresh_data() -> None:
+    """Clear cached reads and rerun — keeps login session intact."""
+    import streamlit as st
+
+    invalidate_data_cache()
+    try:
+        from utils.session_persist import refresh_persisted_login
+
+        st.session_state._auth_persist_touch = 0
+        refresh_persisted_login()
+    except Exception:
+        pass
+    st.rerun()
+
+
+def cached_dataframe(
+    key: str,
+    loader: Callable[[], pd.DataFrame],
+    *,
+    ttl_seconds: float | None = DEFAULT_TTL_SECONDS,
+) -> pd.DataFrame:
     if not _in_streamlit():
         return loader()
     ver = _cache_version()
     bucket = _cache_bucket()
     entry = bucket.get(key)
+    now = time.monotonic()
     if entry and entry[0] == ver:
-        return entry[1].copy()
+        cached_at = entry[2] if len(entry) > 2 else now
+        if ttl_seconds is None or (now - cached_at) < ttl_seconds:
+            return entry[1].copy()
     df = loader()
-    bucket[key] = (ver, df.copy())
+    bucket[key] = (ver, df.copy(), now)
     return df.copy()
 
 
-def cached_value(key: str, loader: Callable[[], T]) -> T:
+def cached_value(
+    key: str,
+    loader: Callable[[], T],
+    *,
+    ttl_seconds: float | None = DEFAULT_TTL_SECONDS,
+) -> T:
     if not _in_streamlit():
         return loader()
     ver = _cache_version()
     bucket = _cache_bucket()
     entry = bucket.get(key)
+    now = time.monotonic()
     if entry and entry[0] == ver:
-        return entry[1]
+        cached_at = entry[2] if len(entry) > 2 else now
+        if ttl_seconds is None or (now - cached_at) < ttl_seconds:
+            return entry[1]
     value = loader()
-    bucket[key] = (ver, value)
+    bucket[key] = (ver, value, now)
     return value
