@@ -207,11 +207,12 @@ def _render_sched_editor_ui() -> None:
         st.rerun()
 
     has_slot = has_schedule_slot(sk)
-    with force_button_row(key=f"sched_clear_row_{rk}", n_cols=2) as cols:
-        a1, a2 = cols
+    # 取消｜複製｜多選 — one compact row (was 2 stacked strips)
+    with force_button_row(key=f"sched_tools_row_{rk}", n_cols=3) as cols:
+        a1, b1, b2 = cols
         with a1:
             if st.button(
-                "🗑 取消時間",
+                "🗑 取消",
                 key=f"sched_clear_{rk}",
                 use_container_width=True,
                 disabled=not has_slot,
@@ -227,13 +228,8 @@ def _render_sched_editor_ui() -> None:
                 else:
                     st.session_state["sched_flash"] = ("error", "此日沒有可取消的時間地點")
                 st.rerun()
-        with a2:
-            st.caption("改時間後再按「儲存」；左掣清除當日時間。")
-
-    with force_button_row(key="sched_tools_row", n_cols=2) as cols:
-        b1, b2 = cols
         with b1:
-            if st.button("📋 複製時間", key="sched_copy_btn", use_container_width=True):
+            if st.button("📋 複製", key="sched_copy_btn", use_container_width=True):
                 if not has_schedule_slot(sk):
                     st.session_state["sched_flash"] = ("error", "請先儲存此日的時間地點")
                     st.rerun()
@@ -242,7 +238,7 @@ def _render_sched_editor_ui() -> None:
                 st.session_state.sched_pick_dates = []
                 st.rerun()
         with b2:
-            if st.button("✅ 多選套用", key="sched_bulk_btn", use_container_width=True):
+            if st.button("✅ 多選", key="sched_bulk_btn", use_container_width=True):
                 st.session_state.sched_pick_mode = "bulk"
                 st.session_state.pop("sched_copy_source", None)
                 st.session_state.sched_pick_dates = []

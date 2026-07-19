@@ -338,7 +338,7 @@ def _pin_innermost_dock_host() -> None:
                 host.style.setProperty('right', '0', 'important');
                 host.style.setProperty('z-index', '2147482800', 'important');
                 var h = host.getBoundingClientRect().height || 56;
-                document.documentElement.style.setProperty('--ka-top-pad', (top + h + 10) + 'px');
+                document.documentElement.style.setProperty('--ka-top-pad', (top + h + 4) + 'px');
                 if (bc) bc.classList.add('ka-has-top-subtabs');
               }}
 
