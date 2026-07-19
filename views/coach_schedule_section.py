@@ -73,14 +73,12 @@ def _render_sched_pick_ui(pick_mode: str) -> None:
         copy_source=copy_source if pick_mode == "copy" else "",
     )
 
-    from views.components.coach_mobile_ui import inject_coach_mobile_css, mark_force_row
+    from views.components.coach_mobile_ui import force_button_row
 
-    inject_coach_mobile_css()
     if pick_mode == "copy":
         targets = st.session_state.get("sched_pick_dates", [])
-        with st.container():
-            mark_force_row()
-            b1, b2, b3 = st.columns(3, gap="small")
+        with force_button_row(key="sched_copy_actions", n_cols=3) as cols:
+            b1, b2, b3 = cols
             with b1:
                 if st.button(
                     f"✅ 複製 {len(targets)}",
@@ -111,18 +109,16 @@ def _render_sched_pick_ui(pick_mode: str) -> None:
     elif pick_mode == "bulk":
         targets = st.session_state.get("sched_pick_dates", [])
         st.markdown("#### 套用到已選日期（全隊同一時間地點）")
-        with st.container():
-            mark_force_row()
-            f1, f2, f3 = st.columns(3, gap="small")
+        with force_button_row(key="sched_bulk_fields", n_cols=3) as cols:
+            f1, f2, f3 = cols
             bulk_start = f1.text_input("開始時間", "17:00", key="sched_bulk_st")
             bulk_end = f2.text_input("結束時間", "19:00", key="sched_bulk_et")
             bulk_venue = f3.selectbox("地點", VENUE_OPTIONS, key="sched_bulk_vn")
         bulk_other = ""
         if bulk_venue == "其他":
             bulk_other = st.text_input("其他地點", key="sched_bulk_vo", placeholder="請填寫詳細地點")
-        with st.container():
-            mark_force_row()
-            b1, b2, b3 = st.columns(3, gap="small")
+        with force_button_row(key="sched_bulk_actions", n_cols=3) as cols:
+            b1, b2, b3 = cols
             with b1:
                 if st.button(
                     f"✅ 套用 {len(targets)}",
@@ -184,21 +180,24 @@ def _render_sched_editor_ui() -> None:
     if venue_val and venue_val not in VENUE_OPTIONS:
         venue_idx = VENUE_OPTIONS.index("其他")
 
-    c1, c2, c3, c4 = st.columns([1, 1, 1.5, 1.5])
-    start_time = c1.text_input(
-        "開始時間", safe_str(prog.get("start_time")), placeholder="17:00", key=f"sched_st_{rk}",
-    )
-    end_time = c2.text_input(
-        "結束時間", safe_str(prog.get("end_time")), placeholder="19:00", key=f"sched_et_{rk}",
-    )
-    venue = c3.selectbox("地點", VENUE_OPTIONS, index=venue_idx, key=f"sched_vn_{rk}")
+    from views.components.coach_mobile_ui import force_button_row
+
+    with force_button_row(key=f"sched_time_row_{rk}", n_cols=2) as cols:
+        c1, c2 = cols
+        start_time = c1.text_input(
+            "開始時間", safe_str(prog.get("start_time")), placeholder="17:00", key=f"sched_st_{rk}",
+        )
+        end_time = c2.text_input(
+            "結束時間", safe_str(prog.get("end_time")), placeholder="19:00", key=f"sched_et_{rk}",
+        )
+    venue = st.selectbox("地點", VENUE_OPTIONS, index=venue_idx, key=f"sched_vn_{rk}")
     venue_other = ""
     if venue == "其他":
-        venue_other = c4.text_input(
+        venue_other = st.text_input(
             "其他地點", safe_str(prog.get("venue_other")),
             placeholder="請填寫詳細地點", key=f"sched_vo_{rk}",
         )
-    if st.button("💾 儲存時間與地點", type="primary", key=f"sched_save_{rk}"):
+    if st.button("💾 儲存時間與地點", type="primary", key=f"sched_save_{rk}", use_container_width=True):
         save_program_time_venue(sk, start_time, end_time, venue, venue_other)
         st.session_state["sched_flash"] = (
             "success",
@@ -206,13 +205,9 @@ def _render_sched_editor_ui() -> None:
         )
         st.rerun()
 
-    from views.components.coach_mobile_ui import inject_coach_mobile_css, mark_force_row
-
-    inject_coach_mobile_css()
     has_slot = has_schedule_slot(sk)
-    with st.container():
-        mark_force_row()
-        a1, a2 = st.columns(2, gap="small")
+    with force_button_row(key=f"sched_clear_row_{rk}", n_cols=2) as cols:
+        a1, a2 = cols
         with a1:
             if st.button(
                 "🗑 取消時間",
@@ -222,7 +217,6 @@ def _render_sched_editor_ui() -> None:
                 help="清除此日已設定的開始／結束時間與地點（全隊同步）",
             ):
                 if clear_program_time_venue(sk):
-                    # Drop widget state so empty fields show after clear
                     for suffix in ("st", "et", "vn", "vo"):
                         st.session_state.pop(f"sched_{suffix}_{rk}", None)
                     st.session_state["sched_flash"] = (
@@ -235,9 +229,8 @@ def _render_sched_editor_ui() -> None:
         with a2:
             st.caption("改時間後再按「儲存」；左掣清除當日時間。")
 
-    with st.container():
-        mark_force_row()
-        b1, b2 = st.columns(2, gap="small")
+    with force_button_row(key="sched_tools_row", n_cols=2) as cols:
+        b1, b2 = cols
         with b1:
             if st.button("📋 複製時間", key="sched_copy_btn", use_container_width=True):
                 if not has_schedule_slot(sk):

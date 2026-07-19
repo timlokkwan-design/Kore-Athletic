@@ -140,14 +140,12 @@ def _coach_calendar_pick_ui(copy_mode: bool, delete_mode: bool) -> None:
 
     _render_calendar_impl("coach_cal", show_acwr=False, copy_mode=copy_mode, delete_mode=delete_mode)
 
-    from views.components.coach_mobile_ui import inject_coach_mobile_css, mark_force_row
+    from views.components.coach_mobile_ui import force_button_row
 
-    inject_coach_mobile_css()
     if delete_mode:
         targets = st.session_state.get("delete_target_dates", [])
-        with st.container():
-            mark_force_row()
-            c1, c2, c3 = st.columns(3, gap="small")
+        with force_button_row(key="prog_delete_actions", n_cols=3) as cols:
+            c1, c2, c3 = cols
             with c1:
                 if st.button(
                     f"🗑 刪除 {len(targets)}",
@@ -176,9 +174,8 @@ def _coach_calendar_pick_ui(copy_mode: bool, delete_mode: bool) -> None:
                     st.rerun()
     elif copy_mode:
         targets = st.session_state.get("copy_target_dates", [])
-        with st.container():
-            mark_force_row()
-            c1, c2, c3 = st.columns(3, gap="small")
+        with force_button_row(key="prog_copy_actions", n_cols=3) as cols:
+            c1, c2, c3 = cols
             with c1:
                 if st.button(
                     f"✅ 複製 {len(targets)}",
@@ -339,7 +336,7 @@ def _render_calendar_group_filter() -> tuple[str, str | None]:
 
 
 def _render_coach_program_editor() -> None:
-    from views.components.coach_mobile_ui import inject_coach_mobile_css, mark_force_row
+    from views.components.coach_mobile_ui import force_button_row, inject_coach_mobile_css
 
     inject_coach_mobile_css()
     screen = st.session_state.get("coach_prog_screen", "cal")
@@ -367,9 +364,8 @@ def _render_coach_program_editor() -> None:
             goto_edit_on_select=True,
             schedule_only=True,
         )
-        with st.container():
-            mark_force_row()
-            b_copy, b_delete = st.columns(2, gap="small")
+        with force_button_row(key="prog_copy_delete_row", n_cols=2) as cols:
+            b_copy, b_delete = cols
             with b_copy:
                 if st.button("📋 複製課表", key="prog_copy_btn", use_container_width=True):
                     src = st.session_state.get("coach_cal", selected.isoformat())

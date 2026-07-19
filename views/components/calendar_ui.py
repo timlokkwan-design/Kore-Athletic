@@ -9,6 +9,7 @@ import streamlit as st
 from views.components.stylable_shim import stylable_container
 
 from views.components.calendar_theme import get_calendar_palette, inject_calendar_theme
+from views.components.coach_mobile_ui import force_button_row
 
 
 @contextmanager
@@ -59,14 +60,14 @@ def render_calendar_month_nav(
     def _toggle_picker():
         st.session_state[picker_key] = not st.session_state.get(picker_key, False)
 
-    # Small host only — pin JS forces ◀ / month / ▶ into one row on mobile.
-    with st.container():
-        st.markdown(
-            f'<div class="ka-cal-month-nav-marker ka-inline-row-marker" '
-            f'data-prev="{prev_key}" data-next="{next_key}"></div>',
-            unsafe_allow_html=True,
-        )
-        c1, c2, c3 = st.columns([1, 3.2, 1], gap="small")
+    # ◀ / month / ▶ — force_button_row keeps one horizontal strip on mobile.
+    with force_button_row(
+        key=f"{prev_key}_month_nav",
+        n_cols=3,
+        weights=[0.85, 3.2, 0.85],
+        marker_extra="ka-cal-month-nav-marker",
+    ) as cols:
+        c1, c2, c3 = cols
         with c1:
             st.button("◀", key=prev_key, on_click=on_prev, args=prev_args, use_container_width=True)
         with c2:
@@ -82,9 +83,12 @@ def render_calendar_month_nav(
 
     can_pick = bool(on_pick) or (year_state_key and month_state_key)
     if st.session_state.get(picker_key) and can_pick:
-        with st.container():
-            st.markdown('<div class="ka-inline-row-marker"></div>', unsafe_allow_html=True)
-            ycol, mcol, acol = st.columns([1.2, 1.2, 1])
+        with force_button_row(
+            key=f"{prev_key}_ym_pick",
+            n_cols=3,
+            weights=[1.2, 1.2, 1.0],
+        ) as cols:
+            ycol, mcol, acol = cols
             with ycol:
                 years = list(range(year - 3, year + 4))
                 pick_y = st.selectbox(
@@ -210,38 +214,18 @@ def render_calendar_view_toggle(
         unsafe_allow_html=True,
     )
 
-    with stylable_container(
+    def _pick_grid():
+        on_select(mode_key, "grid")
+
+    def _pick_list():
+        on_select(mode_key, "list")
+
+    with force_button_row(
         key=f"{key}_view_toggle",
-        css_styles=f"""
-        {{
-            background: {p['cell_empty_bg']};
-            border: 1px solid {p['list_card_border']};
-            border-radius: 12px;
-            padding: 4px;
-            margin-bottom: 0.5rem;
-        }}
-        div[data-testid="stHorizontalBlock"] {{
-            gap: 4px !important;
-        }}
-        button {{
-            min-height: 2.65rem !important;
-            font-weight: 700 !important;
-            border-radius: 8px !important;
-        }}
-        """,
-    ):
-        st.markdown(
-            '<div class="ka-cal-view-marker ka-inline-row-marker"></div>',
-            unsafe_allow_html=True,
-        )
-        c1, c2 = st.columns(2)
-
-        def _pick_grid():
-            on_select(mode_key, "grid")
-
-        def _pick_list():
-            on_select(mode_key, "list")
-
+        n_cols=2,
+        marker_extra="ka-cal-view-marker",
+    ) as cols:
+        c1, c2 = cols
         with c1:
             st.button(
                 "📅 月曆",
@@ -292,34 +276,15 @@ def render_student_schedule_view_toggle(
         unsafe_allow_html=True,
     )
 
-    with stylable_container(
+    def _pick(m: str):
+        st.session_state[mode_key] = m
+
+    with force_button_row(
         key=f"{key}_view_toggle2",
-        css_styles=f"""
-        {{
-            background: {p['cell_empty_bg']};
-            border: 1px solid {p['list_card_border']};
-            border-radius: 12px;
-            padding: 4px;
-            margin-bottom: 0.5rem;
-        }}
-        div[data-testid="stHorizontalBlock"] {{ gap: 4px !important; }}
-        button {{
-            min-height: 2.65rem !important;
-            font-weight: 700 !important;
-            border-radius: 8px !important;
-            font-size: 0.82rem !important;
-        }}
-        """,
-    ):
-        st.markdown(
-            '<div class="ka-cal-view-marker ka-inline-row-marker"></div>',
-            unsafe_allow_html=True,
-        )
-        c1, c2 = st.columns(2)
-
-        def _pick(m: str):
-            st.session_state[mode_key] = m
-
+        n_cols=2,
+        marker_extra="ka-cal-view-marker",
+    ) as cols:
+        c1, c2 = cols
         with c1:
             st.button(
                 "🗓 日曆",
@@ -375,43 +340,14 @@ def _render_multi_view_toggle(
         unsafe_allow_html=True,
     )
 
-    with stylable_container(
+    def _pick(m: str):
+        st.session_state[mode_key] = m
+
+    with force_button_row(
         key=f"{key}_view_toggle_multi",
-        css_styles=f"""
-        {{
-            background: {p['cell_empty_bg']};
-            border: 1px solid {p['list_card_border']};
-            border-radius: 12px;
-            padding: 4px;
-            margin-bottom: 0.5rem;
-        }}
-        div[data-testid="stHorizontalBlock"] {{ gap: 4px !important; }}
-        button {{
-            min-height: 2.75rem !important;
-            font-weight: 800 !important;
-            border-radius: 8px !important;
-            font-size: 0.88rem !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-            color: {p['text_primary']} !important;
-        }}
-        /* Primary stays accent; secondary still needs readable label */
-        button[kind="secondary"] {{
-            background: {p['cell_bg']} !important;
-            border: 1px solid {p['list_card_border']} !important;
-            color: {p['text_primary']} !important;
-        }}
-        """,
-    ):
-        st.markdown(
-            '<div class="ka-cal-view-marker ka-inline-row-marker"></div>',
-            unsafe_allow_html=True,
-        )
-        cols = st.columns(len(modes))
-
-        def _pick(m: str):
-            st.session_state[mode_key] = m
-
+        n_cols=len(modes),
+        marker_extra="ka-cal-view-marker",
+    ) as cols:
         for col, m in zip(cols, modes):
             with col:
                 st.button(
