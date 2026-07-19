@@ -100,7 +100,8 @@ def render_timetree_row(
         padded.append(
             TimetreeCell(key_id=f"empty_{len(padded)}", day=0, empty=True)
         )
-    st.markdown("<div class='ka-tt-grid-marker'></div>", unsafe_allow_html=True)
+    # Markers MUST live inside columns so :has(.ka-tt-…) matches this row.
+    # (External markers never matched stHorizontalBlock — calendar stacked on mobile.)
     cols = st.columns(7)
     for i, (col, cell) in enumerate(zip(cols, padded)):
         with col:
@@ -124,11 +125,14 @@ def render_timetree_month_grid(
     firstweekday: int = 6,
 ) -> None:
     weekdays = ["日", "一", "二", "三", "四", "五", "六"]
-    st.markdown("<div class='ka-tt-hdr'></div>", unsafe_allow_html=True)
+    # Put ka-tt-hdr inside each column so the 7-col grid CSS can match.
     hdr = st.columns(7)
     for i, w in enumerate(weekdays):
         with hdr[i]:
-            st.markdown(f"<p>{w}</p>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div class='ka-tt-hdr'><p>{w}</p></div>",
+                unsafe_allow_html=True,
+            )
 
     cal = calendar.Calendar(firstweekday=firstweekday)
     selected = st.session_state.get(select_key, "")
