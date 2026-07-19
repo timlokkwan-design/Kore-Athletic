@@ -1669,7 +1669,7 @@ def get_comp_entries_for_comp(comp_id: str) -> list[dict]:
     if df.empty:
         return []
     sub = df[df["comp_id"].astype(str) == comp_id]
-    return [
+    entries = [
         {
             "id": safe_str(row["id"]),
             "comp_id": comp_id,
@@ -1681,6 +1681,123 @@ def get_comp_entries_for_comp(comp_id: str) -> list[dict]:
         }
         for _, row in sub.iterrows()
     ]
+    entries.sort(key=lambda e: e.get("athlete_name") or "")
+    return entries
+
+
+def find_competition_by_name(name: str) -> dict | None:
+    target = safe_str(name)
+    for comp in get_competitions(published_only=False):
+        if safe_str(comp.get("name")) == target:
+            return comp
+    return None
+
+
+def ensure_youth_age_group_v_registrations() -> int:
+    """確保分齡賽(五)存在，並預填已成功報名名單。回傳新增／更新筆數。"""
+    from utils.config import YOUTH_AGE_GROUP_V_COMP, YOUTH_AGE_GROUP_V_REGISTRATIONS
+
+    name = safe_str(YOUTH_AGE_GROUP_V_COMP.get("name"))
+    ds = normalize_date_str(YOUTH_AGE_GROUP_V_COMP.get("date"))
+    open_events = safe_str(YOUTH_AGE_GROUP_V_COMP.get("event"))
+    notes = safe_str(YOUTH_AGE_GROUP_V_COMP.get("notes"))
+
+    comps = load_competitions()
+    match = comps[comps["name"].astype(str) == name] if not comps.empty else comps
+    if match.empty:
+        row = {
+            "id": _uid(),
+            "name": name,
+            "date": ds,
+            "event": open_events,
+            "location": "",
+            "registered": "",
+            "deadline": "",
+            "assembly_time": "",
+            "transport": "",
+            "notes": notes,
+            "published": "1",
+            "link": "",
+        }
+        comps = pd.concat([comps, pd.DataFrame([row])], ignore_index=True)
+        save_competitions(comps)
+        comp_id = row["id"]
+    else:
+        comp_id = safe_str(match.iloc[0]["id"])
+        idx = int(match.index[0])
+        comps = comps.copy()
+        existing = parse_comp_events(comps.at[idx, "event"] if "event" in comps.columns else "")
+        needed = parse_comp_events(open_events)
+        merged = list(dict.fromkeys(existing + needed))
+        # Rebuild row as strings to avoid pandas dtype traps (int published etc.)
+        row = {col: comps.at[idx, col] if col in comps.columns else "" for col in COMP_COLUMNS}
+        row["id"] = comp_id
+        row["name"] = name
+        row["event"] = ",".join(merged)
+        row["published"] = "1"
+        if notes and not safe_str(row.get("notes")):
+            row["notes"] = notes
+        if ds and not safe_str(row.get("date")):
+            row["date"] = ds
+        else:
+            row["date"] = normalize_date_str(row.get("date")) or ds
+        for col in COMP_COLUMNS:
+            row[col] = "" if is_missing(row.get(col)) else row[col]
+        row["published"] = "1"
+        row["event"] = ",".join(merged)
+        comps = comps.drop(index=idx)
+        comps = pd.concat([comps, pd.DataFrame([row])], ignore_index=True)
+        save_competitions(comps)
+
+    users = load_users()
+    name_to_user: dict[str, str] = {}
+    if not users.empty:
+        for _, u in users.iterrows():
+            an = safe_str(u.get("name"))
+            if an:
+                name_to_user[an] = safe_str(u.get("username"))
+
+    entries = load_comp_entries()
+    changed = 0
+    now = pd.Timestamp.now().isoformat(timespec="seconds")
+    for seed in YOUTH_AGE_GROUP_V_REGISTRATIONS:
+        athlete = safe_str(seed.get("athlete_name"))
+        events = [safe_str(e) for e in (seed.get("events") or []) if safe_str(e)]
+        if not athlete or not events:
+            continue
+        events_text = ",".join(events)
+        username = name_to_user.get(athlete, "")
+        if not entries.empty:
+            same = (
+                (entries["comp_id"].astype(str) == comp_id)
+                & (entries["athlete_name"].astype(str) == athlete)
+            )
+            if same.any():
+                i = entries.index[same][0]
+                entries["events"] = entries["events"].astype(object)
+                prev = safe_str(entries.at[i, "events"])
+                if prev != events_text:
+                    entries.at[i, "events"] = events_text
+                    entries.at[i, "submitted_at"] = now
+                    if username and not safe_str(entries.at[i, "username"]):
+                        entries.at[i, "username"] = username
+                    changed += 1
+                continue
+        row = {
+            "id": _uid(),
+            "comp_id": comp_id,
+            "athlete_name": athlete,
+            "username": username,
+            "events": events_text,
+            "pbs_json": "{}",
+            "submitted_at": now,
+        }
+        entries = pd.concat([entries, pd.DataFrame([row])], ignore_index=True)
+        changed += 1
+
+    if changed:
+        save_comp_entries(entries)
+    return changed
 
 
 def parse_entry_pbs(value) -> dict[str, dict]:
@@ -2607,7 +2724,11 @@ def init_sample_data() -> None:
         ensure_testing_coach()
         if _read(PERIOD_FILE, PERIOD_COLUMNS).empty:
             save_periodization(DEFAULT_PERIODIZATION)
+<<<<<<< HEAD
         ensure_season_competition_schedule()
+=======
+        ensure_youth_age_group_v_registrations()
+>>>>>>> origin/cursor/comp-success-roster-ea7c
         return
 
     _seed_programs()
@@ -2661,7 +2782,11 @@ def init_sample_data() -> None:
         _seed_acwr_history()
 
     ensure_testing_coach()
+<<<<<<< HEAD
     ensure_season_competition_schedule()
+=======
+    ensure_youth_age_group_v_registrations()
+>>>>>>> origin/cursor/comp-success-roster-ea7c
 
 
 def _seed_acwr_history() -> None:

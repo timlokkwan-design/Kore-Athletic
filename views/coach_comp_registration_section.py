@@ -11,12 +11,14 @@ from utils.data_store import (
     add_competition,
     build_comp_export_df,
     delete_competition,
+    ensure_youth_age_group_v_registrations,
     get_comp_entries_for_comp,
     get_competitions,
     resolve_event_pb,
     update_competition,
 )
 from views.components.avatar import render_person
+from views.components.comp_roster import render_successful_registration_roster
 
 
 def _events_text(events: list[str]) -> str:
@@ -24,6 +26,7 @@ def _events_text(events: list[str]) -> str:
 
 
 def render_coach_comp_registration() -> None:
+    ensure_youth_age_group_v_registrations()
     st.subheader("📋 比賽報名表")
     st.caption("設定比賽及開放項目；學生自行選項報名。可匯出田總格式報名資料。")
 
@@ -153,7 +156,8 @@ def render_coach_comp_registration() -> None:
 
             entries = get_comp_entries_for_comp(comp["id"])
             if entries:
-                st.markdown("**學生報名一覽**")
+                render_successful_registration_roster(comp["id"])
+                st.markdown("**報名詳情（PB）**")
                 for entry in entries:
                     render_person(
                         entry["athlete_name"],
@@ -171,7 +175,7 @@ def render_coach_comp_registration() -> None:
                             f"（{pb.get('comp_name') or '—'} · {pb.get('date') or '—'}）"
                         )
             else:
-                st.caption("暫無學生報名")
+                render_successful_registration_roster(comp["id"])
 
             if comp.get("link"):
                 st.markdown(f"🔗 [比賽連結]({comp['link']})")

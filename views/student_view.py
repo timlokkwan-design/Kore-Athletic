@@ -88,11 +88,8 @@ def _tab_schedule(user: dict) -> None:
         ("距離比賽", countdown_label, "normal"),
     ])
 
-<<<<<<< HEAD
-    render_student_goals(user)
-=======
     render_latest_announcement_banner()
->>>>>>> origin/cursor/coach-student-news-ea7c
+    render_student_goals(user)
 
     st.markdown("#### 訓練時間表")
     st.caption(f"專項：**{user.get('specialty', '—')}**")
