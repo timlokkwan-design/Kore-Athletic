@@ -33,6 +33,7 @@ from utils.helpers import (
     is_coach_plan_day,
 )
 from views.components.calendar_compact import open_dialog_if_requested
+from views.components.calendar_fullcalendar import build_coach_program_fc_events, render_fullcalendar
 from views.components.calendar_timetree import render_timetree_month_grid
 from views.components.calendar_list import render_month_day_list, render_view_mode_toggle
 from views.components.calendar_theme import inject_calendar_theme
@@ -337,11 +338,12 @@ def _render_calendar_impl(
     if select_key not in st.session_state:
         st.session_state[select_key] = date.today().isoformat()
 
-    default_mode = "list" if schedule_only else "grid"
+    default_mode = "list" if schedule_only else "fullcalendar"
     view_mode = render_view_mode_toggle(
         select_key,
         force_grid=copy_mode or delete_mode,
         default_mode=default_mode,
+        variant="program",
     )
     with calendar_shell(key=f"{select_key}_shell"):
         if view_mode == "list":
@@ -384,6 +386,33 @@ def _render_calendar_impl(
                     else None
                 ),
             )
+        elif view_mode == "fullcalendar":
+            fc_map = prog_map
+            if schedule_only and not copy_mode and not delete_mode:
+                fc_map = {
+                    ds: p for ds, p in prog_map.items()
+                    if is_coach_plan_day(p, group_filter)
+                }
+
+            def _fc_title(_ds: str, prog: dict | None) -> str:
+                p = ensure_program_dict(prog)
+                title_line, spec_line = program_calendar_summary(p) if p else ("", "")
+                return title_line or spec_line or "訓練"
+
+            events = build_coach_program_fc_events(fc_map, title_fn=_fc_title)
+            render_fullcalendar(
+                year=year,
+                month=month,
+                events=events,
+                select_key=select_key,
+                fc_key_prefix=f"coach_prog_{select_key}",
+                goto_edit_session_key=(
+                    "coach_prog_screen"
+                    if goto_edit_on_select and not copy_mode and not delete_mode
+                    else None
+                ),
+            )
+            selected = date.fromisoformat(st.session_state[select_key])
         else:
             _render_coach_compact_grid(
                 select_key, year, month, prog_map,

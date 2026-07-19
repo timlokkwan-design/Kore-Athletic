@@ -96,8 +96,11 @@ def _apply_nav_payload(data: dict, role: str) -> None:
         from views.coach_view import COACH_SECTIONS
 
         sec = data.get("coach_section")
-        if isinstance(sec, str) and sec in COACH_SECTIONS:
-            st.session_state.coach_section = sec
+        if isinstance(sec, str):
+            if sec == "週期化課表":
+                sec = "設定課表"
+            if sec in COACH_SECTIONS:
+                st.session_state.coach_section = sec
     elif role == "student":
         from views.student_view import STUDENT_SECTIONS
 
@@ -113,6 +116,21 @@ def _apply_nav_payload(data: dict, role: str) -> None:
 def try_restore_nav_state(role: str) -> None:
     """Restore main_page / section from localStorage (via one-time cookie bridge)."""
     if role == "visitor":
+        return
+    if st.session_state.get("_fresh_login"):
+        st.session_state._nav_restored = True
+        return
+    if st.session_state.get("user"):
+        bridge_raw = _read_request_cookies().get(BRIDGE_COOKIE, "")
+        if bridge_raw:
+            try:
+                data = json.loads(unquote(bridge_raw))
+                if isinstance(data, dict):
+                    _apply_nav_payload(data, role)
+            except json.JSONDecodeError:
+                pass
+            _clear_nav_bridge_cookie()
+        st.session_state._nav_restored = True
         return
     if st.session_state.get("_nav_restored"):
         return

@@ -23,6 +23,7 @@ from utils.helpers import (
     format_time_venue_line,
 )
 from views.components.calendar_compact import open_dialog_if_requested, render_compact_month_grid
+from views.components.calendar_fullcalendar import build_coach_schedule_fc_events, render_fullcalendar
 from views.components.calendar_list import render_month_day_list, render_view_mode_toggle
 from views.components.calendar_ui import render_calendar_month_nav
 
@@ -315,7 +316,12 @@ def render_schedule_calendar(
     if select_key not in st.session_state:
         st.session_state[select_key] = date.today().isoformat()
 
-    view_mode = render_view_mode_toggle(select_key, force_grid=bool(pick_mode))
+    view_mode = render_view_mode_toggle(
+        select_key,
+        force_grid=bool(pick_mode),
+        default_mode="fullcalendar",
+        variant="schedule",
+    )
 
     def _describe(ds: str, prog: dict | None) -> tuple[str, str, str, str]:
         progs = day_map.get(ds, [])
@@ -337,6 +343,19 @@ def render_schedule_calendar(
             can_pick=(lambda _ds, _p: True) if pick_mode else None,
             day_priority=lambda ds, p: sync_status_priority(day_sync_status(prog_map.get(ds))),
         )
+    elif view_mode == "fullcalendar" and not pick_mode:
+        events = build_coach_schedule_fc_events(
+            day_map,
+            title_fn=lambda ds, progs: _cell_summary(progs)[0],
+        )
+        render_fullcalendar(
+            year=year,
+            month=month,
+            events=events,
+            select_key=select_key,
+            fc_key_prefix=f"coach_sched_{select_key}",
+        )
+        selected = date.fromisoformat(st.session_state[select_key])
     else:
         _render_sched_compact_grid(
             select_key, year, month, day_map, pick_mode, pick_key, copy_source, picks
@@ -355,9 +374,9 @@ def render_schedule_calendar(
     elif pick_mode == "bulk":
         st.warning(
             f"✅ **多選套用** — 已選 **{len(picks_list)}** 日："
-            f"{('、'.join(picks_list) if picks_list else '（請在月曆點選訓練日）')}"
+            f"{('、'.join(picks_list) if picks_list else '（請在日曆點選訓練日）')}"
         )
     else:
-        st.caption(f"已選日期：**{st.session_state[select_key]}** · 點方格可彈出詳情")
+        st.caption(f"已選日期：**{st.session_state[select_key]}** · 點日曆色塊或空白日期查看／編輯")
 
     return selected

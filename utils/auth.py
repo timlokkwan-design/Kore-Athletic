@@ -58,6 +58,7 @@ def login(username: str, password: str) -> tuple[bool, str]:
     st.session_state.user = _public_user(user)
     role = safe_str(user.get("role"))
     st.session_state.main_page = _home_page_for_role(role)
+    st.session_state._fresh_login = True
     for key in ("_nav_restored", "_nav_bridge_injected", "_cookie_restore_done", "_storage_bridge_done"):
         st.session_state.pop(key, None)
     persist_login(name)

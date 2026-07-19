@@ -1,7 +1,8 @@
-"""Student schedule — FullCalendar via streamlit-calendar."""
+"""FullCalendar views via streamlit-calendar."""
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
 
 import streamlit as st
@@ -23,6 +24,85 @@ def _parse_time_hm(raw: str) -> tuple[int, int] | None:
         return None
 
 
+def _prog_to_fc_event(ds: str, prog: dict, *, title: str, tone_key: str) -> dict:
+    tones = get_calendar_tones()
+    tone = tones.get(tone_key, tones["training"])
+    start_raw = safe_str(prog.get("start_time"))
+    end_raw = safe_str(prog.get("end_time"))
+    start_hm = _parse_time_hm(start_raw)
+    end_hm = _parse_time_hm(end_raw)
+
+    if start_hm:
+        sh, sm = start_hm
+        if end_hm:
+            eh, em = end_hm
+        else:
+            eh, em = sh + 2 if sh < 22 else sh, sm
+        return {
+            "id": ds,
+            "title": title,
+            "start": f"{ds}T{sh:02d}:{sm:02d}:00",
+            "end": f"{ds}T{eh:02d}:{em:02d}:00",
+            "allDay": False,
+            "backgroundColor": tone["bg"],
+            "borderColor": tone["accent"],
+            "textColor": tone["fg"],
+            "extendedProps": {"date": ds},
+        }
+    return {
+        "id": ds,
+        "title": title,
+        "start": ds,
+        "allDay": True,
+        "backgroundColor": tone["bg"],
+        "borderColor": tone["accent"],
+        "textColor": tone["fg"],
+        "extendedProps": {"date": ds},
+    }
+
+
+def build_coach_program_fc_events(
+    prog_map: dict[str, dict],
+    *,
+    title_fn: Callable[[str, dict], str],
+    tone_fn: Callable[[str, dict], str] | None = None,
+) -> list[dict]:
+    events: list[dict] = []
+    for ds in sorted(prog_map.keys()):
+        prog = prog_map.get(ds)
+        if not prog:
+            continue
+        tp = normalize_train_type(safe_str(prog.get("type")))
+        if tp == "休息":
+            continue
+        tone_key = tone_fn(ds, prog) if tone_fn else ("competition" if tp == "比賽" else "training")
+        title = title_fn(ds, prog)
+        events.append(_prog_to_fc_event(ds, prog, title=title, tone_key=tone_key))
+    return events
+
+
+def build_coach_schedule_fc_events(
+    day_map: dict[str, list[dict]],
+    *,
+    title_fn: Callable[[str, list[dict]], str],
+) -> list[dict]:
+    events: list[dict] = []
+    for ds in sorted(day_map.keys()):
+        progs = day_map.get(ds) or []
+        active = [
+            p for p in progs
+            if normalize_train_type(safe_str(p.get("type"))) not in ("休息",)
+        ]
+        if not active:
+            continue
+        ref = active[0]
+        tp = normalize_train_type(safe_str(ref.get("type")))
+        tone_key = "competition" if tp == "比賽" else "training"
+        title = title_fn(ds, progs)
+        events.append(_prog_to_fc_event(ds, ref, title=title, tone_key=tone_key))
+    return events
+
+
 def build_student_fullcalendar_events(
     prog_map: dict[str, dict],
     *,
@@ -34,7 +114,6 @@ def build_student_fullcalendar_events(
     if today is None:
         today = date.today()
     today_str = today.isoformat()
-    tones = get_calendar_tones()
     events: list[dict] = []
     for ds in sorted(prog_map.keys()):
         prog = visible_day_fn(prog_map, ds, student_specialty)
@@ -42,56 +121,24 @@ def build_student_fullcalendar_events(
             continue
         tp = normalize_train_type(safe_str(prog.get("type")))
         tone_key = "competition" if tp == "比賽" else "training"
-        tone = tones.get(tone_key, tones["training"])
         if tp == "比賽":
             title = "比賽"
         elif ds > today_str:
             title = "訓練"
         else:
             title = safe_str(prog.get("title")) or "訓練"
-        start_raw = safe_str(prog.get("start_time"))
-        end_raw = safe_str(prog.get("end_time"))
-        start_hm = _parse_time_hm(start_raw)
-        end_hm = _parse_time_hm(end_raw)
-
-        if start_hm:
-            sh, sm = start_hm
-            if end_hm:
-                eh, em = end_hm
-            else:
-                eh, em = sh + 2 if sh < 22 else sh, sm
-            event = {
-                "id": ds,
-                "title": title,
-                "start": f"{ds}T{sh:02d}:{sm:02d}:00",
-                "end": f"{ds}T{eh:02d}:{em:02d}:00",
-                "allDay": False,
-                "backgroundColor": tone["bg"],
-                "borderColor": tone["accent"],
-                "textColor": tone["fg"],
-                "extendedProps": {"date": ds},
-            }
-        else:
-            event = {
-                "id": ds,
-                "title": title,
-                "start": ds,
-                "allDay": True,
-                "backgroundColor": tone["bg"],
-                "borderColor": tone["accent"],
-                "textColor": tone["fg"],
-                "extendedProps": {"date": ds},
-            }
-        events.append(event)
+        events.append(_prog_to_fc_event(ds, prog, title=title, tone_key=tone_key))
     return events
 
 
-def render_student_fullcalendar(
+def render_fullcalendar(
     *,
     year: int,
     month: int,
     events: list[dict],
     select_key: str = "student_sched_selected",
+    fc_key_prefix: str = "fc",
+    goto_edit_session_key: str | None = None,
 ) -> str | None:
     """
     Render FullCalendar month view. Returns selected date (YYYY-MM-DD) if user clicked.
@@ -136,7 +183,7 @@ def render_student_fullcalendar(
         events=events,
         options=options,
         custom_css=custom_css,
-        key=f"student_fc_{year}_{month}",
+        key=f"{fc_key_prefix}_{year}_{month}",
     )
 
     selected: str | None = None
@@ -155,4 +202,22 @@ def render_student_fullcalendar(
 
     if selected:
         st.session_state[select_key] = selected
+        if goto_edit_session_key:
+            st.session_state[goto_edit_session_key] = "edit"
     return selected or st.session_state.get(select_key)
+
+
+def render_student_fullcalendar(
+    *,
+    year: int,
+    month: int,
+    events: list[dict],
+    select_key: str = "student_sched_selected",
+) -> str | None:
+    return render_fullcalendar(
+        year=year,
+        month=month,
+        events=events,
+        select_key=select_key,
+        fc_key_prefix="student_fc",
+    )

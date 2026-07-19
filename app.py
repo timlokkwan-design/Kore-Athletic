@@ -154,6 +154,8 @@ def main() -> None:
         coach_section = None
         student_section = None
         if role == "coach" and page == "教練平台":
+            if st.session_state.get("coach_section") == "週期化課表":
+                st.session_state.coach_section = "設定課表"
             st.markdown("---")
             pending_total = get_coach_pending_total()
             nav_badges = {"隊伍管理": pending_total} if pending_total else None
@@ -232,6 +234,8 @@ def main() -> None:
             coach_section=coach_section,
             student_section=student_section,
         )
+
+    st.session_state.pop("_fresh_login", None)
 
 
 if __name__ == "__main__":

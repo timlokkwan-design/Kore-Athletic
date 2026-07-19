@@ -15,7 +15,11 @@ from views.components.calendar_theme import (
     inject_calendar_theme,
 )
 from views.components.calendar_timetree import render_timetree_list_card
-from views.components.calendar_ui import render_calendar_view_toggle
+from views.components.calendar_ui import (
+    render_calendar_view_toggle,
+    render_program_view_toggle,
+    render_schedule_view_toggle,
+)
 
 
 def _select_list_date(select_key: str, ds: str) -> None:
@@ -57,8 +61,14 @@ def render_view_mode_toggle(
     *,
     force_grid: bool = False,
     default_mode: str = "grid",
+    variant: str = "program",
 ) -> str:
-    """Return 'grid' or 'list'. Uses streamlit-extras styled toggle."""
+    """Return view mode string. variant: 'program' | 'schedule' | 'legacy'."""
+    if variant == "schedule":
+        return render_schedule_view_toggle(key, force_grid=force_grid, default_mode=default_mode)
+    if variant == "program":
+        return render_program_view_toggle(key, force_grid=force_grid, default_mode=default_mode)
+
     mode_key = f"{key}_view_mode"
     if force_grid:
         st.session_state[mode_key] = "grid"

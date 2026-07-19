@@ -161,10 +161,10 @@ def _render_sched_editor_ui() -> None:
 
     wdetail = workout_detail(prog) if day_programs else ""
     if wdetail:
-        st.markdown("**週期化課表跑案（預覽）**")
+        st.markdown("**設定課表跑案（預覽）**")
         st.markdown(wdetail)
     elif sync in ("need_workout", "need_both") or not day_programs:
-        st.warning("此日尚未在「週期化課表」填寫跑案，可先預排全隊時間地點。")
+        st.warning("此日尚未在「設定課表」填寫跑案，可先預排全隊時間地點。")
 
     st.markdown(f"**{format_timetable_date(sk)}**")
     tv = format_time_venue_line(prog)
@@ -221,7 +221,7 @@ def render_coach_schedule() -> None:
     st.subheader("📆 訓練時間表")
     st.caption(
         "全隊共用同一時間與地點；"
-        "各組跑案內容仍在「週期化課表」**依組別**分開編輯。"
+        "各組跑案內容仍在「設定課表」**依組別**分開編輯。"
     )
 
     pick_mode = st.session_state.get("sched_pick_mode")

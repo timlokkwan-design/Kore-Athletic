@@ -40,9 +40,9 @@ def render_month_sync_alerts(prog_map: dict[str, dict], *, page: str) -> None:
     else:
         if need_workout:
             st.info(
-                f"📌 以下日期**時間已定**，請至「週期化課表」填寫跑案：{_fmt_days(need_workout)}"
+                f"📌 以下日期**時間已定**，請至「設定課表」填寫跑案：{_fmt_days(need_workout)}"
             )
         if need_schedule:
             st.warning(
-                f"📌 **週期化課表已有跑案**，以下日期待填時間地點：{_fmt_days(need_schedule)}"
+                f"📌 **設定課表已有跑案**，以下日期待填時間地點：{_fmt_days(need_schedule)}"
             )

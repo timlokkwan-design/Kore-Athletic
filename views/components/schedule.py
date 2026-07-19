@@ -500,7 +500,7 @@ def render_program_timetable(
         st.caption(f"顯示 **全體組員** 及 **{mapped}** 的課表（教練預覽）")
 
     if not entries:
-        st.info("月曆中尚無訓練課表，請先在「週期化課表」排課。")
+        st.info("月曆中尚無訓練課表，請先在「設定課表」排課。")
         return
 
     html = "".join(_entry_card(p, highlight=p["date"] == today) for p in entries)

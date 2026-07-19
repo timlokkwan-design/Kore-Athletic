@@ -19,7 +19,7 @@ from views.components.theme import render_page_header
 
 COACH_NAV_CATEGORIES: list[tuple[str, list[str]]] = [
     ("📊 總覽", ["總覽"]),
-    ("📅 訓練規劃", ["週期化課表", "訓練時間表"]),
+    ("📅 訓練規劃", ["設定課表", "訓練時間表"]),
     ("👥 隊伍與健康", ["出席表", "ACWR/健康", "隊伍管理"]),
     ("🏅 比賽事務", ["比賽報名表", "比賽管理"]),
     ("🎬 分析與溝通", ["影片分析", "家長溝通"]),
@@ -30,7 +30,7 @@ COACH_SECTIONS = [item for _, items in COACH_NAV_CATEGORIES for item in items]
 
 _SECTION_RENDERERS = {
     "總覽": render_coach_dashboard,
-    "週期化課表": render_coach_program,
+    "設定課表": render_coach_program,
     "訓練時間表": render_coach_schedule,
     "出席表": render_coach_attendance,
     "ACWR/健康": render_coach_wellness,

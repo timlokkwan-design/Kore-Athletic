@@ -265,6 +265,8 @@ def try_restore_session() -> None:
     """Restore st.session_state.user from JWT cookie / localStorage backup."""
     if st.session_state.get("user"):
         return
+    if st.session_state.get("_fresh_login"):
+        return
 
     _inject_storage_bridge()
 

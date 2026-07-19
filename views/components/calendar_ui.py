@@ -226,3 +226,115 @@ def render_student_schedule_view_toggle(
             )
 
     return st.session_state.get(mode_key, mode)
+
+
+PROGRAM_VIEW_MODES = ("fullcalendar", "list")
+SCHEDULE_VIEW_MODES = ("fullcalendar", "list")
+
+
+def _render_multi_view_toggle(
+    key: str,
+    mode_key: str,
+    modes: tuple[str, ...],
+    labels: dict[str, str],
+    default_mode: str,
+) -> str:
+    raw = st.session_state.get(mode_key)
+    if raw not in modes:
+        if raw == "grid" and "fullcalendar" in modes and "grid" not in modes:
+            st.session_state[mode_key] = "fullcalendar"
+        elif raw in modes:
+            st.session_state[mode_key] = raw
+        elif isinstance(raw, str) and raw.startswith("📋"):
+            st.session_state[mode_key] = "list" if "list" in modes else default_mode
+        else:
+            st.session_state[mode_key] = default_mode if default_mode in modes else modes[0]
+
+    mode = st.session_state[mode_key]
+    inject_calendar_theme()
+    p = get_calendar_palette()
+    label_color = p["text_muted"]
+
+    st.markdown(
+        f'<p style="margin:0 0 0.25rem;font-size:0.78rem;font-weight:700;'
+        f'color:{label_color};">檢視方式</p>',
+        unsafe_allow_html=True,
+    )
+    st.markdown('<div class="ka-cal-view-marker"></div>', unsafe_allow_html=True)
+
+    with stylable_container(
+        key=f"{key}_view_toggle_multi",
+        css_styles=f"""
+        {{
+            background: {p['cell_empty_bg']};
+            border: 1px solid {p['list_card_border']};
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 0.5rem;
+        }}
+        div[data-testid="stHorizontalBlock"] {{ gap: 4px !important; }}
+        button {{
+            min-height: 2.65rem !important;
+            font-weight: 700 !important;
+            border-radius: 8px !important;
+            font-size: 0.82rem !important;
+        }}
+        """,
+    ):
+        cols = st.columns(len(modes))
+
+        def _pick(m: str):
+            st.session_state[mode_key] = m
+
+        for col, m in zip(cols, modes):
+            with col:
+                st.button(
+                    labels.get(m, m),
+                    key=f"{key}_vm_{m}",
+                    use_container_width=True,
+                    type="primary" if mode == m else "secondary",
+                    on_click=_pick,
+                    args=(m,),
+                )
+
+    return st.session_state.get(mode_key, mode)
+
+
+def render_program_view_toggle(
+    key: str,
+    *,
+    force_grid: bool = False,
+    default_mode: str = "fullcalendar",
+) -> str:
+    """設定課表：日曆 / 列表（複製／刪除模式仍用方格月曆）。"""
+    mode_key = f"{key}_view_mode"
+    if force_grid:
+        st.session_state[mode_key] = "grid"
+        return "grid"
+    return _render_multi_view_toggle(
+        key,
+        mode_key,
+        PROGRAM_VIEW_MODES,
+        {"fullcalendar": "🗓 日曆", "list": "📋 列表"},
+        default_mode,
+    )
+
+
+def render_schedule_view_toggle(
+    key: str,
+    *,
+    force_grid: bool = False,
+    default_mode: str = "fullcalendar",
+) -> str:
+    """訓練時間表：日曆 / 列表（舊月曆自動改日曆）。"""
+    mode_key = f"{key}_view_mode"
+    if force_grid:
+        st.session_state[mode_key] = "grid"
+        return "grid"
+    return _render_multi_view_toggle(
+        key,
+        mode_key,
+        SCHEDULE_VIEW_MODES,
+        {"fullcalendar": "🗓 日曆", "list": "📋 列表"},
+        default_mode,
+    )

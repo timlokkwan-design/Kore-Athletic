@@ -5,7 +5,7 @@ from datetime import date
 
 import streamlit as st
 
-from utils.data_store import check_in, get_attendance_record, get_program
+from utils.data_store import check_in, get_attendance_record, get_program, is_training_day
 from utils.helpers import format_train_duration, safe_int, safe_str
 
 
@@ -32,6 +32,20 @@ def _default_duration_minutes(specialty: str = "") -> int:
     return min(dur, 300)
 
 
+def _student_training_today(specialty: str = "") -> bool:
+    """True if today is a training day for this student (not rest / empty)."""
+    today = date.today().isoformat()
+    if not is_training_day(today):
+        return False
+    prog = get_program(specialty=specialty or None)
+    if not prog:
+        return False
+    tp = safe_str(prog.get("type"))
+    from utils.config import normalize_train_type
+
+    return normalize_train_type(tp) not in ("休息", "待排課")
+
+
 def render_student_checkin_bar(name: str, *, specialty: str = "", compact_when_done: bool = True) -> None:
     today = date.today().isoformat()
     rec = get_attendance_record(name, today)
@@ -45,6 +59,9 @@ def render_student_checkin_bar(name: str, *, specialty: str = "", compact_when_d
         from views.components.theme import render_compact_bar
 
         render_compact_bar(msg, tone="success")
+        return
+
+    if not _student_training_today(specialty):
         return
 
     st.markdown('<div class="ka-checkin-bar-marker"></div>', unsafe_allow_html=True)
@@ -68,4 +85,4 @@ def render_student_checkin_bar(name: str, *, specialty: str = "", compact_when_d
         if st.button("立即簽到", type="primary", use_container_width=True, key="student_checkin_btn"):
             check_in(name, duration_minutes=int(duration))
             st.rerun()
-    st.caption("簽到記錄會顯示於「訓練時間表」月曆。")
+    st.caption("簽到記錄會顯示於「訓練時間表」日曆。")
