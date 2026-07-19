@@ -121,12 +121,7 @@ def main() -> None:
     user = get_current_user()
     role = user["role"] if user else "visitor"
 
-    if role == "visitor":
-        inject_global_css(role_class="visitor")
-    elif role == "student":
-        inject_global_css(role_class="student")
-    else:
-        inject_global_css(role_class="coach")
+    inject_global_css()
     inject_pwa_head()
 
     if role == "visitor":

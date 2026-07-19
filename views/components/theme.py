@@ -49,7 +49,8 @@ def _sync_theme_from_toggle() -> None:
     st.session_state.ui_theme = "dark" if st.session_state.get("ui_theme_toggle") else "light"
 
 
-def inject_global_css(theme: str | None = None, *, role_class: str = "") -> None:
+def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs) -> None:
+    """Inject global CSS. role_class is optional (legacy callers may omit it)."""
     t = theme or get_ui_theme()
     c = DARK if t == "dark" else LIGHT
     role_attr = f"ka-role-{role_class}" if role_class else ""
