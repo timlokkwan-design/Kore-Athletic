@@ -72,12 +72,15 @@ def _render_today_cards(students: list[dict], att_today) -> None:
         status_text = "❌ 尚未簽到"
         if row:
             status_text = _status_label(row["status"], row["detail"])
+        from views.components.theme import get_ui_colors
+
+        uc = get_ui_colors()
         st.markdown(
             athlete_card_html(
                 name,
-                f"<div style='font-size:0.9rem;color:#475569;'>{specialty}<br>{status_text}</div>",
+                f"<div style='font-size:0.9rem;color:{uc['muted']};'>{specialty}<br>{status_text}</div>",
                 username=safe_str(student.get("username")),
-                bg="#f8fafc",
+                bg=uc["card_bg"],
             ),
             unsafe_allow_html=True,
         )

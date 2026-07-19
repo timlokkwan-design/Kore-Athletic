@@ -87,6 +87,9 @@ def render_brand_header(*, compact: bool = False) -> None:
 
 def render_auth_brand(*, compact: bool = True) -> None:
     """Login/register header — compact by default for mobile-first."""
+    from views.components.theme import get_ui_colors
+
+    c = get_ui_colors()
     if compact:
         if logo_exists():
             c1, c2, c3 = st.columns([1, 1.2, 1])
@@ -99,9 +102,9 @@ def render_auth_brand(*, compact: bool = True) -> None:
                 )
         st.markdown(
             f"""<div style="text-align:center;margin-bottom:0.75rem;">
-            <div style="font-size:1.15rem;font-weight:800;color:#0f172a;letter-spacing:0.06em;">
+            <div style="font-size:1.15rem;font-weight:800;color:{c['text']};letter-spacing:0.06em;">
             {APP_NAME}</div>
-            <div style="font-size:0.78rem;color:#64748b;">{APP_SUBTITLE}</div>
+            <div style="font-size:0.78rem;color:{c['muted']};">{APP_SUBTITLE}</div>
             </div>""",
             unsafe_allow_html=True,
         )
@@ -127,6 +130,9 @@ def render_auth_brand(*, compact: bool = True) -> None:
 
 
 def _header_text(*, compact: bool = False, standalone: bool = False) -> None:
+    from views.components.theme import get_ui_colors
+
+    c = get_ui_colors()
     pad = "0.85rem 1rem" if compact else "1rem 1.25rem"
     title_size = "1.15rem" if compact else "1.45rem"
     if standalone:
@@ -145,9 +151,9 @@ def _header_text(*, compact: bool = False, standalone: bool = False) -> None:
     st.markdown(
         f"""<div style="padding-top:0.25rem;">
         <h1 style="margin:0;font-size:{title_size};font-weight:900;letter-spacing:0.08em;
-        color:#0f172a;">{APP_NAME}</h1>
-        <p style="margin:0.25rem 0 0;font-size:0.85rem;color:#64748b;">{APP_SUBTITLE}</p>
-        <p style="margin:0.15rem 0 0;font-size:0.75rem;color:#94a3b8;">{COACH_NAME} 教練</p>
+        color:{c['text']};">{APP_NAME}</h1>
+        <p style="margin:0.25rem 0 0;font-size:0.85rem;color:{c['muted']};">{APP_SUBTITLE}</p>
+        <p style="margin:0.15rem 0 0;font-size:0.75rem;color:{c['muted']};">{COACH_NAME} 教練</p>
         </div>""",
         unsafe_allow_html=True,
     )

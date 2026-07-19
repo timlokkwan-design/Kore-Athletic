@@ -90,17 +90,20 @@ def _render_history_entry(
     vol_text = f" · {vol}" if vol else ""
     type_text = f" · {tp}" if tp == "比賽" else ""
 
+    from views.components.theme import get_ui_colors
+
+    uc = get_ui_colors()
     st.markdown(
-        f"<div style='background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;"
+        f"<div style='background:{uc['card_bg']};border:1px solid {uc['border']};border-radius:8px;"
         f"padding:8px 10px 4px;margin-bottom:4px;'>"
-        f"<div style='font-size:12px;font-weight:700;color:#1e3a8a;'>"
+        f"<div style='font-size:12px;font-weight:700;color:{uc['text']};'>"
         f"{html.escape(heading)}{html.escape(vol_text)}{html.escape(type_text)}</div></div>",
         unsafe_allow_html=True,
     )
     st.markdown(
         f"<pre style='white-space:pre-wrap;word-break:break-word;font-family:inherit;"
-        f"font-size:12px;line-height:1.45;color:#334155;background:#f8fafc;"
-        f"border:1px solid #cbd5e1;border-top:none;border-radius:0 0 8px 8px;"
+        f"font-size:12px;line-height:1.45;color:{uc['text']};background:{uc['card_bg']};"
+        f"border:1px solid {uc['border']};border-top:none;border-radius:0 0 8px 8px;"
         f"padding:8px 10px;margin:0 0 6px;max-height:180px;overflow-y:auto;'>"
         f"{html.escape(detail)}</pre>",
         unsafe_allow_html=True,

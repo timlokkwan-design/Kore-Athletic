@@ -79,8 +79,124 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         dark_stat_override = """
         .ka-stat-card { background: #1a1d24 !important; border-color: #334155 !important; }
         .ka-stat-value { color: #e2e8f0 !important; }
-        .ka-lb-card { background: #1a1d24 !important; border-color: #334155 !important; color: #e2e8f0; }
+        .ka-stat-label { color: #94a3b8 !important; }
+        .ka-lb-card { background: #1a1d24 !important; border-color: #334155 !important; color: #e2e8f0 !important; }
         .ka-empty { background: #1a1d24 !important; border-color: #334155 !important; }
+        .ka-lb-meta { color: #94a3b8 !important; }
+        /* Toned success/warn/danger cards keep dark text for contrast on pale fills */
+        .ka-stat-card.ka-tone-success,
+        .ka-stat-card.ka-tone-warn,
+        .ka-stat-card.ka-tone-danger {
+          background: #1a1d24 !important;
+        }
+        .ka-stat-card.ka-tone-success { border-color: #22c55e !important; }
+        .ka-stat-card.ka-tone-warn { border-color: #f59e0b !important; }
+        .ka-stat-card.ka-tone-danger { border-color: #ef4444 !important; }
+        .ka-stat-card.ka-tone-success .ka-stat-value { color: #86efac !important; }
+        .ka-stat-card.ka-tone-warn .ka-stat-value { color: #fde68a !important; }
+        .ka-stat-card.ka-tone-danger .ka-stat-value { color: #fca5a5 !important; }
+        """
+
+    # Theme-aware Streamlit chrome (alerts / inputs / metrics often stay light and become unreadable)
+    if t == "dark":
+        widget_contrast = f"""
+        section.main [data-testid="stAlert"] {{
+            background-color: #1e293b !important;
+            border: 1px solid #475569 !important;
+            color: #e2e8f0 !important;
+        }}
+        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"],
+        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p,
+        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] span,
+        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] strong,
+        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] li,
+        section.main [data-testid="stAlert"] p,
+        section.main [data-testid="stAlert"] span {{
+            color: #e2e8f0 !important;
+        }}
+        section.main [data-testid="stMetricValue"],
+        section.main [data-testid="stMetricDelta"] {{
+            color: {c["text"]} !important;
+        }}
+        section.main [data-testid="stMetricLabel"],
+        section.main [data-testid="stMetricLabel"] p {{
+            color: {c["muted"]} !important;
+        }}
+        section.main div[data-testid="stTextInput"] input,
+        section.main div[data-testid="stNumberInput"] input,
+        section.main div[data-testid="stDateInput"] input,
+        section.main div[data-testid="stTimeInput"] input,
+        section.main div[data-testid="stTextArea"] textarea {{
+            background-color: {c["card_bg"]} !important;
+            color: {c["text"]} !important;
+            -webkit-text-fill-color: {c["text"]} !important;
+            border-color: {c["border"]} !important;
+            caret-color: {c["text"]} !important;
+        }}
+        section.main div[data-baseweb="select"] > div,
+        section.main div[data-baseweb="input"] {{
+            background-color: {c["card_bg"]} !important;
+            color: {c["text"]} !important;
+            border-color: {c["border"]} !important;
+        }}
+        section.main div[data-baseweb="select"] span,
+        section.main div[data-baseweb="select"] input {{
+            color: {c["text"]} !important;
+            -webkit-text-fill-color: {c["text"]} !important;
+        }}
+        section.main [data-testid="stRadio"] label p,
+        section.main [data-testid="stCheckbox"] label p,
+        section.main [data-testid="stWidgetLabel"] p {{
+            color: {c["text"]} !important;
+        }}
+        section.main [data-testid="stExpander"] {{
+            background-color: {c["card_bg"]} !important;
+            border-color: {c["border"]} !important;
+        }}
+        section.main [data-testid="stExpander"] summary,
+        section.main [data-testid="stExpander"] summary p,
+        section.main [data-testid="stExpander"] summary span {{
+            color: {c["text"]} !important;
+        }}
+        section.main [data-testid="stDataFrame"],
+        section.main [data-testid="stTable"] {{
+            color: {c["text"]} !important;
+        }}
+        section.main .stMarkdown strong,
+        section.main .stMarkdown b,
+        section.main [data-testid="stMarkdownContainer"] strong,
+        section.main [data-testid="stMarkdownContainer"] b {{
+            color: {c["text"]} !important;
+        }}
+        section.main code {{
+            background: #1e293b !important;
+            color: #e2e8f0 !important;
+        }}
+        section.main [data-testid="stTabs"] button,
+        section.main [data-testid="stTabs"] button p {{
+            color: {c["muted"]} !important;
+        }}
+        section.main [data-testid="stTabs"] button[aria-selected="true"],
+        section.main [data-testid="stTabs"] button[aria-selected="true"] p {{
+            color: {c["text"]} !important;
+        }}
+        """
+    else:
+        widget_contrast = f"""
+        /* Light mode: keep alert semantic colors — do NOT force theme text onto pale alert fills */
+        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p,
+        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] span,
+        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] strong {{
+            color: #0f172a !important;
+        }}
+        section.main [data-testid="stMetricValue"] {{
+            color: {c["text"]} !important;
+        }}
+        section.main [data-testid="stMetricLabel"],
+        section.main [data-testid="stMetricLabel"] p {{
+            color: {c["muted"]} !important;
+        }}
+        .ka-lb-meta {{ color: {c["muted"]} !important; }}
         """
 
     st.markdown(
@@ -148,10 +264,6 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         section.main .stTextArea label p {{
             color: {c["text"]} !important;
         }}
-        section.main [data-testid="stAlert"] p,
-        section.main [data-testid="stAlert"] {{
-            color: {c["text"]};
-        }}
         section.main [data-testid="stExpander"] summary,
         section.main [data-testid="stExpander"] summary p {{
             color: {c["text"]} !important;
@@ -159,6 +271,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         section.main [data-testid="stExpander"] div[data-testid="stMarkdownContainer"] p {{
             color: {c["text"]};
         }}
+        {widget_contrast}
         .ka-nav-label {{
             margin: 14px 0 6px;
             font-size: 11px;
@@ -669,19 +782,20 @@ def render_page_header(title: str, subtitle: str = "") -> None:
 def render_stat_cards(items: list[tuple[str, str, str]]) -> None:
     """Render stat cards: [(label, value, tone)], tone = normal|warn|danger|success."""
     tones = {
-        "normal": (None, None),
-        "warn": (COLOR_WARN_BG, COLOR_WARN_BORDER),
-        "danger": (COLOR_DANGER_BG, COLOR_DANGER_BORDER),
-        "success": (COLOR_SUCCESS_BG, COLOR_SUCCESS_BORDER),
+        "normal": (None, None, ""),
+        "warn": (COLOR_WARN_BG, COLOR_WARN_BORDER, "ka-tone-warn"),
+        "danger": (COLOR_DANGER_BG, COLOR_DANGER_BORDER, "ka-tone-danger"),
+        "success": (COLOR_SUCCESS_BG, COLOR_SUCCESS_BORDER, "ka-tone-success"),
     }
     cards = []
     for label, value, tone in items:
-        bg, border = tones.get(tone, tones["normal"])
+        bg, border, tone_cls = tones.get(tone, tones["normal"])
         style = ""
-        if bg:
+        if bg and get_ui_theme() != "dark":
             style = f' style="background:{bg};border-color:{border};"'
+        cls = f"ka-stat-card {tone_cls}".strip()
         cards.append(
-            f'<div class="ka-stat-card"{style}>'
+            f'<div class="{cls}"{style}>'
             f'<div class="ka-stat-label">{label}</div>'
             f'<div class="ka-stat-value">{value}</div></div>'
         )
