@@ -50,14 +50,57 @@ def _render_bottom_tabbar(
     key_prefix: str,
     active_aliases: dict[str, set[str]] | None = None,
 ) -> None:
-    """Fixed bottom tab bar.
+    """Fixed bottom tab bar — single horizontal row on mobile (Instagram-style).
 
     items: (icon, short_label, section_value)
     active_aliases: map dock section → other sections that should also light up the tile
     """
+    # Reinforce layout every render (Streamlit mobile CSS can wrap columns).
+    st.markdown(
+        """
+        <style>
+        @media (max-width: 768px) {
+          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            width: 100% !important;
+            gap: 0.18rem !important;
+          }
+          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="column"],
+          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stColumn"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="column"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stColumn"] {
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
+            width: auto !important;
+            max-width: none !important;
+          }
+        }
+        /* Desktop: keep dock as one compact row too (not stacked full-width) */
+        @media (min-width: 769px) {
+          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+          }
+          div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
+          div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div {
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
+          }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     flash = st.session_state.get("_bottom_tab_flash")
     if flash:
-        # One-shot pop animation on the newly selected tile
         st.markdown(
             """
             <style>
@@ -77,10 +120,9 @@ def _render_bottom_tabbar(
             unsafe_allow_html=True,
         )
 
-    # One container so sticky/fixed CSS can reliably target the whole dock.
     with st.container():
         st.markdown(f'<div class="{marker_class}" aria-hidden="true"></div>', unsafe_allow_html=True)
-        cols = st.columns(len(items))
+        cols = st.columns(len(items), gap="small")
         aliases = active_aliases or {}
         for col, (icon, label, section) in zip(cols, items):
             related = aliases.get(section, set())
