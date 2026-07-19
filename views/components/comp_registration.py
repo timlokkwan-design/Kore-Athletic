@@ -127,8 +127,14 @@ def render_student_comp_registration(user: dict) -> None:
         return
 
     today = date.today().isoformat()
-    upcoming = [c for c in comps if safe_str(c.get("date")) >= today]
-    past = [c for c in comps if safe_str(c.get("date")) < today]
+    # 僅顯示已設定開放項目的比賽（純預告見「賽事時間表」）
+    open_for_signup = [c for c in comps if c.get("events")]
+    upcoming = [c for c in open_for_signup if safe_str(c.get("date")) >= today]
+    past = [c for c in open_for_signup if safe_str(c.get("date")) < today]
+
+    if not open_for_signup:
+        st.info("暫無可報名比賽。賽事日期預告請見「賽事時間表」。")
+        return
 
     if upcoming:
         st.markdown("##### 可報名比賽")

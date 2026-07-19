@@ -1793,6 +1793,40 @@ def get_competitions(*, published_only: bool = False) -> list[dict]:
     return comps
 
 
+def get_competition_schedule(*, upcoming_only: bool = True, published_only: bool = True) -> list[dict]:
+    """賽事時間表／預告：按日期排序；預設只回傳已發布且未過期的賽事。"""
+    today = date.today().isoformat()
+    comps = get_competitions(published_only=published_only)
+    if upcoming_only:
+        comps = [c for c in comps if safe_str(c.get("date")) >= today]
+    return comps
+
+
+def add_schedule_competition(name: str, comp_date: date | str) -> tuple[bool, str]:
+    """教練快速新增賽事預告（只需名稱＋日期）。"""
+    from utils.permissions import enforce_coach_if_logged_in
+
+    enforce_coach_if_logged_in()
+    title = safe_str(name)
+    if not title:
+        return False, "請輸入比賽名稱"
+    if isinstance(comp_date, date):
+        ds = comp_date.isoformat()
+    else:
+        ds = normalize_date_str(comp_date)
+    if len(ds) < 10:
+        return False, "請選擇比賽日期"
+    add_competition({
+        "name": title,
+        "date": ds,
+        "event": "",
+        "location": "",
+        "published": "1",
+        "notes": "賽事預告",
+    })
+    return True, "已加入賽事時間表"
+
+
 def get_student_competitions(student_name: str) -> list[dict]:
     name = safe_str(student_name)
     result = []

@@ -43,7 +43,7 @@ def render_student_quick_dock(current_section: str) -> None:
         ("📅 課表", "訓練時間表"),
         ("✅ 簽到", "出席"),
         ("📝 日誌", "訓練日誌"),
-        ("🏅 比賽", "比賽報名"),
+        ("🏅 比賽", "賽事時間表"),
     ]
     cols = st.columns(len(items))
     for col, (label, section) in zip(cols, items):
