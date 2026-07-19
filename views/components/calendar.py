@@ -36,6 +36,7 @@ from views.components.calendar_compact import open_dialog_if_requested
 from views.components.calendar_timetree import render_timetree_month_grid
 from views.components.calendar_list import render_month_day_list, render_view_mode_toggle
 from views.components.calendar_theme import inject_calendar_theme
+from views.components.calendar_ui import calendar_shell, render_calendar_month_nav
 from views.components.coach_mobile_ui import render_calendar_legend
 
 
@@ -306,19 +307,15 @@ def _render_calendar_impl(
     copy_targets = set(st.session_state.get("copy_target_dates", [])) if copy_mode else set()
     delete_targets = set(st.session_state.get("delete_target_dates", [])) if delete_mode else set()
 
-    c1, c2, c3 = st.columns([1, 2, 1])
-    c1.button(
-        "◀ 上月",
-        key=f"{select_key}_prev",
-        on_click=_calendar_prev_month,
-        args=(select_key, copy_mode, delete_mode),
-    )
-    c2.markdown(f"### {st.session_state.cal_year} 年 {st.session_state.cal_month:02d} 月")
-    c3.button(
-        "下月 ▶",
-        key=f"{select_key}_next",
-        on_click=_calendar_next_month,
-        args=(select_key, copy_mode, delete_mode),
+    render_calendar_month_nav(
+        year=st.session_state.cal_year,
+        month=st.session_state.cal_month,
+        prev_key=f"{select_key}_prev",
+        next_key=f"{select_key}_next",
+        on_prev=_calendar_prev_month,
+        on_next=_calendar_next_month,
+        prev_args=(select_key, copy_mode, delete_mode),
+        next_args=(select_key, copy_mode, delete_mode),
     )
 
     if copy_mode:
@@ -346,55 +343,56 @@ def _render_calendar_impl(
         force_grid=copy_mode or delete_mode,
         default_mode=default_mode,
     )
-    if view_mode == "list":
-        athlete_names = get_student_names()
-        acwr_athlete = athlete_names[0] if show_acwr and athlete_names else None
-        logs = get_all_logs() if show_acwr and acwr_athlete else None
+    with calendar_shell(key=f"{select_key}_shell"):
+        if view_mode == "list":
+            athlete_names = get_student_names()
+            acwr_athlete = athlete_names[0] if show_acwr and athlete_names else None
+            logs = get_all_logs() if show_acwr and acwr_athlete else None
 
-        def _describe(ds: str, prog: dict | None) -> tuple[str, str, str, str]:
-            prog = ensure_program_dict(prog)
-            tp = safe_str(prog.get("type"))
-            sync = day_sync_status(prog_map.get(ds))
-            bg = calendar_cell_bg(prog_map.get(ds))
-            title_line, spec_line = program_calendar_summary(prog) if prog else ("", "")
-            detail = spec_line or ""
-            hint = sync_status_label(sync)
-            if hint and sync in ("need_workout", "need_schedule", "need_both"):
-                detail = f"{hint} · {detail}".strip(" · ")
-            if show_acwr and acwr_athlete and logs is not None:
-                v, _ = acwr_status(calc_acwr(logs, acwr_athlete, date.fromisoformat(ds)))
-                detail = f"{detail} · ACWR {v}".strip(" · ")
-            return title_line or "—", detail, tp or "休息", bg
+            def _describe(ds: str, prog: dict | None) -> tuple[str, str, str, str]:
+                prog = ensure_program_dict(prog)
+                tp = safe_str(prog.get("type"))
+                sync = day_sync_status(prog_map.get(ds))
+                bg = calendar_cell_bg(prog_map.get(ds))
+                title_line, spec_line = program_calendar_summary(prog) if prog else ("", "")
+                detail = spec_line or ""
+                hint = sync_status_label(sync)
+                if hint and sync in ("need_workout", "need_schedule", "need_both"):
+                    detail = f"{hint} · {detail}".strip(" · ")
+                if show_acwr and acwr_athlete and logs is not None:
+                    v, _ = acwr_status(calc_acwr(logs, acwr_athlete, date.fromisoformat(ds)))
+                    detail = f"{detail} · ACWR {v}".strip(" · ")
+                return title_line or "—", detail, tp or "休息", bg
 
-        selected = render_month_day_list(
-            year=year,
-            month=month,
-            select_key=select_key,
-            prog_map=prog_map,
-            describe_day=_describe,
-            pick_mode="copy" if copy_mode else ("delete" if delete_mode else None),
-            pick_key="copy_target_dates" if copy_mode else "delete_target_dates",
-            copy_source=copy_source,
-            empty_label="休息",
-            can_pick=(lambda ds, _p: ds in prog_map) if delete_mode else None,
-            hide_past_days=not copy_mode and not delete_mode,
-            day_priority=lambda ds, p: sync_status_priority(day_sync_status(prog_map.get(ds))),
-            goto_edit_on_select=goto_edit_on_select and not copy_mode and not delete_mode,
-            day_filter=(
-                (lambda ds, _p: is_coach_plan_day(prog_map.get(ds), group_filter))
-                if schedule_only and not copy_mode and not delete_mode
-                else None
-            ),
-        )
-    else:
-        _render_coach_compact_grid(
-            select_key, year, month, prog_map,
-            copy_mode, delete_mode, copy_source, copy_targets, delete_targets,
-            goto_edit_on_select=goto_edit_on_select and not copy_mode and not delete_mode,
-            schedule_only=schedule_only and not copy_mode and not delete_mode,
-            plan_group=group_filter,
-        )
-        selected = date.fromisoformat(st.session_state[select_key])
+            selected = render_month_day_list(
+                year=year,
+                month=month,
+                select_key=select_key,
+                prog_map=prog_map,
+                describe_day=_describe,
+                pick_mode="copy" if copy_mode else ("delete" if delete_mode else None),
+                pick_key="copy_target_dates" if copy_mode else "delete_target_dates",
+                copy_source=copy_source,
+                empty_label="休息",
+                can_pick=(lambda ds, _p: ds in prog_map) if delete_mode else None,
+                hide_past_days=not copy_mode and not delete_mode,
+                day_priority=lambda ds, p: sync_status_priority(day_sync_status(prog_map.get(ds))),
+                goto_edit_on_select=goto_edit_on_select and not copy_mode and not delete_mode,
+                day_filter=(
+                    (lambda ds, _p: is_coach_plan_day(prog_map.get(ds), group_filter))
+                    if schedule_only and not copy_mode and not delete_mode
+                    else None
+                ),
+            )
+        else:
+            _render_coach_compact_grid(
+                select_key, year, month, prog_map,
+                copy_mode, delete_mode, copy_source, copy_targets, delete_targets,
+                goto_edit_on_select=goto_edit_on_select and not copy_mode and not delete_mode,
+                schedule_only=schedule_only and not copy_mode and not delete_mode,
+                plan_group=group_filter,
+            )
+            selected = date.fromisoformat(st.session_state[select_key])
 
     if copy_mode:
         src_payload = st.session_state.get("copy_source_payload")

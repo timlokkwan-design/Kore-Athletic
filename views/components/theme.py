@@ -35,6 +35,11 @@ def get_ui_theme() -> str:
     return st.session_state.get("ui_theme", "light")
 
 
+def get_ui_colors() -> dict[str, str]:
+    """Current main-content theme tokens for inline HTML."""
+    return dict(DARK if get_ui_theme() == "dark" else LIGHT)
+
+
 def render_theme_toggle() -> None:
     st.toggle(
         "深色主內容區",
@@ -54,6 +59,19 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
     t = theme or get_ui_theme()
     c = DARK if t == "dark" else LIGHT
     role_attr = f"ka-role-{role_class}" if role_class else ""
+
+    if t == "dark":
+        bar_success_style = "background:#14532d;border:1px solid #22c55e;color:#bbf7d0;"
+        bar_warn_style = "background:#422006;border:1px solid #f59e0b;color:#fde68a;"
+        pwa_hint_style = "background:#1e3a5f;border:1px solid #3b82f6;color:#bfdbfe;"
+        pwa_detail_style = "color:#94a3b8;"
+        sidebar_pending_style = "background:#422006;border:1px solid #f59e0b;color:#fde68a;"
+    else:
+        bar_success_style = f"background:{COLOR_SUCCESS_BG};border:1px solid {COLOR_SUCCESS_BORDER};color:#166534;"
+        bar_warn_style = f"background:{COLOR_WARN_BG};border:1px solid {COLOR_WARN_BORDER};color:#92400e;"
+        pwa_hint_style = "background:#eff6ff;border:1px solid #93c5fd;color:#1e3a8a;"
+        pwa_detail_style = "color:#475569;"
+        sidebar_pending_style = f"background:{COLOR_WARN_BG};border:1px solid {COLOR_WARN_BORDER};color:#92400e;"
 
     dark_stat_override = ""
     if t == "dark":
@@ -75,6 +93,42 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             background-color: {c["main_bg"]};
         }}
         hr {{ margin: 0.75rem 0; border-color: {c["border"]}; }}
+        section.main [data-testid="stMarkdownContainer"] h1,
+        section.main [data-testid="stMarkdownContainer"] h2,
+        section.main [data-testid="stMarkdownContainer"] h3,
+        section.main [data-testid="stMarkdownContainer"] h4,
+        section.main [data-testid="stMarkdownContainer"] h5,
+        section.main [data-testid="stMarkdownContainer"] h6 {{
+            color: {c["text"]} !important;
+        }}
+        section.main [data-testid="stMarkdownContainer"] p,
+        section.main [data-testid="stMarkdownContainer"] li,
+        section.main [data-testid="stMarkdownContainer"] span {{
+            color: {c["text"]};
+        }}
+        section.main [data-testid="stCaptionContainer"],
+        section.main [data-testid="stCaptionContainer"] p,
+        section.main [data-testid="stCaptionContainer"] small {{
+            color: {c["muted"]} !important;
+        }}
+        section.main label[data-testid="stWidgetLabel"] p,
+        section.main label[data-testid="stWidgetLabel"] span,
+        section.main .stSelectbox label p,
+        section.main .stTextInput label p,
+        section.main .stTextArea label p {{
+            color: {c["text"]} !important;
+        }}
+        section.main [data-testid="stAlert"] p,
+        section.main [data-testid="stAlert"] {{
+            color: {c["text"]};
+        }}
+        section.main [data-testid="stExpander"] summary,
+        section.main [data-testid="stExpander"] summary p {{
+            color: {c["text"]} !important;
+        }}
+        section.main [data-testid="stExpander"] div[data-testid="stMarkdownContainer"] p {{
+            color: {c["text"]};
+        }}
         .ka-nav-label {{
             margin: 14px 0 6px;
             font-size: 11px;
@@ -152,14 +206,10 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             margin-bottom: 0.75rem;
         }}
         .ka-bar-success {{
-            background: {COLOR_SUCCESS_BG};
-            border: 1px solid {COLOR_SUCCESS_BORDER};
-            color: #166534;
+            {bar_success_style}
         }}
         .ka-bar-warn {{
-            background: {COLOR_WARN_BG};
-            border: 1px solid {COLOR_WARN_BORDER};
-            color: #92400e;
+            {bar_warn_style}
         }}
         .ka-lb-card {{
             background: {c["card_bg"]};
@@ -196,12 +246,10 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             color: {c["muted"]};
         }}
         .ka-sidebar-pending {{
-            background: {COLOR_WARN_BG};
-            border: 1px solid {COLOR_WARN_BORDER};
+            {sidebar_pending_style}
             border-radius: {RADIUS};
             padding: 0.65rem 0.75rem;
             margin-bottom: 0.35rem;
-            color: #92400e;
         }}
         .ka-sidebar-pending-title {{
             font-size: 0.82rem;
@@ -275,19 +323,17 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 margin-bottom: 0.75rem;
             }}
             .ka-pwa-hint {{
-                background: #eff6ff;
-                border: 1px solid #93c5fd;
+                {pwa_hint_style}
                 border-radius: {RADIUS};
                 padding: 0.65rem 0.85rem;
                 margin-bottom: 0.75rem;
                 font-size: 0.85rem;
-                color: #1e3a8a;
             }}
             .ka-pwa-hint-detail {{
                 display: block;
                 margin-top: 0.25rem;
                 font-size: 0.78rem;
-                color: #475569;
+                color: {pwa_detail_style};
             }}
         }}
         </style>

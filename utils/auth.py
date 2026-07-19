@@ -8,6 +8,7 @@ from utils.data_store import get_user, set_user_password
 from utils.helpers import safe_str
 from utils.passwords import is_hashed, verify_password
 from utils.permissions import PermissionDenied, check_role, require_login
+from utils.nav_persist import clear_nav_state
 from utils.session_persist import clear_persisted_login, persist_login
 
 
@@ -58,6 +59,9 @@ def login(username: str, password: str) -> tuple[bool, str]:
 def logout() -> None:
     st.session_state.pop("user", None)
     clear_persisted_login()
+    clear_nav_state()
+    st.session_state.pop("_nav_restored", None)
+    st.session_state.pop("_nav_bridge_injected", None)
 
 
 def require_roles(*roles: str) -> bool:

@@ -10,10 +10,12 @@ import streamlit as st
 from utils.helpers import calendar_day_event_chips
 from views.components.calendar_theme import (
     ACCENT_SELECTED_RING,
-    CALENDAR_TONES,
+    get_calendar_palette,
+    get_calendar_tones,
     inject_calendar_theme,
 )
 from views.components.calendar_timetree import render_timetree_list_card
+from views.components.calendar_ui import render_calendar_view_toggle
 
 
 def _select_list_date(select_key: str, ds: str) -> None:
@@ -50,64 +52,25 @@ def _normalize_view_mode(mode_key: str, default_mode: str = "grid") -> str:
     return default_mode
 
 
-def _inject_view_toggle_css() -> None:
-    st.markdown(
-        """
-        <style>
-        div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) [data-testid="stHorizontalBlock"] button {
-            min-height: 2.6rem !important;
-            font-size: 0.92rem !important;
-            font-weight: 700 !important;
-        }
-        @media (max-width: 768px) {
-            div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) [data-testid="stHorizontalBlock"] button {
-                min-height: 2.85rem !important;
-                font-size: 0.95rem !important;
-            }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def render_view_mode_toggle(
     key: str,
     *,
     force_grid: bool = False,
     default_mode: str = "grid",
 ) -> str:
-    """Return 'grid' or 'list'. Mobile-friendly pill buttons."""
+    """Return 'grid' or 'list'. Uses streamlit-extras styled toggle."""
     mode_key = f"{key}_view_mode"
     if force_grid:
         st.session_state[mode_key] = "grid"
         return "grid"
 
     current = _normalize_view_mode(mode_key, default_mode)
-    _inject_view_toggle_css()
-
-    st.caption("檢視方式")
-    st.markdown('<div class="ka-cal-view-marker"></div>', unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
-        st.button(
-            "📅 月曆",
-            key=f"{key}_vm_grid",
-            use_container_width=True,
-            type="primary" if current == "grid" else "secondary",
-            on_click=_set_view_mode,
-            args=(mode_key, "grid"),
-        )
-    with c2:
-        st.button(
-            "📋 列表",
-            key=f"{key}_vm_list",
-            use_container_width=True,
-            type="primary" if current == "list" else "secondary",
-            on_click=_set_view_mode,
-            args=(mode_key, "list"),
-        )
-    return _normalize_view_mode(mode_key, default_mode)
+    return render_calendar_view_toggle(
+        key,
+        current=current,
+        on_select=_set_view_mode,
+        force_grid=False,
+    )
 
 
 def _render_list_day_row(
@@ -134,17 +97,20 @@ def _render_list_day_row(
     is_today = ds == today.isoformat()
 
     active = (not pick_mode) and st.session_state.get(select_key) == ds
-    t_train = CALENDAR_TONES["training"]
-    border = f"2px solid {ACCENT_SELECTED_RING}" if active else "1px solid #C5CED8"
+    tones = get_calendar_tones()
+    t_train = tones["training"]
+    t_comp = tones["competition"]
+    t_picked = tones["picked"]
+    border = f"2px solid {ACCENT_SELECTED_RING}" if active else f"1px solid {get_calendar_palette().get('list_card_border', '#C5CED8')}"
     cell_bg = bg
     if pick_mode == "copy" and ds == copy_source:
-        border = f"3px solid {CALENDAR_TONES['competition']['accent']}"
+        border = f"3px solid {t_comp['accent']}"
     elif pick_mode == "delete" and ds in picks:
-        border = f"3px solid {CALENDAR_TONES['competition']['accent']}"
-        cell_bg = CALENDAR_TONES["competition"]["bg"]
+        border = f"3px solid {t_comp['accent']}"
+        cell_bg = t_comp["bg"]
     elif pick_mode and ds in picks:
-        border = f"3px solid {CALENDAR_TONES['picked']['accent']}"
-        cell_bg = CALENDAR_TONES["picked"]["bg"]
+        border = f"3px solid {t_picked['accent']}"
+        cell_bg = t_picked["bg"]
     elif is_today:
         border = f"2px solid {ACCENT_SELECTED_RING}"
 
@@ -160,16 +126,14 @@ def _render_list_day_row(
                 if type_label else ""
             )
             detail_html = (
-                f"<div style='font-size:13px;color:#374151;margin-top:4px;'>{detail}</div>"
+                f"<div class='ka-cal-pick-detail'>{detail}</div>"
                 if detail else ""
             )
             st.markdown(
-                f"<div style='background:{cell_bg};border:{border};border-radius:12px;"
-                f"padding:12px 14px;margin-bottom:6px;'>"
-                f"<div style='font-size:15px;font-weight:800;color:#111827;'>"
+                f"<div class='ka-cal-pick-row' style='background:{cell_bg};border:{border};'>"
+                f"<div class='ka-cal-pick-date'>"
                 f"{month}/{day:02d}（{wd_cn}）{type_badge}</div>"
-                f"<div style='font-size:14px;font-weight:600;margin-top:4px;'>"
-                f"{main_title}</div>"
+                f"<div class='ka-cal-pick-title'>{main_title}</div>"
                 f"{detail_html}</div>",
                 unsafe_allow_html=True,
             )

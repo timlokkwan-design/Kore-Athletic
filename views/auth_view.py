@@ -3,6 +3,7 @@
 import streamlit as st
 
 from utils.auth import login
+from utils.session_persist import session_persist_hint
 from views.components.brand import render_auth_brand
 from views.components.contact_links import render_instagram_button
 
@@ -11,6 +12,7 @@ def render_auth_view() -> None:
     render_auth_brand(compact=True)
 
     st.subheader("登入帳號")
+    st.caption(session_persist_hint())
     with st.form("login_form"):
         username = st.text_input("登入帳號", placeholder="輸入帳號")
         password = st.text_input("登入密碼", type="password")

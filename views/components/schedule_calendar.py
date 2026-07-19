@@ -24,6 +24,7 @@ from utils.helpers import (
 )
 from views.components.calendar_compact import open_dialog_if_requested, render_compact_month_grid
 from views.components.calendar_list import render_month_day_list, render_view_mode_toggle
+from views.components.calendar_ui import render_calendar_month_nav
 
 
 def _sync_sched_month(select_key: str, year: int, month: int) -> None:
@@ -274,19 +275,15 @@ def render_schedule_calendar(
 
     picks = set(st.session_state.get(pick_key, []))
 
-    c1, c2, c3 = st.columns([1, 2, 1])
-    c1.button(
-        "◀ 上月",
-        key=f"{select_key}_prev",
-        on_click=_sched_prev_month,
-        args=(select_key, pick_mode),
-    )
-    c2.markdown(f"### {st.session_state.sched_cal_year} 年 {st.session_state.sched_cal_month:02d} 月")
-    c3.button(
-        "下月 ▶",
-        key=f"{select_key}_next",
-        on_click=_sched_next_month,
-        args=(select_key, pick_mode),
+    render_calendar_month_nav(
+        year=st.session_state.sched_cal_year,
+        month=st.session_state.sched_cal_month,
+        prev_key=f"{select_key}_prev",
+        next_key=f"{select_key}_next",
+        on_prev=_sched_prev_month,
+        on_next=_sched_next_month,
+        prev_args=(select_key, pick_mode),
+        next_args=(select_key, pick_mode),
     )
 
     if pick_mode == "copy":

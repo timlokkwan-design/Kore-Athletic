@@ -9,9 +9,7 @@ from typing import Callable
 
 import streamlit as st
 
-from views.components.calendar_theme import compact_tone_styles
-
-_TONE_STYLES = compact_tone_styles()
+from views.components.calendar_theme import compact_tone_styles, get_calendar_palette, inject_calendar_theme
 
 
 @dataclass(frozen=True)
@@ -26,8 +24,11 @@ class SquareCell:
 
 
 def inject_compact_calendar_css() -> None:
+    inject_calendar_theme()
+    p = get_calendar_palette()
+    tone_styles = compact_tone_styles()
     tone_rules = []
-    for tone, (bg, fg, border) in _TONE_STYLES.items():
+    for tone, (bg, fg, border) in tone_styles.items():
         tone_rules.append(
             f'div[data-testid="column"]:has(.ka-ccell-marker[data-tone="{tone}"]) '
             f'[data-testid="stButton"] button {{'
@@ -137,9 +138,9 @@ def inject_compact_calendar_css() -> None:
             width: 100% !important;
             height: 100% !important;
             min-height: 100% !important;
-            background: #f8fafc;
+            background: {p['cell_empty_bg']};
             border-radius: 8px;
-            border: 1px solid #f1f5f9;
+            border: 1px solid {p['cell_border']};
             box-sizing: border-box;
         }}
         div[data-testid="column"]:has(.ka-ccell-hdr) p {{
@@ -147,7 +148,7 @@ def inject_compact_calendar_css() -> None:
             font-size: 0.62rem !important;
             margin: 0 !important;
             padding: 2px 0 !important;
-            color: #64748b !important;
+            color: {p['text_muted']} !important;
             font-weight: 600 !important;
         }}
         @media (max-width: 768px) {{

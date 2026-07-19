@@ -17,6 +17,7 @@ from utils.auth import get_current_user, logout
 from utils.config import APP_NAME, APP_VERSION
 from utils.coach_pending import get_coach_pending_total
 from utils.data_store import init_sample_data
+from utils.nav_persist import clear_nav_state, save_nav_state, try_restore_nav_state
 from utils.session_persist import try_restore_session
 from utils.site_content import is_pb_public
 from views.analysis_view import render_analysis
@@ -120,6 +121,7 @@ def main() -> None:
     try_restore_session()
     user = get_current_user()
     role = user["role"] if user else "visitor"
+    try_restore_nav_state(role)
 
     inject_global_css()
     inject_pwa_head()
@@ -222,6 +224,14 @@ def main() -> None:
         _render_page(page, role, student_section=student_section or STUDENT_SECTIONS[0])
     else:
         _render_page(page, role)
+
+    if user:
+        save_nav_state(
+            role,
+            main_page=page,
+            coach_section=coach_section,
+            student_section=student_section,
+        )
 
 
 if __name__ == "__main__":

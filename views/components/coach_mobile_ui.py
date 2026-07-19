@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import streamlit as st
+from streamlit_extras.stylable_container import stylable_container
+
+from views.components.calendar_theme import get_calendar_palette, inject_calendar_theme
 
 
 def inject_coach_mobile_css() -> None:
@@ -49,23 +52,38 @@ def _set_coach_prog_screen(screen: str) -> None:
 def render_coach_screen_switcher(*, current: str) -> None:
     """Two big pills: pick date vs edit program (replaces tabs on mobile)."""
     inject_coach_mobile_css()
+    inject_calendar_theme()
+    p = get_calendar_palette()
     st.markdown('<div class="ka-coach-screen-marker"></div>', unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
-        st.button(
-            "📅 選日期",
-            key="coach_scr_cal",
-            use_container_width=True,
-            type="primary" if current == "cal" else "secondary",
-            on_click=_set_coach_prog_screen,
-            args=("cal",),
-        )
-    with c2:
-        st.button(
-            "✏️ 編輯課表",
-            key="coach_scr_edit",
-            use_container_width=True,
-            type="primary" if current == "edit" else "secondary",
-            on_click=_set_coach_prog_screen,
-            args=("edit",),
-        )
+    with stylable_container(
+        key="coach_scr_switch",
+        css_styles=f"""
+        {{
+            background: {p['cell_empty_bg']};
+            border: 1px solid {p['list_card_border']};
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 0.5rem;
+        }}
+        button {{ min-height: 2.75rem !important; font-weight: 700 !important; border-radius: 8px !important; }}
+        """,
+    ):
+        c1, c2 = st.columns(2)
+        with c1:
+            st.button(
+                "📅 選日期",
+                key="coach_scr_cal",
+                use_container_width=True,
+                type="primary" if current == "cal" else "secondary",
+                on_click=_set_coach_prog_screen,
+                args=("cal",),
+            )
+        with c2:
+            st.button(
+                "✏️ 編輯課表",
+                key="coach_scr_edit",
+                use_container_width=True,
+                type="primary" if current == "edit" else "secondary",
+                on_click=_set_coach_prog_screen,
+                args=("edit",),
+            )

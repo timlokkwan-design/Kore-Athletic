@@ -34,8 +34,13 @@ from utils.helpers import (
     safe_str,
     workout_detail,
 )
+from views.components.calendar_fullcalendar import (
+    build_student_fullcalendar_events,
+    render_student_fullcalendar,
+)
 from views.components.calendar_compact import open_dialog_if_requested, render_compact_month_grid
-from views.components.calendar_list import render_view_mode_toggle
+from views.components.calendar_ui import render_calendar_month_nav, render_student_schedule_view_toggle
+from views.components.theme import get_ui_colors, get_ui_theme
 
 
 def _type_bg(prog: dict) -> str:
@@ -69,11 +74,12 @@ def _student_prog_for_day(prog_map: dict[str, dict], ds: str, specialty: str) ->
 
 def _render_time_venue_block(prog: dict, date_label: str, *, bg: str) -> None:
     time_text, venue = _time_venue_text(prog)
+    c = get_ui_colors()
     st.markdown(
-        f"<div style='background:{bg};border:1px solid #cbd5e1;border-radius:8px;padding:12px 14px;'>"
-        f"<div style='font-size:13px;font-weight:600;color:#334155;'>{date_label}</div>"
-        f"<div style='font-size:14px;margin-top:8px;'>🕐 <b>{time_text}</b></div>"
-        f"<div style='font-size:14px;margin-top:4px;'>📍 <b>{venue}</b></div>"
+        f"<div style='background:{bg};border:1px solid {c['border']};border-radius:8px;padding:12px 14px;'>"
+        f"<div style='font-size:13px;font-weight:600;color:{c['text']};'>{date_label}</div>"
+        f"<div style='font-size:14px;margin-top:8px;color:{c['text']};'>🕐 <b>{time_text}</b></div>"
+        f"<div style='font-size:14px;margin-top:4px;color:{c['text']};'>📍 <b>{venue}</b></div>"
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -297,6 +303,24 @@ def _student_day_cell(
     return "—", "", "休息", "#f8fafc", str(d.day)
 
 
+def _student_sched_prev() -> None:
+    year = st.session_state.student_sched_year
+    month = st.session_state.student_sched_month
+    if month == 1:
+        st.session_state.student_sched_month, st.session_state.student_sched_year = 12, year - 1
+    else:
+        st.session_state.student_sched_month -= 1
+
+
+def _student_sched_next() -> None:
+    year = st.session_state.student_sched_year
+    month = st.session_state.student_sched_month
+    if month == 12:
+        st.session_state.student_sched_month, st.session_state.student_sched_year = 1, year + 1
+    else:
+        st.session_state.student_sched_month += 1
+
+
 def _render_student_schedule_list(
     year: int,
     month: int,
@@ -311,6 +335,8 @@ def _render_student_schedule_list(
     cal = calendar.Calendar(firstweekday=6)
     weeks = cal.monthdayscalendar(year, month)
     wd_names = ["一", "二", "三", "四", "五", "六", "日"]
+    c = get_ui_colors()
+    accent = "#3b82f6" if get_ui_theme() == "dark" else "#1d4ed8"
 
     for week in weeks:
         for day in week:
@@ -323,15 +349,16 @@ def _render_student_schedule_list(
             )
             wd_cn = wd_names[d.weekday()]
             selected = st.session_state.get("student_sched_selected") == ds
-            border = "2px solid #1d4ed8" if selected else "1px solid #e2e8f0"
+            border = f"2px solid {accent}" if selected else f"1px solid {c['border']}"
 
             type_badge = (
-                f"<span style='background:#e2e8f0;color:#334155;padding:2px 8px;"
-                f"border-radius:999px;font-size:12px;margin-left:8px;'>{type_label}</span>"
+                f"<span style='background:{c['card_bg']};color:{c['text']};padding:2px 8px;"
+                f"border-radius:999px;font-size:12px;margin-left:8px;"
+                f"border:1px solid {c['border']};'>{type_label}</span>"
                 if type_label and type_label != "—" else ""
             )
             detail_html = (
-                f"<div style='font-size:13px;color:#64748b;margin-top:6px;'>{detail_line}</div>"
+                f"<div style='font-size:13px;color:{c['muted']};margin-top:6px;'>{detail_line}</div>"
                 if detail_line else ""
             )
 
@@ -340,9 +367,10 @@ def _render_student_schedule_list(
                 st.markdown(
                     f"<div style='background:{bg};border:{border};border-radius:10px;"
                     f"padding:12px 14px;margin-bottom:6px;'>"
-                    f"<div style='font-size:15px;font-weight:700;color:#1e3a8a;'>"
+                    f"<div style='font-size:15px;font-weight:700;color:{c['text']};'>"
                     f"{month}/{day:02d}（{wd_cn}）{type_badge}</div>"
-                    f"<div style='font-size:14px;font-weight:600;margin-top:4px;'>{title_line}</div>"
+                    f"<div style='font-size:14px;font-weight:600;margin-top:4px;color:{c['text']};'>"
+                    f"{title_line}</div>"
                     f"{detail_html}</div>",
                     unsafe_allow_html=True,
                 )
@@ -364,20 +392,14 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
     year = st.session_state.student_sched_year
     month = st.session_state.student_sched_month
 
-    c1, c2, c3 = st.columns([1, 2, 1])
-    if c1.button("◀ 上月", key="student_sched_prev"):
-        if month == 1:
-            st.session_state.student_sched_month, st.session_state.student_sched_year = 12, year - 1
-        else:
-            st.session_state.student_sched_month -= 1
-        st.rerun()
-    c2.markdown(f"### {year} 年 {month:02d} 月")
-    if c3.button("下月 ▶", key="student_sched_next"):
-        if month == 12:
-            st.session_state.student_sched_month, st.session_state.student_sched_year = 1, year + 1
-        else:
-            st.session_state.student_sched_month += 1
-        st.rerun()
+    render_calendar_month_nav(
+        year=year,
+        month=month,
+        prev_key="student_sched_prev",
+        next_key="student_sched_next",
+        on_prev=_student_sched_prev,
+        on_next=_student_sched_next,
+    )
 
     mapped = SPECIALTY_TO_GROUP.get(student_specialty, "—")
     st.caption(
@@ -397,24 +419,40 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
 
     prog_map = build_student_prog_map(programs, student_specialty)
 
-    view_mode = render_view_mode_toggle("student_sched", default_mode="list")
+    view_mode = render_student_schedule_view_toggle("student_sched", default_mode="list")
     if view_mode == "list":
         _render_student_schedule_list(year, month, prog_map, student_specialty, att_map, today)
         st.markdown("---")
         selected = st.session_state.get("student_sched_selected", today_str)
         _render_selected_day_detail(selected, prog_map, student_specialty, today, student_name)
+    elif view_mode == "fullcalendar":
+        events = build_student_fullcalendar_events(
+            prog_map,
+            student_specialty=student_specialty,
+            visible_day_fn=_student_prog_for_day,
+        )
+        render_student_fullcalendar(
+            year=year,
+            month=month,
+            events=events,
+        )
+        st.markdown("---")
+        selected = st.session_state.get("student_sched_selected", today_str)
+        _render_selected_day_detail(selected, prog_map, student_specialty, today, student_name)
+        st.caption("💡 點擊色塊或空白日期查看詳情；🗓 為 FullCalendar 互動月曆。")
     else:
         _render_student_schedule_compact(
             year, month, prog_map, student_specialty, att_map, today, student_name
         )
-
-    st.caption("💡 月曆為 7 格一列；🔵 藍色=訓練、🔴 紅色=比賽；點方格查看完整跑案。")
+        st.caption("💡 月曆為 7 格一列；🔵 藍色=訓練、🔴 紅色=比賽；點方格查看完整跑案。")
 
 
 def _entry_card(prog: dict, *, highlight: bool = False) -> str:
     tp = normalize_train_type(safe_str(prog.get("type"))) or "訓練"
     bg = calendar_cell_bg(prog)
-    border = "2px solid #1d4ed8" if highlight else "1px solid #e2e8f0"
+    c = get_ui_colors()
+    accent = "#3b82f6" if get_ui_theme() == "dark" else "#1d4ed8"
+    border = f"2px solid {accent}" if highlight else f"1px solid {c['border']}"
     title = safe_str(prog.get("title")) or tp or "訓練"
     specs = program_specs(prog)
     start = safe_str(prog.get("start_time"))
@@ -422,16 +460,19 @@ def _entry_card(prog: dict, *, highlight: bool = False) -> str:
     time_text = f"{start} – {end}" if start and end else (start or end or "時間待設定")
     venue = resolve_venue(prog)
     group = safe_str(prog.get("group"))
-    specs_html = f"<div style='color:#475569;font-size:11px;margin-top:2px;'>{specs}</div>" if specs else ""
+    specs_html = (
+        f"<div style='color:{c['muted']};font-size:11px;margin-top:2px;'>{specs}</div>"
+        if specs else ""
+    )
     return (
         f"<div style='background:{bg};border:{border};border-radius:8px;padding:10px 12px;margin-bottom:8px;'>"
-        f"<div style='font-size:12px;color:#334155;font-weight:600;'>{format_timetable_date(prog['date'])}"
+        f"<div style='font-size:12px;color:{c['text']};font-weight:600;'>{format_timetable_date(prog['date'])}"
         f"{' · 今日' if highlight else ''}</div>"
-        f"<div style='font-size:13px;font-weight:700;color:#1e3a8a;margin-top:4px;'>{tp}</div>"
+        f"<div style='font-size:13px;font-weight:700;color:{c['text']};margin-top:4px;'>{tp}</div>"
         f"{specs_html}"
-        f"<div style='color:#334155;font-size:12px;margin-top:6px;'>🕐 {time_text}</div>"
-        f"<div style='color:#475569;font-size:12px;margin-top:2px;'>📍 {venue}</div>"
-        f"<div style='color:#64748b;font-size:10px;margin-top:4px;'>👥 {group}</div>"
+        f"<div style='color:{c['text']};font-size:12px;margin-top:6px;'>🕐 {time_text}</div>"
+        f"<div style='color:{c['muted']};font-size:12px;margin-top:2px;'>📍 {venue}</div>"
+        f"<div style='color:{c['muted']};font-size:10px;margin-top:4px;'>👥 {group}</div>"
         f"</div>"
     )
 
