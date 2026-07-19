@@ -2724,11 +2724,8 @@ def init_sample_data() -> None:
         ensure_testing_coach()
         if _read(PERIOD_FILE, PERIOD_COLUMNS).empty:
             save_periodization(DEFAULT_PERIODIZATION)
-<<<<<<< HEAD
         ensure_season_competition_schedule()
-=======
         ensure_youth_age_group_v_registrations()
->>>>>>> origin/cursor/comp-success-roster-ea7c
         return
 
     _seed_programs()
@@ -2782,11 +2779,8 @@ def init_sample_data() -> None:
         _seed_acwr_history()
 
     ensure_testing_coach()
-<<<<<<< HEAD
     ensure_season_competition_schedule()
-=======
     ensure_youth_age_group_v_registrations()
->>>>>>> origin/cursor/comp-success-roster-ea7c
 
 
 def _seed_acwr_history() -> None:
