@@ -15,6 +15,7 @@ from views.coach_comp_registration_section import render_coach_comp_registration
 from views.coach_dashboard_section import render_coach_dashboard
 from views.coach_schedule_section import render_coach_schedule
 from views.coach_site_settings_section import render_coach_site_settings
+from views.components.mobile_nav import render_coach_bottom_dock
 from views.components.theme import render_page_header
 
 COACH_NAV_CATEGORIES: list[tuple[str, list[str]]] = [
@@ -47,6 +48,7 @@ def render_coach_view(section: str) -> None:
     from utils.auth import require_coach_or_stop
     require_coach_or_stop()
     render_page_header("教練平台", f"目前分頁：{section}")
+    render_coach_bottom_dock(section)
 
     renderer = _SECTION_RENDERERS.get(section, render_coach_dashboard)
     renderer()
