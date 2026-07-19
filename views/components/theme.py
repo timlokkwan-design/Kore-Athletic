@@ -555,13 +555,17 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 padding-top: var(--ka-top-pad, 0.65rem) !important;
                 height: auto !important;
                 max-height: none !important;
-                overflow: visible !important;
+                overflow-x: hidden !important;
+                overflow-y: visible !important;
+                max-width: 100% !important;
                 position: relative !important;
             }}
             section.main {{
                 height: auto !important;
                 max-height: none !important;
-                overflow: visible !important;
+                overflow-x: hidden !important;
+                overflow-y: visible !important;
+                max-width: 100% !important;
             }}
             /* Content blocks must never be fixed (that freezes scroll) */
             section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
@@ -577,8 +581,8 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 right: 0 !important;
                 bottom: 0 !important;
                 z-index: 2147483000 !important;
-                width: 100vw !important;
-                max-width: 100vw !important;
+                width: 100% !important;
+                max-width: 100% !important;
                 height: auto !important;
                 max-height: 7rem !important;
                 margin: 0 !important;
@@ -687,8 +691,8 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             right: 0 !important;
             top: 0 !important;
             z-index: 2147482900 !important;
-            width: 100vw !important;
-            max-width: 100vw !important;
+            width: 100% !important;
+            max-width: 100% !important;
             height: auto !important;
             max-height: 6.5rem !important;
             margin: 0 !important;
