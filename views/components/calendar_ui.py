@@ -59,55 +59,59 @@ def render_calendar_month_nav(
     def _toggle_picker():
         st.session_state[picker_key] = not st.session_state.get(picker_key, False)
 
-    # Keep CSS minimal — do NOT force flex on all horizontal blocks (breaks calendar).
-    st.markdown(
-        f'<div class="ka-cal-month-nav-marker" data-prev="{prev_key}" data-next="{next_key}"></div>',
-        unsafe_allow_html=True,
-    )
-    c1, c2, c3 = st.columns([1, 3.2, 1], gap="small")
-    with c1:
-        st.button("◀", key=prev_key, on_click=on_prev, args=prev_args, use_container_width=True)
-    with c2:
-        st.button(
-            f"{year} 年 {month:02d} 月 ▾",
-            key=f"{prev_key}_title_btn",
-            on_click=_toggle_picker,
-            use_container_width=True,
-            type="secondary",
+    # Small host only — pin JS forces ◀ / month / ▶ into one row on mobile.
+    with st.container():
+        st.markdown(
+            f'<div class="ka-cal-month-nav-marker ka-inline-row-marker" '
+            f'data-prev="{prev_key}" data-next="{next_key}"></div>',
+            unsafe_allow_html=True,
         )
-    with c3:
-        st.button("▶", key=next_key, on_click=on_next, args=next_args, use_container_width=True)
+        c1, c2, c3 = st.columns([1, 3.2, 1], gap="small")
+        with c1:
+            st.button("◀", key=prev_key, on_click=on_prev, args=prev_args, use_container_width=True)
+        with c2:
+            st.button(
+                f"{year} 年 {month:02d} 月 ▾",
+                key=f"{prev_key}_title_btn",
+                on_click=_toggle_picker,
+                use_container_width=True,
+                type="secondary",
+            )
+        with c3:
+            st.button("▶", key=next_key, on_click=on_next, args=next_args, use_container_width=True)
 
     can_pick = bool(on_pick) or (year_state_key and month_state_key)
     if st.session_state.get(picker_key) and can_pick:
-        ycol, mcol, acol = st.columns([1.2, 1.2, 1])
-        with ycol:
-            years = list(range(year - 3, year + 4))
-            pick_y = st.selectbox(
-                "年份",
-                years,
-                index=years.index(year) if year in years else 3,
-                key=f"{prev_key}_pick_year",
-            )
-        with mcol:
-            pick_m = st.selectbox(
-                "月份",
-                list(range(1, 13)),
-                index=month - 1,
-                format_func=lambda m: f"{m:02d} 月",
-                key=f"{prev_key}_pick_month",
-            )
-        with acol:
-            st.write("")
-            st.write("")
-            if st.button("套用", key=f"{prev_key}_pick_apply", type="primary", use_container_width=True):
-                if on_pick:
-                    on_pick(int(pick_y), int(pick_m))
-                else:
-                    st.session_state[year_state_key] = int(pick_y)
-                    st.session_state[month_state_key] = int(pick_m)
-                st.session_state[picker_key] = False
-                st.rerun()
+        with st.container():
+            st.markdown('<div class="ka-inline-row-marker"></div>', unsafe_allow_html=True)
+            ycol, mcol, acol = st.columns([1.2, 1.2, 1])
+            with ycol:
+                years = list(range(year - 3, year + 4))
+                pick_y = st.selectbox(
+                    "年份",
+                    years,
+                    index=years.index(year) if year in years else 3,
+                    key=f"{prev_key}_pick_year",
+                )
+            with mcol:
+                pick_m = st.selectbox(
+                    "月份",
+                    list(range(1, 13)),
+                    index=month - 1,
+                    format_func=lambda m: f"{m:02d} 月",
+                    key=f"{prev_key}_pick_month",
+                )
+            with acol:
+                st.write("")
+                st.write("")
+                if st.button("套用", key=f"{prev_key}_pick_apply", type="primary", use_container_width=True):
+                    if on_pick:
+                        on_pick(int(pick_y), int(pick_m))
+                    else:
+                        st.session_state[year_state_key] = int(pick_y)
+                        st.session_state[month_state_key] = int(pick_m)
+                    st.session_state[picker_key] = False
+                    st.rerun()
 
     # Swipe left/right on calendar iframe / grid → click ◀ / ▶
     try:
@@ -205,7 +209,6 @@ def render_calendar_view_toggle(
         f'color:{label_color};">檢視方式</p>',
         unsafe_allow_html=True,
     )
-    st.markdown('<div class="ka-cal-view-marker"></div>', unsafe_allow_html=True)
 
     with stylable_container(
         key=f"{key}_view_toggle",
@@ -227,6 +230,10 @@ def render_calendar_view_toggle(
         }}
         """,
     ):
+        st.markdown(
+            '<div class="ka-cal-view-marker ka-inline-row-marker"></div>',
+            unsafe_allow_html=True,
+        )
         c1, c2 = st.columns(2)
 
         def _pick_grid():
@@ -284,7 +291,6 @@ def render_student_schedule_view_toggle(
         f'color:{label_color};">檢視方式</p>',
         unsafe_allow_html=True,
     )
-    st.markdown('<div class="ka-cal-view-marker"></div>', unsafe_allow_html=True)
 
     with stylable_container(
         key=f"{key}_view_toggle2",
@@ -305,6 +311,10 @@ def render_student_schedule_view_toggle(
         }}
         """,
     ):
+        st.markdown(
+            '<div class="ka-cal-view-marker ka-inline-row-marker"></div>',
+            unsafe_allow_html=True,
+        )
         c1, c2 = st.columns(2)
 
         def _pick(m: str):
@@ -364,7 +374,6 @@ def _render_multi_view_toggle(
         f'color:{label_color};">檢視方式</p>',
         unsafe_allow_html=True,
     )
-    st.markdown('<div class="ka-cal-view-marker"></div>', unsafe_allow_html=True)
 
     with stylable_container(
         key=f"{key}_view_toggle_multi",
@@ -385,6 +394,10 @@ def _render_multi_view_toggle(
         }}
         """,
     ):
+        st.markdown(
+            '<div class="ka-cal-view-marker ka-inline-row-marker"></div>',
+            unsafe_allow_html=True,
+        )
         cols = st.columns(len(modes))
 
         def _pick(m: str):
