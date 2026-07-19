@@ -69,11 +69,16 @@ def login(username: str, password: str) -> tuple[bool, str]:
 
 
 def logout() -> None:
+    import time
+
+    # Block cookie/localStorage auto-restore for a short window (fast, no race).
+    st.session_state["_logout_at"] = time.time()
     st.session_state.pop("user", None)
     clear_persisted_login()
     clear_nav_state()
     st.session_state.pop("_nav_restored", None)
     st.session_state.pop("_nav_bridge_injected", None)
+    st.session_state.pop("_fresh_login", None)
 
 
 def require_roles(*roles: str) -> bool:

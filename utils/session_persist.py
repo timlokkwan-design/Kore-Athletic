@@ -348,6 +348,18 @@ def try_restore_session() -> None:
     if st.session_state.get("_fresh_login"):
         return
 
+    # After logout, skip restore briefly so cookie/localStorage clear can finish
+    # without CookieManager wait loops (those make 登出 feel very slow).
+    logout_at = st.session_state.get("_logout_at")
+    if logout_at:
+        try:
+            age = time.time() - float(logout_at)
+        except (TypeError, ValueError):
+            age = 0
+        if age < 20:
+            return
+        st.session_state.pop("_logout_at", None)
+
     # Parent-page bridge: localStorage → cookie → reload (if needed)
     _inject_storage_bridge()
 
@@ -355,7 +367,7 @@ def try_restore_session() -> None:
     if cm is not None and not cm.ready():
         # Wait a few auto-reruns for CookieManager to sync browser cookies.
         waits = int(st.session_state.get(_CM_WAIT_KEY, 0) or 0)
-        if waits < 5:
+        if waits < 3:
             st.session_state[_CM_WAIT_KEY] = waits + 1
             # Stop before rendering as visitor; component ready → auto-rerun.
             st.stop()
