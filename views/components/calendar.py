@@ -329,6 +329,7 @@ def _render_calendar_impl(
         on_next=_calendar_next_month,
         prev_args=(select_key, copy_mode, delete_mode),
         next_args=(select_key, copy_mode, delete_mode),
+        on_pick=set_coach_calendar_month,
     )
 
     if copy_mode:

@@ -211,22 +211,97 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             gap: 0.75rem;
             margin-bottom: 1rem;
         }}
+        .ka-stat-grid.ka-stat-grid-3 {{
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.45rem;
+        }}
         .ka-stat-card {{
             background: {c["card_bg"]};
             border: 1px solid {c["border"]};
             border-radius: {RADIUS};
             padding: 0.85rem 1rem;
         }}
+        .ka-stat-grid-3 .ka-stat-card {{
+            padding: 0.65rem 0.45rem;
+            text-align: center;
+        }}
         .ka-stat-label {{
             font-size: 0.75rem;
             color: {c["muted"]};
             margin-bottom: 0.25rem;
+        }}
+        .ka-stat-grid-3 .ka-stat-label {{
+            font-size: 0.68rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }}
         .ka-stat-value {{
             font-size: 1.35rem;
             font-weight: 800;
             color: {c["text"]};
             line-height: 1.2;
+        }}
+        .ka-stat-grid-3 .ka-stat-value {{
+            font-size: 1.05rem;
+        }}
+        /* Student goals — cleaner card look */
+        .ka-goal-wrap {{
+            background: {c["card_bg"]};
+            border: 1px solid {c["border"]};
+            border-radius: {RADIUS};
+            padding: 0.85rem 0.9rem;
+            margin: 0 0 1rem 0;
+        }}
+        .ka-goal-title {{
+            margin: 0 0 0.55rem 0;
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: {c["text"]};
+        }}
+        .ka-goal-card {{
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.65rem;
+            background: {c["main_bg"]};
+            border: 1px solid {c["border"]};
+            border-radius: 10px;
+            padding: 0.7rem 0.75rem;
+            margin-bottom: 0.5rem;
+        }}
+        .ka-goal-event {{
+            font-weight: 800;
+            color: {c["text"]};
+            font-size: 0.95rem;
+        }}
+        .ka-goal-meta {{
+            margin-top: 0.2rem;
+            font-size: 0.8rem;
+            color: {c["muted"]};
+            line-height: 1.35;
+        }}
+        .ka-goal-empty {{
+            font-size: 0.85rem;
+            color: {c["muted"]};
+            margin: 0 0 0.45rem 0;
+        }}
+        .ka-sidebar-open-btn {{
+            /* ensure menu stays above docks but sidebar can cover content */
+        }}
+        section[data-testid="stSidebar"] {{
+            z-index: 2147483645 !important;
+        }}
+        section[data-testid="stSidebar"] > div {{
+            background-color: #0e1117 !important;
+            opacity: 1 !important;
+        }}
+        /* Top subtabs sit under sidebar when drawer is open */
+        .ka-top-subtab-host {{
+            z-index: 2147482800 !important;
+        }}
+        .ka-bottom-dock-host {{
+            z-index: 2147483000 !important;
         }}
         .ka-bar {{
             border-radius: {RADIUS};
@@ -334,6 +409,12 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         {dark_stat_override}
         @media (max-width: 768px) {{
             .ka-stat-grid {{ grid-template-columns: repeat(2, 1fr); }}
+            .ka-stat-grid.ka-stat-grid-3 {{
+                grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                gap: 0.4rem !important;
+            }}
+            .ka-stat-grid-3 .ka-stat-value {{ font-size: 0.98rem !important; }}
+            .ka-stat-grid-3 .ka-stat-label {{ font-size: 0.62rem !important; }}
             section.main .block-container {{
                 padding-left: 0.65rem;
                 padding-right: 0.65rem;
@@ -416,9 +497,9 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             .ka-bottom-dock-host [data-testid="stHorizontalBlock"] > div:last-child,
             .ka-bottom-dock-host [data-testid="column"]:last-child,
             .ka-bottom-dock-host [data-testid="stColumn"]:last-child {{
-                flex: 0 0 3.85rem !important;
-                max-width: 3.85rem !important;
-                min-width: 3.6rem !important;
+                flex: 0 0 4.75rem !important;
+                max-width: 4.75rem !important;
+                min-width: 4.5rem !important;
                 pointer-events: none !important;
             }}
             .ka-dock-fab-spacer {{
@@ -603,8 +684,9 @@ def render_stat_cards(items: list[tuple[str, str, str]]) -> None:
             f'<div class="ka-stat-label">{label}</div>'
             f'<div class="ka-stat-value">{value}</div></div>'
         )
+    grid_cls = "ka-stat-grid ka-stat-grid-3" if len(items) == 3 else "ka-stat-grid"
     st.markdown(
-        f'<div class="ka-stat-grid">{"".join(cards)}</div>',
+        f'<div class="{grid_cls}">{"".join(cards)}</div>',
         unsafe_allow_html=True,
     )
 

@@ -42,9 +42,23 @@ def render_calendar_month_nav(
     on_next,
     prev_args: tuple = (),
     next_args: tuple = (),
+    year_state_key: str | None = None,
+    month_state_key: str | None = None,
+    on_pick=None,
 ) -> None:
-    """Month title + prev/next using streamlit-extras styled row."""
+    """Compact month chrome: ◀  [year年 month月]  ▶ + optional year/month picker.
+
+    Swipe on the calendar grid also triggers prev/next (see wire script).
+    Click the month title to open year/month selectors.
+    """
     inject_calendar_theme()
+    picker_key = f"{prev_key}_picker_open"
+    if picker_key not in st.session_state:
+        st.session_state[picker_key] = False
+
+    def _toggle_picker():
+        st.session_state[picker_key] = not st.session_state.get(picker_key, False)
+
     with stylable_container(
         key=f"{prev_key}_nav_row",
         css_styles="""
@@ -54,18 +68,137 @@ def render_calendar_month_nav(
             padding: 0;
             margin-bottom: 0.35rem;
         }
+        div[data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            gap: 0.35rem !important;
+        }
+        div[data-testid="stHorizontalBlock"] > div {
+            flex: 0 0 auto !important;
+        }
+        div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+        }
+        button {
+            min-height: 2.6rem !important;
+            font-weight: 700 !important;
+            border-radius: 10px !important;
+        }
         """,
     ):
-        c1, c2, c3 = st.columns([1, 2, 1])
+        st.markdown(
+            f'<div class="ka-cal-month-nav-marker" data-prev="{prev_key}" data-next="{next_key}"></div>',
+            unsafe_allow_html=True,
+        )
+        c1, c2, c3 = st.columns([1, 3.2, 1])
         with c1:
-            st.button("◀ 上月", key=prev_key, on_click=on_prev, args=prev_args, use_container_width=True)
+            st.button("◀", key=prev_key, on_click=on_prev, args=prev_args, use_container_width=True)
         with c2:
-            st.markdown(
-                f'<h3 class="ka-cal-month-title">{year} 年 {month:02d} 月</h3>',
-                unsafe_allow_html=True,
+            st.button(
+                f"{year} 年 {month:02d} 月 ▾",
+                key=f"{prev_key}_title_btn",
+                on_click=_toggle_picker,
+                use_container_width=True,
+                type="secondary",
             )
         with c3:
-            st.button("下月 ▶", key=next_key, on_click=on_next, args=next_args, use_container_width=True)
+            st.button("▶", key=next_key, on_click=on_next, args=next_args, use_container_width=True)
+
+    can_pick = bool(on_pick) or (year_state_key and month_state_key)
+    if st.session_state.get(picker_key) and can_pick:
+        ycol, mcol, acol = st.columns([1.2, 1.2, 1])
+        with ycol:
+            years = list(range(year - 3, year + 4))
+            pick_y = st.selectbox(
+                "年份",
+                years,
+                index=years.index(year) if year in years else 3,
+                key=f"{prev_key}_pick_year",
+            )
+        with mcol:
+            pick_m = st.selectbox(
+                "月份",
+                list(range(1, 13)),
+                index=month - 1,
+                format_func=lambda m: f"{m:02d} 月",
+                key=f"{prev_key}_pick_month",
+            )
+        with acol:
+            st.write("")
+            st.write("")
+            if st.button("套用", key=f"{prev_key}_pick_apply", type="primary", use_container_width=True):
+                if on_pick:
+                    on_pick(int(pick_y), int(pick_m))
+                else:
+                    st.session_state[year_state_key] = int(pick_y)
+                    st.session_state[month_state_key] = int(pick_m)
+                st.session_state[picker_key] = False
+                st.rerun()
+
+    # Swipe left/right on calendar area → click ◀ / ▶
+    try:
+        st.html(
+            """
+            <script>
+            (function () {
+              function findBtn(label) {
+                var buttons = document.querySelectorAll('button');
+                for (var i = 0; i < buttons.length; i++) {
+                  var t = (buttons[i].innerText || buttons[i].textContent || '').trim();
+                  if (t === label) return buttons[i];
+                }
+                return null;
+              }
+              function wire(el) {
+                if (!el || el.dataset.kaSwipe === '1') return;
+                el.dataset.kaSwipe = '1';
+                var startX = null, startY = null;
+                el.addEventListener('touchstart', function (e) {
+                  if (!e.changedTouches || !e.changedTouches.length) return;
+                  startX = e.changedTouches[0].screenX;
+                  startY = e.changedTouches[0].screenY;
+                }, { passive: true });
+                el.addEventListener('touchend', function (e) {
+                  if (startX == null || !e.changedTouches || !e.changedTouches.length) return;
+                  var dx = e.changedTouches[0].screenX - startX;
+                  var dy = e.changedTouches[0].screenY - startY;
+                  startX = null; startY = null;
+                  if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+                  var prev = findBtn('◀');
+                  var next = findBtn('▶');
+                  if (dx < 0 && next) next.click();
+                  else if (dx > 0 && prev) prev.click();
+                }, { passive: true });
+              }
+              function attach() {
+                document.querySelectorAll('.fc, .ka-cal-shell-marker').forEach(wire);
+                document.querySelectorAll('iframe').forEach(function (frame) {
+                  try {
+                    var doc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
+                    if (doc) {
+                      wire(doc.body);
+                      var fc = doc.querySelector('.fc');
+                      if (fc) wire(fc);
+                    }
+                  } catch (err) {}
+                  wire(frame);
+                });
+              }
+              attach();
+              setTimeout(attach, 300);
+              setTimeout(attach, 900);
+            })();
+            </script>
+            """,
+            unsafe_allow_javascript=True,
+        )
+    except TypeError:
+        pass
+    except Exception:
+        pass
 
 
 def render_calendar_view_toggle(

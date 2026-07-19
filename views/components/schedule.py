@@ -412,6 +412,8 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
         next_key="student_sched_next",
         on_prev=_student_sched_prev,
         on_next=_student_sched_next,
+        year_state_key="student_sched_year",
+        month_state_key="student_sched_month",
     )
 
     mapped = SPECIALTY_TO_GROUP.get(student_specialty, "—")
@@ -453,7 +455,7 @@ def render_student_schedule_calendar(student_specialty: str = "", student_name: 
         st.markdown("---")
         selected = st.session_state.get("student_sched_selected", today_str)
         _render_selected_day_detail(selected, prog_map, student_specialty, today, student_name)
-        st.caption("💡 點擊色塊或空白日期查看詳情；未到訓練日僅顯示時間與地點。")
+        st.caption("💡 點擊色塊或空白日期查看詳情；未到訓練日僅顯示時間與地點。左右橫滑日曆可換月；點月份可選年月。")
 
 
 def _entry_card(prog: dict, *, highlight: bool = False) -> str:
