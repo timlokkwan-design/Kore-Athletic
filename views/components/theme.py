@@ -92,6 +92,20 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         section.main {{
             background-color: {c["main_bg"]};
         }}
+        /* Hide Streamlit chrome that overlaps our mobile bottom dock */
+        .stDeployButton,
+        [data-testid="stAppDeployButton"],
+        [data-testid="stStatusWidget"],
+        [data-testid="stToolbar"],
+        [data-testid="stDecoration"],
+        header [data-testid="stHeaderActionElements"],
+        div[data-testid="stAppToolbar"] {{
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }}
+        #MainMenu {{ visibility: hidden; }}
+        footer {{ visibility: hidden; }}
         hr {{ margin: 0.75rem 0; border-color: {c["border"]}; }}
         section.main [data-testid="stMarkdownContainer"] h1,
         section.main [data-testid="stMarkdownContainer"] h2,
@@ -323,52 +337,50 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 min-height: 44px !important;
                 font-size: 16px !important;
             }}
-            /* Instagram-style fixed bottom tab bar — ONE horizontal row */
+            /* Instagram-style fixed bottom tab bar — ONE horizontal row.
+               IMPORTANT: do NOT use :has(marker) on stVerticalBlock for position:fixed —
+               that matches the whole page root and clips expander content. */
             section.main .block-container {{
-                padding-bottom: 5.5rem !important;
+                padding-bottom: 6.5rem !important;
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+                position: relative !important;
             }}
-            /* Pin the dock container to the viewport bottom (student + coach) */
-            div[data-testid="stVerticalBlock"]:has(> div > .ka-bottom-tabbar-marker),
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker),
-            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker),
-            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker),
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker),
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker),
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) {{
+            section.main {{
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+            }}
+            /* Content blocks must never be fixed (that freezes scroll) */
+            section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
+                position: static !important;
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+            }}
+            /* Only the innermost dock host (class added by JS) is fixed.
+               Leave right clearance for Streamlit Cloud "Manage app" FAB (host overlay). */
+            .ka-bottom-dock-host {{
                 position: fixed !important;
                 left: 0 !important;
                 right: 0 !important;
                 bottom: 0 !important;
-                z-index: 1000 !important;
+                z-index: 2147483000 !important;
                 width: 100vw !important;
                 max-width: 100vw !important;
+                height: auto !important;
+                max-height: 6rem !important;
                 margin: 0 !important;
-                padding: 0.3rem 0.35rem calc(0.4rem + env(safe-area-inset-bottom, 0px)) !important;
+                /* Extra right padding so 隊伍／比賽 are not under the crown Manage button */
+                padding: 0.3rem 3.75rem calc(0.4rem + env(safe-area-inset-bottom, 0px)) 0.35rem !important;
                 background: {c["main_bg"]} !important;
                 border-top: 1px solid {c["border"]} !important;
                 box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.10) !important;
+                pointer-events: auto !important;
+                overflow: visible !important;
             }}
-            /* Marker itself must not become a fixed full-width strip */
-            div[data-testid="element-container"]:has(.ka-bottom-tabbar-marker),
-            div[data-testid="element-container"]:has(.ka-student-dock-marker),
-            div[data-testid="element-container"]:has(.ka-coach-dock-marker) {{
-                position: absolute !important;
-                width: 0 !important;
-                height: 0 !important;
-                overflow: hidden !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                border: none !important;
-                box-shadow: none !important;
-                pointer-events: none !important;
-            }}
-            /* CRITICAL: keep tabs in a single horizontal row (Streamlit may wrap columns) */
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
-            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
-            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"],
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"],
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"],
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] {{
+            .ka-bottom-dock-host [data-testid="stHorizontalBlock"] {{
                 display: flex !important;
                 flex-direction: row !important;
                 flex-wrap: nowrap !important;
@@ -378,35 +390,15 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 width: 100% !important;
                 margin: 0 !important;
             }}
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
-            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
-            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div,
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="column"],
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) [data-testid="stColumn"],
-            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="column"],
-            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) [data-testid="stColumn"],
-            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="column"],
-            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) [data-testid="stColumn"],
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stHorizontalBlock"] > div,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stHorizontalBlock"] > div,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stHorizontalBlock"] > div,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="column"],
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) [data-testid="stColumn"],
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="column"],
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) [data-testid="stColumn"],
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="column"],
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) [data-testid="stColumn"] {{
+            .ka-bottom-dock-host [data-testid="stHorizontalBlock"] > div,
+            .ka-bottom-dock-host [data-testid="column"],
+            .ka-bottom-dock-host [data-testid="stColumn"] {{
                 flex: 1 1 0 !important;
                 min-width: 0 !important;
                 max-width: none !important;
                 width: auto !important;
             }}
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button,
-            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) button,
-            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) button,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) button,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) button {{
+            .ka-bottom-dock-host button {{
                 min-height: 3.1rem !important;
                 width: 100% !important;
                 white-space: pre-line !important;
@@ -418,27 +410,22 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 transition: transform 0.12s ease, filter 0.12s ease !important;
                 box-shadow: none !important;
             }}
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button:active,
-            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) button:active,
-            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) button:active,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button:active,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) button:active,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) button:active {{
+            .ka-bottom-dock-host button:active {{
                 transform: scale(0.88) !important;
                 filter: brightness(0.9) !important;
             }}
-            div[data-testid="stVerticalBlock"]:has(.ka-bottom-tabbar-marker) button:focus-visible,
-            div[data-testid="stVerticalBlock"]:has(.ka-student-dock-marker) button:focus-visible,
-            div[data-testid="stVerticalBlock"]:has(.ka-coach-dock-marker) button:focus-visible,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-bottom-tabbar-marker) button:focus-visible,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-student-dock-marker) button:focus-visible,
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.ka-coach-dock-marker) button:focus-visible {{
+            .ka-bottom-dock-host button:focus-visible {{
                 outline: 2px solid {c["text"]}55 !important;
                 outline-offset: 2px !important;
             }}
-            /* Hide the stacked in-flow dock clone if any leftover spacing */
-            .ka-bottom-tabbar-spacer {{
-                height: 0 !important;
+            /* Expanders must stay in normal flow (readable when opened) */
+            [data-testid="stExpander"] {{
+                overflow: visible !important;
+            }}
+            [data-testid="stExpanderDetails"],
+            [data-testid="stExpander"] [data-testid="stVerticalBlock"] {{
+                overflow: visible !important;
+                max-height: none !important;
             }}
             div[data-testid="stVerticalBlock"]:has(.ka-checkin-bar-marker) {{
                 background: {COLOR_WARN_BG};
@@ -461,10 +448,68 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 color: {pwa_detail_style};
             }}
         }}
-        /* Markers must stay in DOM for :has() — do NOT use display:none (breaks mobile Safari matching) */
+        /* Sticky top sub-tabs (比賽：時間表／報名表／管理) — all widths */
+        section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
+            position: static !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+        }}
+        .ka-top-subtab-host {{
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 100 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            height: auto !important;
+            max-height: 6rem !important;
+            margin: 0 0 0.55rem 0 !important;
+            padding: 0.35rem 0.25rem 0.4rem 0.25rem !important;
+            background: {c["main_bg"]} !important;
+            border-bottom: 1px solid {c["border"]} !important;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08) !important;
+            pointer-events: auto !important;
+            overflow: visible !important;
+        }}
+        .ka-top-subtab-host [data-testid="stHorizontalBlock"] {{
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: stretch !important;
+            justify-content: space-between !important;
+            gap: 0.2rem !important;
+            width: 100% !important;
+            margin: 0 !important;
+        }}
+        .ka-top-subtab-host [data-testid="stHorizontalBlock"] > div,
+        .ka-top-subtab-host [data-testid="column"],
+        .ka-top-subtab-host [data-testid="stColumn"] {{
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            width: auto !important;
+        }}
+        .ka-top-subtab-host button {{
+            min-height: 2.85rem !important;
+            width: 100% !important;
+            white-space: pre-line !important;
+            line-height: 1.1 !important;
+            font-size: 0.68rem !important;
+            font-weight: 700 !important;
+            border-radius: 10px !important;
+            padding: 0.22rem 0.1rem !important;
+            transition: transform 0.12s ease, filter 0.12s ease !important;
+            box-shadow: none !important;
+        }}
+        .ka-top-subtab-host button:active {{
+            transform: scale(0.88) !important;
+            filter: brightness(0.9) !important;
+        }}
+        /* Markers stay in DOM; visually hidden */
         .ka-bottom-tabbar-marker,
         .ka-student-dock-marker,
         .ka-coach-dock-marker,
+        .ka-top-subtab-marker,
         .ka-tab-tile {{
             position: absolute !important;
             width: 1px !important;

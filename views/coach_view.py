@@ -17,7 +17,7 @@ from views.coach_schedule_section import render_coach_schedule
 from views.coach_site_settings_section import render_coach_site_settings
 from views.components.announcements import render_coach_announcements
 from views.components.competition_schedule import render_coach_competition_schedule
-from views.components.mobile_nav import render_coach_bottom_dock
+from views.components.mobile_nav import render_coach_bottom_dock, render_coach_top_subtabs
 from views.components.theme import render_page_header
 
 COACH_NAV_CATEGORIES: list[tuple[str, list[str]]] = [
@@ -51,6 +51,8 @@ _SECTION_RENDERERS = {
 def render_coach_view(section: str) -> None:
     from utils.auth import require_coach_or_stop
     require_coach_or_stop()
+    # Sticky top sub-tabs for every multi-section category.
+    render_coach_top_subtabs(section)
     render_page_header("教練平台", f"目前分頁：{section}")
 
     renderer = _SECTION_RENDERERS.get(section, render_coach_dashboard)

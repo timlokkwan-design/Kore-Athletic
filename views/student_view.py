@@ -20,7 +20,7 @@ from views.components.announcements import (
 from views.components.checkin import render_student_checkin_bar
 from views.components.comp_registration import render_student_comp_registration
 from views.components.competition_schedule import render_student_competition_schedule
-from views.components.mobile_nav import render_student_quick_dock
+from views.components.mobile_nav import render_student_quick_dock, render_student_top_subtabs
 from views.components.schedule import render_student_schedule_calendar
 from views.components.student_goals import render_student_goals
 from views.components.student_profile import render_student_profile
@@ -40,6 +40,8 @@ def render_student_view(section: str) -> None:
     require_student_or_stop()
     user = refresh_current_user()
     specialty = user.get("specialty") or "—"
+    # Sticky top sub-tabs for every multi-section category.
+    render_student_top_subtabs(section)
     render_page_header(
         "學生平台",
         f"{user['name']} · 專項：{specialty}",
