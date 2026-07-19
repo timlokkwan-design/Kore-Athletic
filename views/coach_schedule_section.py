@@ -267,6 +267,7 @@ def render_coach_schedule() -> None:
         _render_sched_editor_ui()
 
     st.divider()
-    st.markdown("#### 👀 預覽（學生時間表）")
+    st.markdown("#### 👀 預覽（學生時間表列表）")
+    st.caption("完整日曆檢視請用上方「課表檢視」。")
     preview_group = st.selectbox("模擬學生專項", SPECIALTY_OPTIONS, key="sched_preview_spec")
     render_program_timetable(student_specialty=preview_group, days_ahead=60)
