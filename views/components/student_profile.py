@@ -22,37 +22,34 @@ def _render_avatar_upload(user: dict) -> None:
     st.markdown("#### 📷 個人頭像")
     st.caption("支援 JPG / PNG / WEBP，最大 2MB。頭像會顯示於側邊欄、排行榜及教練平台。")
 
-    col_a, col_b = st.columns([1, 2])
-    with col_a:
-        render_avatar(name=user["name"], username=user["username"], size=96)
-    with col_b:
-        uploaded = st.file_uploader(
-            "選擇頭像圖片",
-            type=["png", "jpg", "jpeg", "webp"],
-            key="student_avatar_upload",
-        )
-        if uploaded is not None:
-            st.image(uploaded, caption="預覽", width=120)
-            if st.button("確認上載頭像", type="primary", key="student_avatar_save"):
-                ok, msg = save_user_avatar(
-                    user["username"],
-                    uploaded.getvalue(),
-                    uploaded.type or "image/jpeg",
-                )
-                if ok:
-                    clear_avatar_cache()
-                    refresh_current_user()
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
-        if get_avatar_path(username=user["username"]):
-            if st.button("移除頭像", key="student_avatar_remove"):
-                remove_user_avatar(user["username"])
+    render_avatar(name=user["name"], username=user["username"], size=96)
+    uploaded = st.file_uploader(
+        "選擇頭像圖片",
+        type=["png", "jpg", "jpeg", "webp"],
+        key="student_avatar_upload",
+    )
+    if uploaded is not None:
+        st.image(uploaded, caption="預覽", width=120)
+        if st.button("確認上載頭像", type="primary", key="student_avatar_save", use_container_width=True):
+            ok, msg = save_user_avatar(
+                user["username"],
+                uploaded.getvalue(),
+                uploaded.type or "image/jpeg",
+            )
+            if ok:
                 clear_avatar_cache()
                 refresh_current_user()
-                st.success("已移除頭像")
+                st.success(msg)
                 st.rerun()
+            else:
+                st.error(msg)
+    if get_avatar_path(username=user["username"]):
+        if st.button("移除頭像", key="student_avatar_remove", use_container_width=True):
+            remove_user_avatar(user["username"])
+            clear_avatar_cache()
+            refresh_current_user()
+            st.success("已移除頭像")
+            st.rerun()
 
 
 def render_student_profile(user: dict) -> None:
@@ -63,24 +60,22 @@ def render_student_profile(user: dict) -> None:
 
     with st.form("student_profile_form"):
         st.markdown("**田徑報名基本資料**")
-        c1, c2, c3 = st.columns(3)
-        name = c1.text_input("中文名 *", value=safe_str(user.get("name")))
-        name_en = c2.text_input("英文名 *", value=safe_str(user.get("name_en")))
-        birth_date = c3.date_input(
+        name = st.text_input("中文名 *", value=safe_str(user.get("name")))
+        name_en = st.text_input("英文名 *", value=safe_str(user.get("name_en")))
+        birth_date = st.date_input(
             "出生年月日 *",
             value=default_birth_date(user),
             min_value=date(1950, 1, 1),
             max_value=date.today(),
             format="YYYY/MM/DD",
         )
-        c4, c5, c6 = st.columns(3)
         gender_idx = (
             GENDER_OPTIONS.index(user["gender"])
             if user.get("gender") in GENDER_OPTIONS
             else 0
         )
-        gender = c4.selectbox("性別 *", GENDER_OPTIONS, index=gender_idx)
-        hkaaa_id = c5.text_input(
+        gender = st.selectbox("性別 *", GENDER_OPTIONS, index=gender_idx)
+        hkaaa_id = st.text_input(
             "田總証編號 *",
             value=safe_str(user.get("hkaaa_id")),
             placeholder=HKAAA_ID_PLACEHOLDER,
@@ -90,18 +85,16 @@ def render_student_profile(user: dict) -> None:
             if user.get("hk_permanent_resident") in HK_PERMANENT_OPTIONS
             else 0
         )
-        hk_pr = c6.selectbox("香港永久性居民 *", HK_PERMANENT_OPTIONS, index=hk_pr_idx)
+        hk_pr = st.selectbox("香港永久性居民 *", HK_PERMANENT_OPTIONS, index=hk_pr_idx)
 
         st.markdown("**帳號及聯絡資料**")
         st.text_input("登入帳號", value=safe_str(user.get("username")), disabled=True)
         st.caption(f"目前專項：**{user.get('specialty') or '—'}**（更改請見下方）")
-        c7, c8, c9 = st.columns(3)
-        phone = c7.text_input("電話", value=safe_str(user.get("phone")))
-        school = c8.text_input("學校", value=safe_str(user.get("school")))
-        new_password = c9.text_input("新密碼（留空則不更改）", type="password")
-        c10, c11 = st.columns(2)
-        emergency_contact = c10.text_input("緊急聯絡人", value=safe_str(user.get("emergency_contact")))
-        emergency_phone = c11.text_input("緊急電話", value=safe_str(user.get("emergency_phone")))
+        phone = st.text_input("電話", value=safe_str(user.get("phone")))
+        school = st.text_input("學校", value=safe_str(user.get("school")))
+        new_password = st.text_input("新密碼（留空則不更改）", type="password")
+        emergency_contact = st.text_input("緊急聯絡人", value=safe_str(user.get("emergency_contact")))
+        emergency_phone = st.text_input("緊急電話", value=safe_str(user.get("emergency_phone")))
 
         st.markdown("**學生健康狀況申報**")
         health = st.text_area(

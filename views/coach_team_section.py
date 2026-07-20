@@ -22,6 +22,16 @@ from utils.data_store import (
 )
 from utils.helpers import format_birth_display, needs_wind, safe_str
 from views.components.avatar import athlete_card_html, render_person
+from views.components.theme import COLOR_WARN_BG, COLOR_WARN_BORDER, get_ui_colors, get_ui_theme
+
+
+def _pending_card_colors(*, warn: bool = False) -> tuple[str, str]:
+    uc = get_ui_colors()
+    if get_ui_theme() == "dark":
+        return uc["card_bg"], COLOR_WARN_BORDER if warn else uc.get("border", "#334155")
+    if warn:
+        return COLOR_WARN_BG, COLOR_WARN_BORDER
+    return uc["card_bg"], uc.get("border", "#e2e8f0")
 
 
 def _athlete_select(label: str, athletes: list[str], key: str) -> str | None:
@@ -39,23 +49,23 @@ def _render_pending_specialty() -> None:
         return
     for _, p in pending_spec.iterrows():
         reason = safe_str(p.get("reason")) or "—"
-        b1, b2, b3 = st.columns([4, 1, 1])
-        b1.markdown(
+        bg, border = _pending_card_colors(warn=True)
+        st.markdown(
             athlete_card_html(
                 safe_str(p["name"]),
                 f"{p['current_specialty']} → <b>{p['requested_specialty']}</b> "
                 f"（{safe_str(p.get('date'))}）<br>原因：{reason}",
                 username=safe_str(p.get("username")),
-                bg="#fffbeb",
-                border="#fcd34d",
+                bg=bg,
+                border=border,
                 size=40,
             ),
             unsafe_allow_html=True,
         )
-        if b2.button("核准", key=f"spec_ok_{p['id']}"):
+        if st.button("核准", key=f"spec_ok_{p['id']}", type="primary", use_container_width=True):
             approve_specialty_change(str(p["id"]))
             st.rerun()
-        if b3.button("拒絕", key=f"spec_no_{p['id']}"):
+        if st.button("拒絕", key=f"spec_no_{p['id']}", use_container_width=True):
             reject_specialty_change(str(p["id"]))
             st.rerun()
 
@@ -81,19 +91,20 @@ def _render_pending_registrations() -> None:
         st.caption("無待審學員")
         return
     for _, u in pending.iterrows():
-        b1, b2 = st.columns([3, 1])
-        b1.markdown(
+        bg, border = _pending_card_colors(warn=False)
+        st.markdown(
             athlete_card_html(
                 safe_str(u["name"]),
                 f"{safe_str(u.get('name_en'))} · {safe_str(u.get('specialty'))} · "
                 f"出生 {format_birth_display(u.to_dict())} · {safe_str(u.get('phone'))}",
                 username=safe_str(u.get("username")),
-                bg="#f8fafc",
+                bg=bg,
+                border=border,
                 size=40,
             ),
             unsafe_allow_html=True,
         )
-        if b2.button("核准", key=f"appr_{u['username']}"):
+        if st.button("核准", key=f"appr_{u['username']}", type="primary", use_container_width=True):
             from utils.whatsapp_notify import build_approval_notify
 
             approved = approve_student(u["username"])
@@ -109,17 +120,15 @@ def _render_pending_scores() -> None:
         st.caption("無待審成績")
         return
     for _, p in pending_r.iterrows():
-        b1, b2 = st.columns([3, 1])
-        with b1:
-            render_person(
-                str(p["athlete_name"]),
-                subtitle=(
-                    f"{p['item']} ({p['score']}) · "
-                    f"{safe_str(p.get('date'))} · {safe_str(p.get('comp_name'))}"
-                ),
-                size=36,
-            )
-        if b2.button("核准", key=f"pr_{p['id']}"):
+        render_person(
+            str(p["athlete_name"]),
+            subtitle=(
+                f"{p['item']} ({p['score']}) · "
+                f"{safe_str(p.get('date'))} · {safe_str(p.get('comp_name'))}"
+            ),
+            size=36,
+        )
+        if st.button("核准", key=f"pr_{p['id']}", type="primary", use_container_width=True):
             approve_pending_record(str(p["id"]))
             st.rerun()
 

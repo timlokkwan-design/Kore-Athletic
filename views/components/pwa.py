@@ -1,15 +1,20 @@
 """PWA — manifest, service worker, Add to Home Screen hints."""
 from __future__ import annotations
 
+import json
 import struct
 import zlib
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
+from utils.browser_storage import browser_storage_js
 from utils.config import APP_NAME, APP_SUBTITLE
 
 _STATIC = Path(__file__).resolve().parent.parent.parent / ".streamlit" / "static"
+PWA_DISMISS_COOKIE = "ka_pwa_hint_dismissed"
+PWA_DISMISS_LS = "ka_pwa_hint_dismissed"
 
 
 def _write_png(path: Path, size: int, rgb: tuple[int, int, int] = (37, 99, 235)) -> None:
@@ -98,10 +103,71 @@ def inject_pwa_head() -> None:
     )
 
 
+def _run_browser_js(script_body: str) -> None:
+    html = f"<script>(function(){{\n{script_body}\n}})();</script>"
+    try:
+        st.html(html, unsafe_allow_javascript=True)
+    except TypeError:
+        components.html(html, height=0, width=0)
+    except Exception:
+        try:
+            components.html(html, height=0, width=0)
+        except Exception:
+            pass
+
+
+def _read_request_cookies() -> dict[str, str]:
+    try:
+        ctx = st.context
+        if hasattr(ctx, "cookies") and ctx.cookies:
+            return {str(k): str(v) for k, v in ctx.cookies.items()}
+    except Exception:
+        pass
+    return {}
+
+
+def _persist_pwa_dismiss() -> None:
+    _run_browser_js(
+        f"""
+        {browser_storage_js()}
+        _kaLs.setItem({json.dumps(PWA_DISMISS_LS)}, "1");
+        _kaDoc.cookie = {json.dumps(PWA_DISMISS_COOKIE)} + "=1"
+            + "; path=/; max-age=31536000; SameSite=Lax" + _kaSecure;
+        """
+    )
+
+
+def _inject_pwa_dismiss_bridge() -> None:
+    """If localStorage says dismissed but cookie missing, set cookie and reload once."""
+    _run_browser_js(
+        f"""
+        {browser_storage_js()}
+        const COOKIE = {json.dumps(PWA_DISMISS_COOKIE)};
+        const LS = {json.dumps(PWA_DISMISS_LS)};
+        const hasCookie = _kaDoc.cookie.split(';').some(
+            c => c.trim().startsWith(COOKIE + '=')
+        );
+        if (hasCookie) return;
+        if (_kaLs.getItem(LS) !== "1") return;
+        _kaDoc.cookie = COOKIE + "=1; path=/; max-age=31536000; SameSite=Lax" + _kaSecure;
+        try {{ window.location.reload(); }} catch (e) {{
+            try {{ window.top.location.reload(); }} catch (e2) {{}}
+        }}
+        """
+    )
+
+
 def render_pwa_install_hint() -> None:
     """Mobile hint for Safari / Chrome Add to Home Screen."""
+    cookies = _read_request_cookies()
+    if cookies.get(PWA_DISMISS_COOKIE) == "1":
+        st.session_state.pwa_hint_dismissed = True
+
     if st.session_state.get("pwa_hint_dismissed"):
         return
+
+    _inject_pwa_dismiss_bridge()
+
     st.markdown(
         """
         <div class="ka-pwa-hint">
@@ -116,4 +182,5 @@ def render_pwa_install_hint() -> None:
     )
     if st.button("知道了", key="pwa_hint_dismiss"):
         st.session_state.pwa_hint_dismissed = True
+        _persist_pwa_dismiss()
         st.rerun()

@@ -23,10 +23,10 @@ def render_auth_view() -> None:
             else:
                 st.error(msg)
 
-    st.info(
-        "**新學員** — 點選單（☰）→「註冊新學員」提交資料，"
-        "待教練核准後即可登入。"
-    )
+    if st.button("註冊新學員", type="primary", use_container_width=True, key="auth_goto_register"):
+        st.session_state.main_page = "註冊新學員"
+        st.rerun()
+    st.caption("新學員提交資料後，待教練核准即可登入。")
 
     with st.expander("忘記密碼？"):
         st.caption(

@@ -97,8 +97,16 @@ from utils.coach_calendar_state import (
 from views.components.coach_mobile_ui import render_coach_screen_switcher
 from views.components.coach_program_editor import render_coach_day_editor
 from views.components.calendar import render_calendar
-from views.components.coach_sync import render_month_sync_alerts
+from views.components.coach_sync import _goto_schedule_edit, render_month_sync_alerts
 from views.components.avatar import athlete_card_html, render_person
+from views.components.theme import (
+    COLOR_DANGER_BG,
+    COLOR_DANGER_BORDER,
+    COLOR_SUCCESS_BG,
+    COLOR_SUCCESS_BORDER,
+    get_ui_colors,
+    get_ui_theme,
+)
 
 
 def _select_index(options: list, value, default: int = 0) -> int:
@@ -396,6 +404,13 @@ def _render_coach_program_editor() -> None:
         if st.button("← 返回日曆", use_container_width=True, key="coach_back_cal"):
             st.session_state.coach_prog_screen = "cal"
             st.rerun()
+        if st.button(
+            "📆 前往設定此日訓練時間",
+            use_container_width=True,
+            key="coach_prog_goto_sched",
+        ):
+            _goto_schedule_edit(sk)
+            st.rerun()
         render_coach_day_editor(edit_date)
 
     with st.expander("📊 訓練日誌篩選", expanded=False):
@@ -426,7 +441,11 @@ def render_coach_wellness() -> None:
                 if not inj.empty
                 else False
             )
-            bg = "#fee2e2" if rest or restricted else "#dcfce7"
+            bg = COLOR_DANGER_BG if rest or restricted else COLOR_SUCCESS_BG
+            border = COLOR_DANGER_BORDER if rest or restricted else COLOR_SUCCESS_BORDER
+            if get_ui_theme() == "dark":
+                uc = get_ui_colors()
+                bg = uc["card_bg"]
             body = (
                 f"ACWR {label}<br>"
                 f"<small>睡眠:{w['sleep'] if w else '-'} "
@@ -437,7 +456,7 @@ def render_coach_wellness() -> None:
             )
             with cols[i % len(cols)]:
                 st.markdown(
-                    athlete_card_html(name, body, username=username, bg=bg),
+                    athlete_card_html(name, body, username=username, bg=bg, border=border),
                     unsafe_allow_html=True,
                 )
 

@@ -56,9 +56,28 @@ def sync_ui_theme() -> str:
     return st.session_state.ui_theme
 
 
+def sync_ui_density() -> str:
+    """Keep ``ui_density`` ↔ comfortable toggle in sync (compact | comfortable)."""
+    if st.session_state.get("ui_density") not in ("compact", "comfortable"):
+        st.session_state.ui_density = "compact"
+    if "ui_density_comfortable" in st.session_state:
+        st.session_state.ui_density = (
+            "comfortable" if st.session_state.ui_density_comfortable else "compact"
+        )
+    else:
+        st.session_state.ui_density_comfortable = st.session_state.ui_density == "comfortable"
+    return st.session_state.ui_density
+
+
+def get_ui_density() -> str:
+    d = st.session_state.get("ui_density", "compact")
+    return d if d in ("compact", "comfortable") else "compact"
+
+
 def render_theme_toggle() -> None:
-    """Sidebar theme switch — open ☰ 選單 to change day/night mode."""
+    """Sidebar theme + density — also available via main-area quick buttons."""
     sync_ui_theme()
+    sync_ui_density()
     st.toggle(
         "夜光模式（主內容變暗）",
         key="ui_theme_toggle",
@@ -67,19 +86,64 @@ def render_theme_toggle() -> None:
     )
     mode = "夜光" if get_ui_theme() == "dark" else "日間"
     st.caption(f"目前：{mode}")
+    st.toggle(
+        "舒適間距（較疏）",
+        key="ui_density_comfortable",
+        help="開啟＝加大垂直間距，減少誤觸；關閉＝緊湊。",
+        on_change=_sync_density_from_toggle,
+    )
+
+
+def render_theme_density_quick() -> None:
+    """Main-content day/night + density switches — no need to open ☰."""
+    sync_ui_theme()
+    sync_ui_density()
+    is_dark = get_ui_theme() == "dark"
+    is_comfy = get_ui_density() == "comfortable"
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button(
+            "☀️ 日間" if is_dark else "🌙 夜光",
+            key="ka_theme_quick_btn",
+            use_container_width=True,
+            help="切換主內容日間／夜光（唔使開側欄）",
+        ):
+            st.session_state.ui_theme = "light" if is_dark else "dark"
+            st.session_state.ui_theme_toggle = st.session_state.ui_theme == "dark"
+            st.rerun()
+    with c2:
+        if st.button(
+            "📐 緊湊" if is_comfy else "🖐️ 舒適",
+            key="ka_density_quick_btn",
+            use_container_width=True,
+            help="切換緊湊／舒適間距",
+        ):
+            st.session_state.ui_density = "compact" if is_comfy else "comfortable"
+            st.session_state.ui_density_comfortable = (
+                st.session_state.ui_density == "comfortable"
+            )
+            st.rerun()
 
 
 def _sync_theme_from_toggle() -> None:
     st.session_state.ui_theme = "dark" if st.session_state.get("ui_theme_toggle") else "light"
 
 
+def _sync_density_from_toggle() -> None:
+    st.session_state.ui_density = (
+        "comfortable" if st.session_state.get("ui_density_comfortable") else "compact"
+    )
+
+
 def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs) -> None:
     """Inject global CSS. role_class is optional (legacy callers may omit it)."""
     t = theme or sync_ui_theme()
+    density = sync_ui_density()
     c = DARK if t == "dark" else LIGHT
     role_attr = f"ka-role-{role_class}" if role_class else ""
     # Marker class so we can verify which theme CSS is live in the DOM
     theme_marker = f"ka-theme-{t}"
+    density_gap = "0.55rem" if density == "comfortable" else "0.28rem"
 
     if t == "dark":
         bar_success_style = "background:#14532d;border:1px solid #22c55e;color:#bbf7d0;"
@@ -562,15 +626,29 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         @media (max-width: 768px) {{
             .ka-stat-grid {{ grid-template-columns: repeat(2, 1fr); }}
             .ka-stat-grid.ka-stat-grid-3 {{
-                grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-                gap: 0.35rem !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 0.4rem !important;
             }}
-            .ka-stat-grid-3 .ka-stat-value {{ font-size: 0.98rem !important; }}
-            .ka-stat-grid-3 .ka-stat-label {{ font-size: 0.62rem !important; }}
+            .ka-stat-grid-3 .ka-stat-card:last-child:nth-child(odd) {{
+                grid-column: 1 / -1;
+            }}
+            .ka-stat-grid-3 .ka-stat-value {{ font-size: 1.05rem !important; }}
+            .ka-stat-grid-3 .ka-stat-label {{ font-size: 0.68rem !important; }}
             .ka-page-title {{ font-size: 1.2rem !important; }}
+            .ka-page-title.ka-page-title-compact {{
+                font-size: 1.02rem !important;
+                margin: 0.1rem 0 0.05rem 0 !important;
+            }}
+            .ka-page-sub.ka-page-sub-compact {{
+                font-size: 0.72rem !important;
+                margin: 0 0 0.15rem 0 !important;
+            }}
+            .block-container.ka-has-top-subtabs .ka-breadcrumb {{
+                display: none !important;
+            }}
             .ka-pending-mobile-banner {{
                 position: sticky;
-                top: 0;
+                top: var(--ka-top-pad, 4.2rem);
                 z-index: 20;
                 box-shadow: 0 4px 14px rgba(0,0,0,0.12);
             }}
@@ -586,7 +664,10 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
              * across all pages (檢視／時間／設定／總覽…).
              */
             section.main [data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
-                gap: 0.28rem !important;
+                gap: {density_gap} !important;
+            }}
+            section.main.ka-density-comfortable [data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
+                gap: {density_gap} !important;
             }}
             section.main [data-testid="stElementContainer"] {{
                 margin-top: 0 !important;
@@ -861,7 +942,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             pointer-events: none !important;
         }}
         </style>
-        <div class="{role_attr} {theme_marker}" data-ka-theme="{t}" style="display:none"></div>
+        <div class="{role_attr} {theme_marker} ka-density-{density}" data-ka-theme="{t}" data-ka-density="{density}" style="display:none"></div>
         """,
         unsafe_allow_html=True,
     )
@@ -880,10 +961,12 @@ def render_breadcrumb(*parts: str) -> None:
         st.markdown(f'<div class="ka-breadcrumb"><b>{parts[-1]}</b></div>', unsafe_allow_html=True)
 
 
-def render_page_header(title: str, subtitle: str = "") -> None:
-    sub = f'<p class="ka-page-sub">{subtitle}</p>' if subtitle else ""
+def render_page_header(title: str, subtitle: str = "", *, compact: bool = False) -> None:
+    title_cls = "ka-page-title ka-page-title-compact" if compact else "ka-page-title"
+    sub_cls = "ka-page-sub ka-page-sub-compact" if compact else "ka-page-sub"
+    sub = f'<p class="{sub_cls}">{subtitle}</p>' if subtitle else ""
     st.markdown(
-        f'<h1 class="ka-page-title">{title}</h1>{sub}',
+        f'<h1 class="{title_cls}">{title}</h1>{sub}',
         unsafe_allow_html=True,
     )
 

@@ -333,11 +333,11 @@ def _render_calendar_impl(
     )
 
     if copy_mode:
-        st.caption("🟧 橙色=來源 · 🟩 綠色=已選目標（可跨月多選）· 點一下選取/取消")
+        render_calendar_legend(pick_mode="copy")
     elif delete_mode:
-        st.caption("🟥 紅色=已選刪除 · 虛線=有課表可選 · 灰底=無課表 · 可跨月多選")
+        render_calendar_legend(pick_mode="delete")
     else:
-        render_calendar_legend()
+        render_calendar_legend(show_sync=True)
         if schedule_only:
             st.caption("只顯示 **訓練時間表** 已排時間／地點的日子 · 休息日不顯示")
 
