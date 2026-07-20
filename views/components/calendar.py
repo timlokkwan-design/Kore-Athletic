@@ -39,6 +39,7 @@ from views.components.calendar_list import render_month_day_list, render_view_mo
 from views.components.calendar_theme import inject_calendar_theme
 from views.components.calendar_ui import calendar_shell, render_calendar_month_nav
 from views.components.coach_mobile_ui import render_calendar_legend
+from views.components.theme import get_ui_theme
 from utils.coach_calendar_state import (
     ensure_coach_calendar_state,
     get_coach_calendar_year_month,
@@ -400,12 +401,16 @@ def _render_calendar_impl(
             )
         elif view_mode == "fullcalendar":
             # 設定課表：native grid taps are much faster than FullCalendar → edit
-            if goto_edit_on_select and not copy_mode and not delete_mode:
+            use_native_grid = (
+                (goto_edit_on_select and not copy_mode and not delete_mode)
+                or get_ui_theme() == "dark"
+            )
+            if use_native_grid:
                 _render_coach_compact_grid(
                     select_key, year, month, prog_map,
                     copy_mode, delete_mode, copy_source, copy_targets, delete_targets,
-                    goto_edit_on_select=True,
-                    schedule_only=schedule_only,
+                    goto_edit_on_select=goto_edit_on_select and not copy_mode and not delete_mode,
+                    schedule_only=schedule_only and not copy_mode and not delete_mode,
                     plan_group=group_filter,
                 )
                 selected = date.fromisoformat(st.session_state[select_key])

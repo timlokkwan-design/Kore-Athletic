@@ -35,6 +35,7 @@ from views.components.pwa import inject_pwa_head, render_pwa_install_hint
 from views.components.mobile_nav import render_visitor_sidebar_nav, render_sidebar_menu_button
 from views.components.theme import (
     inject_global_css,
+    inject_late_dark_overrides,
     render_breadcrumb,
     render_theme_toggle,
     sync_ui_density,
@@ -258,6 +259,8 @@ def main() -> None:
         refresh_persisted_login()
 
     st.session_state.pop("_fresh_login", None)
+
+    inject_late_dark_overrides()
 
 
 if __name__ == "__main__":

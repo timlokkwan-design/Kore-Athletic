@@ -24,6 +24,7 @@ from utils.helpers import (
 )
 from views.components.calendar_compact import open_dialog_if_requested, render_compact_month_grid
 from views.components.calendar_fullcalendar import build_coach_schedule_fc_events, render_fullcalendar
+from views.components.theme import get_ui_theme
 from views.components.calendar_list import render_month_day_list, render_view_mode_toggle
 from views.components.calendar_ui import render_calendar_month_nav
 from views.components.coach_mobile_ui import render_calendar_legend
@@ -359,17 +360,23 @@ def render_schedule_calendar(
             day_priority=lambda ds, p: sync_status_priority(day_sync_status(prog_map.get(ds))),
         )
     elif view_mode == "fullcalendar" and not pick_mode:
-        events = build_coach_schedule_fc_events(
-            day_map,
-            title_fn=lambda ds, progs: _cell_summary(progs)[0],
-        )
-        render_fullcalendar(
-            year=year,
-            month=month,
-            events=events,
-            select_key=select_key,
-            fc_key_prefix=f"coach_sched_{select_key}",
-        )
+        # FullCalendar iframe keeps Streamlit light surfaces — use native grid in 夜光.
+        if get_ui_theme() == "dark":
+            _render_sched_compact_grid(
+                select_key, year, month, day_map, pick_mode, pick_key, copy_source, picks
+            )
+        else:
+            events = build_coach_schedule_fc_events(
+                day_map,
+                title_fn=lambda ds, progs: _cell_summary(progs)[0],
+            )
+            render_fullcalendar(
+                year=year,
+                month=month,
+                events=events,
+                select_key=select_key,
+                fc_key_prefix=f"coach_sched_{select_key}",
+            )
         selected = date.fromisoformat(str(st.session_state[select_key]))
     else:
         _render_sched_compact_grid(
