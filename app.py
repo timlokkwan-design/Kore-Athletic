@@ -33,7 +33,12 @@ from views.components.coach_pending_alert import (
 from views.components.sidebar_nav import render_nav_categories, render_top_nav
 from views.components.pwa import inject_pwa_head, render_pwa_install_hint
 from views.components.mobile_nav import render_visitor_sidebar_nav, render_sidebar_menu_button
-from views.components.theme import inject_global_css, render_breadcrumb, render_theme_toggle
+from views.components.theme import (
+    inject_global_css,
+    render_breadcrumb,
+    render_theme_toggle,
+    sync_ui_theme,
+)
 from views.leaderboard_view import render_leaderboard
 from views.parent_view import render_parent_view
 from views.register_view import render_register_view
@@ -56,9 +61,6 @@ if "initialized" not in st.session_state:
     load_users()
     load_programs()
     load_periodization()
-
-if "ui_theme" not in st.session_state:
-    st.session_state.ui_theme = "light"
 
 ROLE_LABELS = {"coach": "教練", "student": "學員", "parent": "家長", "visitor": "訪客"}
 
@@ -128,6 +130,8 @@ def main() -> None:
     user = get_current_user()
     role = user["role"] if user else "visitor"
     try_restore_nav_state(role)
+    # Toggle widget ↔ ui_theme must sync BEFORE CSS injection
+    sync_ui_theme()
 
     inject_global_css()
     render_sidebar_menu_button()

@@ -32,7 +32,8 @@ RADIUS = "10px"
 
 
 def get_ui_theme() -> str:
-    return st.session_state.get("ui_theme", "light")
+    t = st.session_state.get("ui_theme", "light")
+    return t if t in ("light", "dark") else "light"
 
 
 def get_ui_colors() -> dict[str, str]:
@@ -40,15 +41,32 @@ def get_ui_colors() -> dict[str, str]:
     return dict(DARK if get_ui_theme() == "dark" else LIGHT)
 
 
+def sync_ui_theme() -> str:
+    """Keep ``ui_theme`` ↔ sidebar toggle in sync before CSS injection.
+
+    Streamlit widget ``key`` can desync from a separate ``ui_theme`` flag when
+    only ``on_change`` is used; reading the toggle every run is reliable.
+    """
+    if "ui_theme" not in st.session_state or st.session_state.ui_theme not in ("light", "dark"):
+        st.session_state.ui_theme = "light"
+    if "ui_theme_toggle" in st.session_state:
+        st.session_state.ui_theme = "dark" if st.session_state.ui_theme_toggle else "light"
+    else:
+        st.session_state.ui_theme_toggle = st.session_state.ui_theme == "dark"
+    return st.session_state.ui_theme
+
+
 def render_theme_toggle() -> None:
     """Sidebar theme switch — open ☰ 選單 to change day/night mode."""
+    sync_ui_theme()
     st.toggle(
-        "夜光模式（主內容區）",
-        value=get_ui_theme() == "dark",
+        "夜光模式（主內容變暗）",
         key="ui_theme_toggle",
-        help="開啟＝夜光／關閉＝日光（側欄維持深色）",
+        help="開啟＝夜光／關閉＝日間。側欄維持深色。",
         on_change=_sync_theme_from_toggle,
     )
+    mode = "夜光" if get_ui_theme() == "dark" else "日間"
+    st.caption(f"目前：{mode}")
 
 
 def _sync_theme_from_toggle() -> None:
@@ -57,9 +75,11 @@ def _sync_theme_from_toggle() -> None:
 
 def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs) -> None:
     """Inject global CSS. role_class is optional (legacy callers may omit it)."""
-    t = theme or get_ui_theme()
+    t = theme or sync_ui_theme()
     c = DARK if t == "dark" else LIGHT
     role_attr = f"ka-role-{role_class}" if role_class else ""
+    # Marker class so we can verify which theme CSS is live in the DOM
+    theme_marker = f"ka-theme-{t}"
 
     if t == "dark":
         bar_success_style = "background:#14532d;border:1px solid #22c55e;color:#bbf7d0;"
@@ -180,6 +200,17 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         section.main [data-testid="stTabs"] button[aria-selected="true"] p {{
             color: {c["text"]} !important;
         }}
+        /* Secondary buttons / date picker chrome */
+        section.main button[kind="secondary"],
+        section.main button[data-testid="baseButton-secondary"] {{
+            background-color: {c["card_bg"]} !important;
+            color: {c["text"]} !important;
+            border-color: {c["border"]} !important;
+        }}
+        section.main [data-testid="stHeader"],
+        header[data-testid="stHeader"] {{
+            background: {c["main_bg"]} !important;
+        }}
         """
     else:
         widget_contrast = f"""
@@ -202,12 +233,18 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
     st.markdown(
         f"""
         <style>
+        /* Force main surfaces — Streamlit defaults override without !important */
+        html, body,
+        .stApp,
+        [data-testid="stAppViewContainer"],
+        [data-testid="stAppViewBlockContainer"],
+        section.main,
         section.main .block-container {{
-            background-color: {c["main_bg"]};
-            padding-top: 0.65rem;
+            background-color: {c["main_bg"]} !important;
+            color: {c["text"]} !important;
         }}
-        section.main {{
-            background-color: {c["main_bg"]};
+        section.main .block-container {{
+            padding-top: 0.65rem;
         }}
         /* Hide deploy/status chrome only — keep header sidebar expand controls */
         .stDeployButton,
@@ -250,7 +287,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         section.main [data-testid="stMarkdownContainer"] p,
         section.main [data-testid="stMarkdownContainer"] li,
         section.main [data-testid="stMarkdownContainer"] span {{
-            color: {c["text"]};
+            color: {c["text"]} !important;
         }}
         section.main [data-testid="stCaptionContainer"],
         section.main [data-testid="stCaptionContainer"] p,
@@ -303,21 +340,22 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         }}
         .ka-breadcrumb {{
             font-size: 0.82rem;
-            color: {c["muted"]};
+            color: {c["muted"]} !important;
             margin-bottom: 0.35rem;
         }}
-        .ka-breadcrumb b {{ color: {c["text"]}; font-weight: 600; }}
+        .ka-breadcrumb span {{ color: {c["muted"]} !important; }}
+        .ka-breadcrumb b {{ color: {c["text"]} !important; font-weight: 600; }}
         .ka-page-title {{
             margin: 0;
             font-size: 1.55rem;
             font-weight: 800;
-            color: {c["text"]};
+            color: {c["text"]} !important;
             letter-spacing: -0.01em;
         }}
         .ka-page-sub {{
             margin: 0.2rem 0 0;
             font-size: 0.88rem;
-            color: {c["muted"]};
+            color: {c["muted"]} !important;
         }}
         .ka-stat-grid {{
             display: grid;
@@ -823,7 +861,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             pointer-events: none !important;
         }}
         </style>
-        <div class="{role_attr}" style="display:none"></div>
+        <div class="{role_attr} {theme_marker}" data-ka-theme="{t}" style="display:none"></div>
         """,
         unsafe_allow_html=True,
     )
