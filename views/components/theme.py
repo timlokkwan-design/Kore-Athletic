@@ -21,6 +21,9 @@ DARK = {
     "main_bg": "#000000",
     "primary": "#ffffff",
 }
+# 夜光按鈕：secondary 灰底（唔好留 Streamlit 白底）；primary 深灰
+DARK_BTN_PRIMARY = "#262626"
+DARK_BTN_SECONDARY = "#404040"
 
 COLOR_SUCCESS_BG = "#dcfce7"
 COLOR_SUCCESS_BORDER = "#86efac"
@@ -284,7 +287,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             border: 1px solid #ffffff !important;
         }}
         section.main [data-testid="stTabs"] button {{
-            background-color: #000000 !important;
+            background-color: {DARK_BTN_SECONDARY} !important;
             color: #ffffff !important;
             border: 1px solid #ffffff !important;
         }}
@@ -292,33 +295,71 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             color: #ffffff !important;
         }}
         section.main [data-testid="stTabs"] button[aria-selected="true"] {{
+            background-color: {DARK_BTN_PRIMARY} !important;
             border-width: 2px !important;
         }}
-        /* 夜光：所有主區按鈕 — 黑底、白字、白邊框 */
-        section.main button,
-        section.main [data-testid="stButton"] button,
-        section.main button[kind="primary"],
-        section.main button[kind="secondary"],
-        section.main button[data-testid="baseButton-primary"],
-        section.main button[data-testid="baseButton-secondary"] {{
-            background-color: #000000 !important;
+        /* 夜光：primary 深灰、secondary 灰（覆蓋 Streamlit 白底） */
+        section.main [data-testid="stButton"] > button,
+        section.main [data-testid="stFormSubmitButton"] > button,
+        section.main [data-testid="stDownloadButton"] > button,
+        section.main [data-testid="stLinkButton"] > a,
+        section.main button {{
             color: #ffffff !important;
             border: 1px solid #ffffff !important;
             box-shadow: none !important;
+        }}
+        section.main button[kind="primary"],
+        section.main button[data-testid="baseButton-primary"],
+        section.main [data-testid="stButton"] > button[kind="primary"],
+        section.main [data-testid="stFormSubmitButton"] > button[kind="primary"] {{
+            background-color: {DARK_BTN_PRIMARY} !important;
+            background: {DARK_BTN_PRIMARY} !important;
+            border-width: 2px !important;
+        }}
+        section.main button[kind="secondary"],
+        section.main button[data-testid="baseButton-secondary"],
+        section.main [data-testid="stButton"] > button[kind="secondary"],
+        section.main [data-testid="stFormSubmitButton"] > button[kind="secondary"],
+        section.main [data-testid="stButton"] > button:not([kind="primary"]),
+        section.main [data-testid="stFormSubmitButton"] > button:not([kind="primary"]) {{
+            background-color: {DARK_BTN_SECONDARY} !important;
+            background: {DARK_BTN_SECONDARY} !important;
         }}
         section.main button p,
         section.main button span,
         section.main [data-testid="stButton"] button p,
         section.main [data-testid="stButton"] button span,
-        section.main button div[data-testid="stMarkdownContainer"] p {{
+        section.main [data-testid="stFormSubmitButton"] button p,
+        section.main button div[data-testid="stMarkdownContainer"] p,
+        section.main [data-testid="stLinkButton"] a p {{
             color: #ffffff !important;
         }}
-        section.main button[kind="primary"],
-        section.main button[data-testid="baseButton-primary"] {{
-            border-width: 2px !important;
+        body:has(.ka-theme-dark) .ka-sidebar-open-btn {{
+            background: {DARK_BTN_SECONDARY} !important;
+            color: #ffffff !important;
+            border: 1px solid #ffffff !important;
+            box-shadow: none !important;
+        }}
+        body:has(.ka-theme-dark) .ka-bottom-dock-host button[kind="secondary"],
+        body:has(.ka-theme-dark) .ka-top-subtab-host button[kind="secondary"],
+        body:has(.ka-theme-dark) .ka-bottom-dock-host button[data-testid="baseButton-secondary"],
+        body:has(.ka-theme-dark) .ka-top-subtab-host button[data-testid="baseButton-secondary"] {{
+            background-color: {DARK_BTN_SECONDARY} !important;
+            background: {DARK_BTN_SECONDARY} !important;
+            color: #ffffff !important;
+            border: 1px solid #ffffff !important;
+        }}
+        body:has(.ka-theme-dark) .ka-bottom-dock-host button[kind="primary"],
+        body:has(.ka-theme-dark) .ka-top-subtab-host button[kind="primary"],
+        body:has(.ka-theme-dark) .ka-bottom-dock-host button[data-testid="baseButton-primary"],
+        body:has(.ka-theme-dark) .ka-top-subtab-host button[data-testid="baseButton-primary"] {{
+            background-color: {DARK_BTN_PRIMARY} !important;
+            background: {DARK_BTN_PRIMARY} !important;
+            color: #ffffff !important;
+            border: 2px solid #ffffff !important;
         }}
         section.main .ka-sidebar-open-btn {{
-            background: #000000 !important;
+            background: {DARK_BTN_SECONDARY} !important;
             color: #ffffff !important;
             border: 1px solid #ffffff !important;
         }}
