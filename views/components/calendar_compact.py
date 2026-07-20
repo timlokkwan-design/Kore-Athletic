@@ -10,7 +10,12 @@ from typing import Callable
 import streamlit as st
 
 from views.components.calendar_grid import calendar_week_row, render_weekday_header_row
-from views.components.calendar_theme import compact_tone_styles, get_calendar_palette, inject_calendar_theme
+from views.components.calendar_theme import (
+    ACCENT_SELECTED_RING,
+    compact_tone_styles,
+    get_calendar_palette,
+    inject_calendar_theme,
+)
 from views.components.theme import get_ui_theme
 
 
@@ -28,6 +33,10 @@ class SquareCell:
 def inject_compact_calendar_css() -> None:
     inject_calendar_theme()
     p = get_calendar_palette()
+    is_dark = get_ui_theme() == "dark"
+    sel_ring = "#ffffff" if is_dark else ACCENT_SELECTED_RING
+    sync_a = "#f59e0b"
+    sync_b = "#3b82f6"
     tone_styles = compact_tone_styles()
     tone_rules = []
     for tone, (bg, fg, border) in tone_styles.items():
@@ -133,6 +142,21 @@ def inject_compact_calendar_css() -> None:
             box-shadow: inset 0 0 0 3px {sync_a} !important;
         }}
         {tone_css}
+        body:has(.ka-theme-dark) div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stButton"] > button,
+        body:has(.ka-theme-dark) div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stButton"] button {{
+            background-color: #1a1a1a !important;
+            color: #ffffff !important;
+            border: 1px solid #666666 !important;
+            box-shadow: none !important;
+        }}
+        body:has(.ka-theme-dark) div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stButton"] button:hover,
+        body:has(.ka-theme-dark) div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stButton"] button:active,
+        body:has(.ka-theme-dark) div[data-testid="column"]:has(.ka-ccell-marker) [data-testid="stButton"] button:focus {{
+            background-color: #1a1a1a !important;
+            filter: none !important;
+            transform: none !important;
+            outline: none !important;
+        }}
         div[data-testid="column"]:has(.ka-ccell-empty) {{
             aspect-ratio: 1 / 1 !important;
         }}

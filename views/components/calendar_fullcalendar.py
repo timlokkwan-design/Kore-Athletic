@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
 
@@ -14,6 +15,75 @@ from views.components.theme import get_ui_theme
 
 # App audience is Hong Kong — FullCalendar often emits UTC midnight for day clicks.
 _APP_TZ = timezone(timedelta(hours=8))
+
+# Injected into streamlit-calendar iframe (styled-components scoped wrapper).
+_FC_DARK_CUSTOM_CSS = """
+background-color: #1a1a1a !important;
+color: #ffffff;
+.fc, .fc * {
+    --fc-page-bg-color: #1a1a1a;
+    --fc-neutral-bg-color: #1a1a1a;
+    --fc-border-color: #666666;
+    --fc-today-bg-color: #2a2a2a;
+    --fc-list-event-hover-bg-color: #1a1a1a;
+}
+.fc .fc-scrollgrid,
+.fc .fc-scrollgrid-section > td,
+.fc .fc-scrollgrid-sync-table,
+.fc .fc-col-header-cell,
+.fc .fc-daygrid-day,
+.fc .fc-daygrid-day-frame,
+.fc .fc-daygrid-day-bg,
+.fc .fc-daygrid-day-top,
+.fc-theme-standard td,
+.fc-theme-standard th {
+    background: #1a1a1a !important;
+    background-color: #1a1a1a !important;
+    border-color: #666666 !important;
+}
+.fc .fc-daygrid-day-number {
+    color: #ffffff !important;
+}
+.fc .fc-col-header-cell-cushion {
+    color: #cccccc !important;
+}
+.fc .fc-day-today,
+.fc .fc-day-today .fc-daygrid-day-frame,
+.fc .fc-day-today .fc-daygrid-day-bg {
+    background: #2a2a2a !important;
+    background-color: #2a2a2a !important;
+}
+.fc .fc-daygrid-day:hover,
+.fc .fc-daygrid-day:active,
+.fc .fc-daygrid-day.fc-day-selected,
+.fc .fc-highlight {
+    background: #1a1a1a !important;
+    background-color: #1a1a1a !important;
+}
+.fc .fc-event:hover,
+.fc .fc-event:active {
+    filter: none !important;
+    opacity: 1 !important;
+}
+"""
+
+# Parent-page patch for the component iframe (:root inside iframe document).
+_FC_DARK_IFRAME_CSS = (
+    ":root{--fc-page-bg-color:#1a1a1a;--fc-neutral-bg-color:#1a1a1a;"
+    "--fc-border-color:#666666;--fc-today-bg-color:#2a2a2a;"
+    "--fc-list-event-hover-bg-color:#1a1a1a;}"
+    ".fc,.fc-scrollgrid,.fc-scrollgrid-sync-table,.fc-daygrid-day,"
+    ".fc-daygrid-day-frame,.fc-daygrid-day-bg,.fc-col-header-cell,"
+    ".fc-theme-standard td,.fc-theme-standard th{"
+    "background:#1a1a1a!important;background-color:#1a1a1a!important;"
+    "border-color:#666666!important;}"
+    ".fc-day-today,.fc-day-today .fc-daygrid-day-frame{"
+    "background:#2a2a2a!important;background-color:#2a2a2a!important;}"
+    ".fc-daygrid-day-number{color:#ffffff!important;}"
+    ".fc-col-header-cell-cushion{color:#cccccc!important;}"
+    ".fc-highlight,.fc-daygrid-day:hover,.fc-daygrid-day:active{"
+    "background:#1a1a1a!important;background-color:#1a1a1a!important;}"
+)
 
 
 def _parse_time_hm(raw: str) -> tuple[int, int] | None:
@@ -59,6 +129,47 @@ def parse_fullcalendar_clicked_date(
         return dt.astimezone(_APP_TZ).date().isoformat()
     except ValueError:
         return text[:10] if len(text) >= 10 else None
+
+
+def _inject_fullcalendar_dark_iframe() -> None:
+    """Patch FullCalendar iframe — parent CSS cannot reach component documents."""
+    if get_ui_theme() != "dark":
+        return
+    css_json = json.dumps(_FC_DARK_IFRAME_CSS)
+    try:
+        st.html(
+            f"""
+            <script>
+            (function () {{
+              var CSS = {css_json};
+              function patch() {{
+                document.querySelectorAll('iframe').forEach(function (fr) {{
+                  try {{
+                    var doc = fr.contentDocument;
+                    if (!doc || !doc.querySelector('.fc')) return;
+                    var el = doc.getElementById('ka-fc-dark-patch');
+                    if (!el) {{
+                      el = doc.createElement('style');
+                      el.id = 'ka-fc-dark-patch';
+                      doc.head.appendChild(el);
+                    }}
+                    el.textContent = CSS;
+                  }} catch (e) {{}}
+                }});
+              }}
+              patch();
+              setTimeout(patch, 120);
+              setTimeout(patch, 500);
+              setTimeout(patch, 1500);
+            }})();
+            </script>
+            """,
+            unsafe_allow_javascript=True,
+        )
+    except TypeError:
+        pass
+    except Exception:
+        pass
 
 
 def _prog_to_fc_event(ds: str, prog: dict, *, title: str, tone_key: str) -> dict:
@@ -209,52 +320,7 @@ def render_fullcalendar(
     .fc .fc-daygrid-event { margin-top: 1px; }
     """
     if dark:
-        custom_css += """
-        .fc {
-            --fc-border-color: #666666;
-            --fc-page-bg-color: #000000;
-            --fc-neutral-bg-color: #1a1a1a;
-            --fc-list-event-hover-bg-color: #1a1a1a;
-            --fc-today-bg-color: #2a2a2a;
-        }
-        .fc .fc-scrollgrid,
-        .fc .fc-scrollgrid-section > td,
-        .fc .fc-col-header-cell,
-        .fc .fc-daygrid-day,
-        .fc .fc-daygrid-day-frame,
-        .fc .fc-daygrid-day-bg,
-        .fc .fc-daygrid-day-top,
-        .fc-theme-standard td,
-        .fc-theme-standard th {
-            background: #1a1a1a !important;
-            background-color: #1a1a1a !important;
-            border-color: #666666 !important;
-        }
-        .fc .fc-daygrid-day-number {
-            color: #ffffff !important;
-        }
-        .fc .fc-col-header-cell-cushion {
-            color: #cccccc !important;
-        }
-        .fc .fc-day-today,
-        .fc .fc-day-today .fc-daygrid-day-frame,
-        .fc .fc-day-today .fc-daygrid-day-bg {
-            background: #2a2a2a !important;
-            background-color: #2a2a2a !important;
-        }
-        .fc .fc-daygrid-day:active,
-        .fc .fc-daygrid-day.fc-day-selected,
-        .fc .fc-highlight,
-        .fc .fc-daygrid-day:hover {
-            background: #1a1a1a !important;
-            background-color: #1a1a1a !important;
-        }
-        .fc .fc-event:hover,
-        .fc .fc-event:active {
-            filter: none !important;
-            opacity: 1 !important;
-        }
-        """
+        custom_css += _FC_DARK_CUSTOM_CSS
 
     state = fc_calendar(
         events=events,
@@ -262,6 +328,9 @@ def render_fullcalendar(
         custom_css=custom_css,
         key=f"{fc_key_prefix}_{year}_{month}",
     )
+
+    if dark:
+        _inject_fullcalendar_dark_iframe()
 
     selected: str | None = None
     if isinstance(state, dict):
