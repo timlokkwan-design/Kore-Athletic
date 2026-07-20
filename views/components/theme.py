@@ -94,35 +94,54 @@ def render_theme_toggle() -> None:
     )
 
 
+def _flip_theme_quick() -> None:
+    """Button on_click — must mutate widget keys *before* next run's widgets."""
+    cur = st.session_state.get("ui_theme_toggle")
+    if cur is None:
+        cur = st.session_state.get("ui_theme") == "dark"
+    st.session_state.ui_theme_toggle = not bool(cur)
+    st.session_state.ui_theme = "dark" if st.session_state.ui_theme_toggle else "light"
+
+
+def _flip_density_quick() -> None:
+    """Button on_click — must mutate widget keys *before* next run's widgets."""
+    cur = st.session_state.get("ui_density_comfortable")
+    if cur is None:
+        cur = st.session_state.get("ui_density") == "comfortable"
+    st.session_state.ui_density_comfortable = not bool(cur)
+    st.session_state.ui_density = (
+        "comfortable" if st.session_state.ui_density_comfortable else "compact"
+    )
+
+
 def render_theme_density_quick() -> None:
-    """Main-content day/night + density switches — no need to open ☰."""
+    """Main-content day/night + density switches — no need to open ☰.
+
+    Uses ``on_click`` so we never assign ``ui_theme_toggle`` /
+    ``ui_density_comfortable`` after the sidebar toggles already exist
+    (that raises StreamlitAPIException).
+    """
     sync_ui_theme()
     sync_ui_density()
     is_dark = get_ui_theme() == "dark"
     is_comfy = get_ui_density() == "comfortable"
     c1, c2 = st.columns(2)
     with c1:
-        if st.button(
+        st.button(
             "☀️ 日間" if is_dark else "🌙 夜光",
             key="ka_theme_quick_btn",
             use_container_width=True,
             help="切換主內容日間／夜光（唔使開側欄）",
-        ):
-            st.session_state.ui_theme = "light" if is_dark else "dark"
-            st.session_state.ui_theme_toggle = st.session_state.ui_theme == "dark"
-            st.rerun()
+            on_click=_flip_theme_quick,
+        )
     with c2:
-        if st.button(
+        st.button(
             "📐 緊湊" if is_comfy else "🖐️ 舒適",
             key="ka_density_quick_btn",
             use_container_width=True,
             help="切換緊湊／舒適間距",
-        ):
-            st.session_state.ui_density = "compact" if is_comfy else "comfortable"
-            st.session_state.ui_density_comfortable = (
-                st.session_state.ui_density == "comfortable"
-            )
-            st.rerun()
+            on_click=_flip_density_quick,
+        )
 
 
 def _sync_theme_from_toggle() -> None:
