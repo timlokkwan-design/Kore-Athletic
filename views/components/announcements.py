@@ -58,15 +58,37 @@ def render_coach_announcements() -> None:
             st.markdown(f"**{item['title']}** · {status}")
             st.caption(f"{_format_when(item['published_at'])} · {item['author'] or '教練'}")
             st.write(item["body"])
-            c1, c2 = st.columns(2)
             if item["published"]:
-                if c1.button("取消發佈", key=f"news_unpub_{item['id']}", use_container_width=True):
+                if st.button(
+                    "取消發佈",
+                    key=f"news_unpub_{item['id']}",
+                    use_container_width=True,
+                ):
                     ok, msg = unpublish_announcement(item["id"])
                     st.success(msg) if ok else st.error(msg)
                     st.rerun()
-            if c2.button("刪除", key=f"news_del_{item['id']}", use_container_width=True):
-                ok, msg = delete_announcement(item["id"])
-                st.success(msg) if ok else st.error(msg)
+            confirm_key = f"news_del_confirm_{item['id']}"
+            if st.session_state.get(confirm_key):
+                st.warning("確認刪除此消息？刪除後無法復原。")
+                if st.button(
+                    "確認刪除",
+                    key=f"news_del_yes_{item['id']}",
+                    type="primary",
+                    use_container_width=True,
+                ):
+                    ok, msg = delete_announcement(item["id"])
+                    st.session_state.pop(confirm_key, None)
+                    st.success(msg) if ok else st.error(msg)
+                    st.rerun()
+                if st.button(
+                    "取消",
+                    key=f"news_del_no_{item['id']}",
+                    use_container_width=True,
+                ):
+                    st.session_state.pop(confirm_key, None)
+                    st.rerun()
+            elif st.button("刪除", key=f"news_del_{item['id']}", use_container_width=True):
+                st.session_state[confirm_key] = True
                 st.rerun()
 
 
@@ -102,3 +124,6 @@ def render_latest_announcement_banner() -> None:
     if len(preview) > 80:
         preview = preview[:80] + "…"
     st.info(f"**最新消息：{latest['title']}**  \n{preview}")
+    if st.button("查看全部消息", key="stu_news_banner_all", use_container_width=True):
+        st.session_state.student_section = "最新消息"
+        st.rerun()

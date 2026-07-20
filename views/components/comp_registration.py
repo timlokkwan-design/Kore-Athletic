@@ -49,16 +49,15 @@ def _collect_manual_pbs(
 
         st.markdown(f"**{event}** — 請填寫最佳成績")
         saved = saved_pbs.get(event, {})
-        c1, c2, c3 = st.columns(3)
-        score = c1.text_input("最佳成績", value=saved.get("score", ""), key=f"pb_score_{comp_id}_{event}")
-        comp_name = c2.text_input("賽事", value=saved.get("comp_name", ""), key=f"pb_comp_{comp_id}_{event}")
+        score = st.text_input("最佳成績", value=saved.get("score", ""), key=f"pb_score_{comp_id}_{event}")
+        comp_name = st.text_input("賽事", value=saved.get("comp_name", ""), key=f"pb_comp_{comp_id}_{event}")
         default_date = date.today()
         if saved.get("date"):
             try:
                 default_date = date.fromisoformat(saved["date"])
             except ValueError:
                 pass
-        pb_date = c3.date_input("比賽日期", value=default_date, key=f"pb_date_{comp_id}_{event}")
+        pb_date = st.date_input("比賽日期", value=default_date, key=f"pb_date_{comp_id}_{event}")
         manual[event] = {
             "score": score.strip(),
             "comp_name": comp_name.strip(),
@@ -107,17 +106,45 @@ def _render_comp_signup(user: dict, comp: dict, *, allow_submit: bool) -> None:
         saved_pbs = comp.get("my_event_pbs") or {}
         manual_pbs = _collect_manual_pbs(athlete_name, picked, comp_id, saved_pbs) if picked else {}
 
-        c1, c2 = st.columns(2)
-        if c1.button("提交報名", type="primary", key=f"student_comp_submit_{comp_id}"):
+        if st.button(
+            "提交報名",
+            type="primary",
+            key=f"student_comp_submit_{comp_id}",
+            use_container_width=True,
+        ):
             ok, msg = submit_comp_entry(comp_id, username, athlete_name, picked, manual_pbs)
             if ok:
                 st.success("報名已提交")
                 st.rerun()
             st.warning(msg)
-        if comp.get("is_registered") and c2.button("取消報名", key=f"student_comp_cancel_{comp_id}"):
-            delete_comp_entry(comp_id, athlete_name)
-            st.success("已取消報名")
-            st.rerun()
+        if comp.get("is_registered"):
+            cancel_key = f"student_comp_cancel_confirm_{comp_id}"
+            if st.session_state.get(cancel_key):
+                st.warning("確認取消此比賽報名？")
+                if st.button(
+                    "確認取消報名",
+                    key=f"student_comp_cancel_yes_{comp_id}",
+                    type="primary",
+                    use_container_width=True,
+                ):
+                    delete_comp_entry(comp_id, athlete_name)
+                    st.session_state.pop(cancel_key, None)
+                    st.success("已取消報名")
+                    st.rerun()
+                if st.button(
+                    "返回",
+                    key=f"student_comp_cancel_no_{comp_id}",
+                    use_container_width=True,
+                ):
+                    st.session_state.pop(cancel_key, None)
+                    st.rerun()
+            elif st.button(
+                "取消報名",
+                key=f"student_comp_cancel_{comp_id}",
+                use_container_width=True,
+            ):
+                st.session_state[cancel_key] = True
+                st.rerun()
     elif comp.get("is_registered") and comp.get("my_events"):
         st.caption("報名已截止或暫未開放；以下為你已提交的報名。")
 

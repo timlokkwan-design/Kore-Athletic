@@ -78,6 +78,21 @@ def _cluster_for_section(
     return None
 
 
+def section_has_top_subtabs(
+    clusters: list[tuple[str, list[tuple[str, str, str]]]],
+    section: str,
+) -> bool:
+    return _cluster_for_section(clusters, section) is not None
+
+
+def coach_section_has_top_subtabs(section: str) -> bool:
+    return section_has_top_subtabs(COACH_TOP_CLUSTERS, section)
+
+
+def student_section_has_top_subtabs(section: str) -> bool:
+    return section_has_top_subtabs(STUDENT_TOP_CLUSTERS, section)
+
+
 def _set_main_page(session_key: str, page: str) -> None:
     st.session_state[session_key] = page
 

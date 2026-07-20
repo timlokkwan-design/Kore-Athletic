@@ -248,6 +248,21 @@ div[data-testid="stVerticalBlock"]:has(.ka-cal-legend-marker) .ka-cal-legend spa
     background: {t_rest['bg']} !important; color: {t_rest['fg']} !important;
     border-color: {t_rest['border']} !important;
 }}
+.ka-leg-picked {{
+    background: {t_picked['bg']} !important; color: {t_picked['fg']} !important;
+    border-color: {t_picked['border']} !important;
+}}
+.ka-leg-sync {{
+    background: #fef3c7 !important; color: #92400e !important;
+    border-color: #f59e0b !important;
+    border-style: dashed !important;
+}}
+[data-ka-theme="dark"] .ka-leg-sync,
+.ka-theme-dark ~ * .ka-leg-sync,
+body:has(.ka-theme-dark) .ka-leg-sync {{
+    background: #422006 !important; color: #fde68a !important;
+    border-color: #f59e0b !important;
+}}
 
 /* ── Calendar shell (streamlit-extras stylable_container) ── */
 div[data-testid="stVerticalBlock"]:has(.ka-cal-shell-marker) > div[data-testid="stVerticalBlockBorderWrapper"] {{

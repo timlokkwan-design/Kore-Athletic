@@ -164,7 +164,7 @@ def render_register_view() -> None:
 
     else:
         st.markdown("### ③ 健康申報與同意")
-        with st.expander("📄 免責條款全文（必讀）", expanded=False):
+        with st.expander("📄 免責條款全文（必讀）", expanded=True):
             st.text(DISCLAIMER_FULL_TEXT)
         draft["health"] = st.text_area(
             "健康申報",

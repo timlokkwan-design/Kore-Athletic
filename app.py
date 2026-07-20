@@ -37,6 +37,7 @@ from views.components.theme import (
     inject_global_css,
     render_breadcrumb,
     render_theme_toggle,
+    sync_ui_density,
     sync_ui_theme,
 )
 from views.leaderboard_view import render_leaderboard
@@ -132,6 +133,7 @@ def main() -> None:
     try_restore_nav_state(role)
     # Toggle widget ↔ ui_theme must sync BEFORE CSS injection
     sync_ui_theme()
+    sync_ui_density()
 
     inject_global_css()
     render_sidebar_menu_button()

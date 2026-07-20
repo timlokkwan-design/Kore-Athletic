@@ -14,24 +14,27 @@ from views.components.calendar_theme import get_calendar_palette, inject_calenda
 
 def inject_coach_mobile_css() -> None:
     """Fix iOS scroll traps on coach program screens."""
+    from views.components.theme import get_ui_density
+
+    gap = "0.48rem" if get_ui_density() == "comfortable" else "0.26rem"
     st.markdown(
-        """
+        f"""
         <style>
-        @media (max-width: 768px) {
+        @media (max-width: 768px) {{
             html, body, .stApp,
             [data-testid="stAppViewContainer"],
             section.main,
-            section.main .block-container {
+            section.main .block-container {{
                 overflow-x: hidden !important;
                 overflow-y: auto !important;
                 max-width: 100% !important;
                 -webkit-overflow-scrolling: touch !important;
-            }
+            }}
             /* Extra density on coach program / schedule screens */
-            section.main [data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {
-                gap: 0.26rem !important;
-            }
-        }
+            section.main [data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
+                gap: {gap} !important;
+            }}
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -204,15 +207,32 @@ def render_option_chips(
     return str(st.session_state.get(session_key, options[0]))
 
 
-def render_calendar_legend() -> None:
+def render_calendar_legend(*, show_sync: bool = False, pick_mode: str | None = None) -> None:
+    """One-row chip legend (replaces scattered captions)."""
+    inject_calendar_theme()
+    chips = [
+        '<span class="ka-leg-training">訓練</span>',
+        '<span class="ka-leg-competition">比賽</span>',
+        '<span class="ka-leg-rest">休息</span>',
+    ]
+    if show_sync:
+        chips.append('<span class="ka-leg-sync">待同步</span>')
+    if pick_mode == "copy":
+        chips = [
+            '<span class="ka-leg-competition">來源</span>',
+            '<span class="ka-leg-picked">已選目標</span>',
+        ]
+    elif pick_mode == "delete":
+        chips = [
+            '<span class="ka-leg-competition">已選刪除</span>',
+            '<span class="ka-leg-rest">可選</span>',
+        ]
+    elif pick_mode == "bulk":
+        chips = ['<span class="ka-leg-picked">已選</span>']
     st.markdown(
-        """
+        f"""
         <div class="ka-cal-legend-marker"></div>
-        <div class="ka-cal-legend">
-            <span class="ka-leg-training">訓練</span>
-            <span class="ka-leg-competition">比賽</span>
-            <span class="ka-leg-rest">休息</span>
-        </div>
+        <div class="ka-cal-legend">{"".join(chips)}</div>
         """,
         unsafe_allow_html=True,
     )

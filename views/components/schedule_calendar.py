@@ -26,6 +26,7 @@ from views.components.calendar_compact import open_dialog_if_requested, render_c
 from views.components.calendar_fullcalendar import build_coach_schedule_fc_events, render_fullcalendar
 from views.components.calendar_list import render_month_day_list, render_view_mode_toggle
 from views.components.calendar_ui import render_calendar_month_nav
+from views.components.coach_mobile_ui import render_calendar_legend
 from utils.coach_calendar_state import (
     DATE_KEY as SHARED_DATE_KEY,
     ensure_coach_calendar_state,
@@ -312,11 +313,11 @@ def render_schedule_calendar(
     )
 
     if pick_mode == "copy":
-        st.caption("🟧 橙色=來源 · 🟩 綠色=已選目標 · 可選任意日期")
+        render_calendar_legend(pick_mode="copy")
     elif pick_mode == "bulk":
-        st.caption("🟩 綠色=已選 · 可選任意日期預排時間地點")
+        render_calendar_legend(pick_mode="bulk")
     else:
-        st.caption("🔵 藍色=訓練 · 🔴 紅色=比賽 · 🟨 框線=待同步 · 可預先排定任意日期")
+        render_calendar_legend(show_sync=True)
 
     if not pick_mode:
         _sync_sched_month(select_key, year, month)
@@ -333,7 +334,7 @@ def render_schedule_calendar(
     view_mode = render_view_mode_toggle(
         select_key,
         force_grid=bool(pick_mode),
-        default_mode="fullcalendar",
+        default_mode="list",
         variant="schedule",
     )
 

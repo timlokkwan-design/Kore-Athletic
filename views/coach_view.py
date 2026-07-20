@@ -17,9 +17,13 @@ from views.coach_schedule_section import render_coach_schedule
 from views.coach_site_settings_section import render_coach_site_settings
 from views.components.announcements import render_coach_announcements
 from views.components.competition_schedule import render_coach_competition_schedule
-from views.components.mobile_nav import render_coach_bottom_dock, render_coach_top_subtabs
+from views.components.mobile_nav import (
+    coach_section_has_top_subtabs,
+    render_coach_bottom_dock,
+    render_coach_top_subtabs,
+)
 from views.components.schedule import render_coach_schedule_preview
-from views.components.theme import render_page_header
+from views.components.theme import render_page_header, render_theme_density_quick
 
 COACH_NAV_CATEGORIES: list[tuple[str, list[str]]] = [
     ("📊 總覽", ["總覽"]),
@@ -55,7 +59,13 @@ def render_coach_view(section: str) -> None:
     require_coach_or_stop()
     # Sticky top sub-tabs for every multi-section category.
     render_coach_top_subtabs(section)
-    render_page_header("教練平台", f"目前分頁：{section}")
+    compact = coach_section_has_top_subtabs(section)
+    if compact:
+        # Top tabs already show where you are — keep header minimal.
+        render_page_header(section, compact=True)
+    else:
+        render_page_header("教練平台", f"目前分頁：{section}")
+    render_theme_density_quick()
 
     renderer = _SECTION_RENDERERS.get(section, render_coach_dashboard)
     renderer()

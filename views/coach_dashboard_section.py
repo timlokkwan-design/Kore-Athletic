@@ -11,6 +11,7 @@ from utils.coach_pending import get_coach_pending_summary
 from utils.config import GROUP_OPTIONS, SPECIALTY_TO_GROUP, group_display_label, normalize_group
 from utils.data_store import (
     get_all_logs,
+    get_announcements,
     get_attendance_today,
     get_students,
     get_wellness,
@@ -50,9 +51,9 @@ def _render_absent_by_group(students: list[dict], att) -> None:
     ordered = [g for g in _GROUP_ORDER if g in missing_by_group]
     ordered += sorted(g for g in missing_by_group if g not in _GROUP_ORDER)
 
-    for group_label in ordered:
+    for i, group_label in enumerate(ordered):
         names = missing_by_group[group_label]
-        with st.expander(f"👥 {group_label}（{len(names)}）", expanded=True):
+        with st.expander(f"👥 {group_label}（{len(names)}）", expanded=(i == 0)):
             st.write("、".join(names))
 
 
@@ -119,6 +120,25 @@ def render_coach_dashboard() -> None:
         if st.button("前往待審事項", key="dashboard_go_pending", type="primary"):
             navigate_to_coach_pending()
             st.rerun()
+
+    st.markdown("##### 📢 最新消息")
+    try:
+        news = get_announcements(published_only=False)
+    except Exception:
+        news = []
+    if news:
+        latest = news[0]
+        preview = safe_str(latest.get("body"))
+        if len(preview) > 80:
+            preview = preview[:80] + "…"
+        st.markdown(f"**{latest.get('title') or '—'}**")
+        if preview:
+            st.caption(preview)
+    else:
+        st.caption("尚未有消息")
+    if st.button("查看／發佈消息", key="dashboard_go_news", use_container_width=True):
+        st.session_state.coach_section = "最新消息"
+        st.rerun()
 
     if absent:
         _render_absent_by_group(students, att)

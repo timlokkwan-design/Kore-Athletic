@@ -5,6 +5,7 @@ from datetime import date, timedelta
 
 import streamlit as st
 
+from utils.config import GROUP_OPTIONS, SPECIALTY_TO_GROUP, group_display_label, normalize_group
 from utils.data_store import (
     attendance_rate,
     attendance_status_symbol,
@@ -18,6 +19,25 @@ from utils.data_store import (
 from utils.helpers import safe_str
 from views.components.avatar import athlete_card_html, render_person
 from views.components.theme import render_stat_cards
+
+_FILTER_ALL = "全部組別"
+_GROUP_FILTERS = [_FILTER_ALL] + [
+    group_display_label(g) for g in GROUP_OPTIONS if g != "全體組員"
+]
+
+
+def _group_label_for_student(student: dict) -> str:
+    specialty = safe_str(student.get("specialty"))
+    mapped = SPECIALTY_TO_GROUP.get(specialty, "")
+    if mapped:
+        return group_display_label(normalize_group(mapped))
+    return specialty or "未分類"
+
+
+def _filter_students_by_group(students: list[dict], group_label: str) -> list[dict]:
+    if group_label == _FILTER_ALL:
+        return students
+    return [s for s in students if _group_label_for_student(s) == group_label]
 
 
 def _status_label(status: str, detail: str) -> str:
@@ -45,6 +65,19 @@ def _lookup_attendance(att_df, name: str, day: str) -> dict | None:
     }
 
 
+def _today_status_rank(student: dict, att_today) -> int:
+    """Sort key: unsigned (0) → leave (1) → present (2)."""
+    name = safe_str(student.get("name"))
+    row = _lookup_attendance(att_today, name, date.today().isoformat())
+    if not row:
+        return 0
+    if row["status"] == "leave":
+        return 1
+    if row["status"] == "present":
+        return 2
+    return 0
+
+
 def _render_today_summary(students: list[dict], att_today) -> None:
     present = leave = absent = 0
     for student in students:
@@ -64,26 +97,39 @@ def _render_today_summary(students: list[dict], att_today) -> None:
     ])
 
 
-def _render_today_cards(students: list[dict], att_today) -> None:
-    for student in students:
-        name = safe_str(student.get("name"))
-        specialty = safe_str(student.get("specialty"))
-        row = _lookup_attendance(att_today, name, date.today().isoformat())
-        status_text = "❌ 尚未簽到"
-        if row:
-            status_text = _status_label(row["status"], row["detail"])
-        from views.components.theme import get_ui_colors
+def _render_student_card(student: dict, att_today) -> None:
+    name = safe_str(student.get("name"))
+    specialty = safe_str(student.get("specialty"))
+    row = _lookup_attendance(att_today, name, date.today().isoformat())
+    status_text = "❌ 尚未簽到"
+    if row:
+        status_text = _status_label(row["status"], row["detail"])
+    from views.components.theme import get_ui_colors
 
-        uc = get_ui_colors()
-        st.markdown(
-            athlete_card_html(
-                name,
-                f"<div style='font-size:0.9rem;color:{uc['muted']};'>{specialty}<br>{status_text}</div>",
-                username=safe_str(student.get("username")),
-                bg=uc["card_bg"],
-            ),
-            unsafe_allow_html=True,
-        )
+    uc = get_ui_colors()
+    st.markdown(
+        athlete_card_html(
+            name,
+            f"<div style='font-size:0.9rem;color:{uc['muted']};'>{specialty}<br>{status_text}</div>",
+            username=safe_str(student.get("username")),
+            bg=uc["card_bg"],
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def _render_today_cards(students: list[dict], att_today) -> None:
+    ordered = sorted(students, key=lambda s: (_today_status_rank(s, att_today), safe_str(s.get("name"))))
+    pending = [s for s in ordered if _today_status_rank(s, att_today) < 2]
+    present = [s for s in ordered if _today_status_rank(s, att_today) == 2]
+
+    for student in pending:
+        _render_student_card(student, att_today)
+
+    if present:
+        with st.expander(f"✅ 已簽到（{len(present)}）", expanded=False):
+            for student in present:
+                _render_student_card(student, att_today)
 
 
 def _render_week_view(students: list[dict]) -> None:
@@ -128,7 +174,10 @@ def _render_month_view(students: list[dict], year: int, month: int) -> None:
     if log_df.empty:
         st.caption("本月尚無出席明細")
     else:
+        names = {safe_str(s.get("name")) for s in students}
         for _, row in log_df.iterrows():
+            if safe_str(row.get("姓名")) not in names:
+                continue
             st.markdown(
                 f"**{row.get('姓名', '—')}** · "
                 f"{row.get('日期', '—')} · {row.get('狀態', '—')} · {row.get('詳情', '')}"
@@ -157,6 +206,20 @@ def render_coach_attendance() -> None:
 
     year = st.session_state.coach_att_year
     month = st.session_state.coach_att_month
+
+    from views.components.coach_mobile_ui import render_option_chips
+
+    group_label = render_option_chips(
+        key="coach_att_group_chips",
+        options=_GROUP_FILTERS,
+        session_key="coach_att_group",
+        caption="組別篩選",
+        per_row=4,
+    )
+    students = _filter_students_by_group(students, group_label)
+    if not students:
+        st.info("此組別暫無學員。")
+        return
 
     view = st.radio(
         "檢視",

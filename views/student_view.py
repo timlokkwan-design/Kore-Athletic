@@ -28,12 +28,16 @@ from views.components.announcements import (
 from views.components.checkin import render_student_checkin_bar
 from views.components.comp_registration import render_student_comp_registration
 from views.components.competition_schedule import render_student_competition_schedule
-from views.components.mobile_nav import render_student_quick_dock, render_student_top_subtabs
+from views.components.mobile_nav import (
+    render_student_quick_dock,
+    render_student_top_subtabs,
+    student_section_has_top_subtabs,
+)
 from views.components.schedule import render_student_schedule_calendar
 from views.components.student_goals import render_student_goals
 from views.components.student_profile import render_student_profile
 from views.components.student_training_log import render_student_training_log
-from views.components.theme import render_page_header, render_stat_cards
+from views.components.theme import render_page_header, render_stat_cards, render_theme_density_quick
 
 STUDENT_NAV_CATEGORIES: list[tuple[str, list[str]]] = [
     ("📅 每日訓練", ["訓練時間表", "最新消息", "訓練日誌", "健康問卷", "出席"]),
@@ -50,10 +54,15 @@ def render_student_view(section: str) -> None:
     specialty = user.get("specialty") or "—"
     # Sticky top sub-tabs for every multi-section category.
     render_student_top_subtabs(section)
-    render_page_header(
-        "學生平台",
-        f"{user['name']} · 專項：{specialty}",
-    )
+    compact = student_section_has_top_subtabs(section)
+    if compact:
+        render_page_header(section, f"{user['name']} · {specialty}", compact=True)
+    else:
+        render_page_header(
+            "學生平台",
+            f"{user['name']} · 專項：{specialty}",
+        )
+    render_theme_density_quick()
     render_student_checkin_bar(user["name"], specialty=user.get("specialty", ""))
     st.divider()
 
@@ -90,22 +99,44 @@ def _tab_schedule(user: dict) -> None:
     checked_in = att and att.get("status") == "present"
     countdown = days_until_competition()
 
+    st.markdown("#### 今日一覽")
+    tv_bits = []
+    start = safe_str(prog.get("start_time"))
+    end = safe_str(prog.get("end_time"))
+    venue = safe_str(prog.get("venue")) or safe_str(prog.get("venue_other"))
+    if start or end:
+        tv_bits.append(f"{start or '—'}–{end or '—'}")
+    if venue:
+        tv_bits.append(venue)
+    today_specs = (
+        student_visible_program_specs(prog, today)[:40]
+        or safe_str(prog.get("type"), "—")[:40]
+    )
+    st.caption(
+        f"{' · '.join(tv_bits) if tv_bits else '今日未排時間地點'} · {today_specs}"
+    )
     checkin_label = "已簽到" if checked_in else "未簽到"
     checkin_tone = "success" if checked_in else "warn"
     countdown_label = f"{countdown} 天" if countdown is not None else "—"
-    today_specs = (
-        student_visible_program_specs(prog, today)[:12]
-        or safe_str(prog.get("type"), "—")[:12]
-    )
-
     render_stat_cards([
-        ("今日課表", today_specs, "normal"),
         ("簽到", checkin_label, checkin_tone),
         ("距離比賽", countdown_label, "normal"),
     ])
 
     render_latest_announcement_banner()
-    render_student_goals(user)
+
+    nav1, nav2 = st.columns(2)
+    with nav1:
+        if st.button("📢 全部消息", key="stu_home_news", use_container_width=True):
+            st.session_state.student_section = "最新消息"
+            st.rerun()
+    with nav2:
+        if st.button("👤 個人資料", key="stu_home_profile", use_container_width=True):
+            st.session_state.student_section = "個人資料"
+            st.rerun()
+
+    with st.expander("🎯 我的目標", expanded=False):
+        render_student_goals(user, show_title=False)
 
     st.markdown("#### 訓練時間表")
     st.caption(f"專項：**{user.get('specialty', '—')}**")
@@ -123,9 +154,10 @@ def _tab_wellness(name: str) -> None:
     soreness = st.slider("肌肉酸痛 (1-5)", 1, 5, existing["soreness"] if existing else 2)
     mood = st.slider("心情 (1-5)", 1, 5, existing["mood"] if existing else 4)
     sick = st.checkbox("今日身體不適/生病", value=existing["sick"] if existing else False)
-    if st.button("提交健康問卷", type="primary"):
+    if st.button("提交健康問卷", type="primary", use_container_width=True):
         submit_wellness(name, sleep, soreness, mood, sick)
-        st.success("已提交"); st.rerun()
+        st.success("已提交")
+        st.rerun()
 
 
 def _tab_pb(name: str) -> None:
@@ -139,12 +171,15 @@ def _tab_pb(name: str) -> None:
         wind = 0.0
         st.caption("此項目無需填寫風速")
     comp = st.text_input("比賽名稱", key="pb_comp")
-    if st.button("提交待教練審核", type="primary", key="pb_submit"):
-        submit_pending_record({
-            "athlete_name": name, "item": item, "score": score,
-            "wind": wind, "comp_name": comp, "date": comp_date.isoformat(),
-        })
-        st.success("已提交，待教練審核")
+    if st.button("提交待教練審核", type="primary", key="pb_submit", use_container_width=True):
+        if not safe_str(score).strip():
+            st.error("請填寫成績")
+        else:
+            submit_pending_record({
+                "athlete_name": name, "item": item, "score": score,
+                "wind": wind, "comp_name": comp, "date": comp_date.isoformat(),
+            })
+            st.success("已提交，待教練審核")
 
     st.markdown("#### 📈 個人 PB 進步曲線")
     chart_event = st.selectbox("項目", EVENTS, key="pb_chart")
@@ -156,7 +191,7 @@ def _tab_pb(name: str) -> None:
         recs = recs.sort_values("date")
         recs["time_val"] = recs["score"].apply(parse_time)
         fig = px.line(recs, x="date", y="time_val", markers=True, title=f"{chart_event} 進步曲線")
-        fig.update_layout(yaxis_title="秒數", height=350)
+        fig.update_layout(yaxis_title="秒數", height=280, margin=dict(l=40, r=20, t=40, b=40))
         st.plotly_chart(fig, use_container_width=True)
 
 
@@ -189,13 +224,16 @@ def _tab_attendance(name: str) -> None:
         ["", "病假", "學校活動", "家庭原因", "受傷", "其他"],
         key="leave_reason",
     )
-    if st.button("登記請假", type="primary", key="leave_submit") and reason:
-        try:
-            marked = mark_leave(name, reason, for_date=leave_date)
-            st.success(f"已登記請假（{marked}）")
-            st.rerun()
-        except ValueError as exc:
-            st.error(str(exc))
+    if st.button("登記請假", type="primary", key="leave_submit", use_container_width=True):
+        if not reason:
+            st.error("請選擇請假原因")
+        else:
+            try:
+                marked = mark_leave(name, reason, for_date=leave_date)
+                st.success(f"已登記請假（{marked}）")
+                st.rerun()
+            except ValueError as exc:
+                st.error(str(exc))
     att = load_attendance()
     if att.empty:
         return

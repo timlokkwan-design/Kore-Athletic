@@ -21,7 +21,7 @@ def _score_hint(event: str) -> str:
     return "例如 11.50"
 
 
-def render_student_goals(user: dict) -> None:
+def render_student_goals(user: dict, *, show_title: bool = True) -> None:
     """Compact goal block for the student homepage (訓練時間表)."""
     username = safe_str(user.get("username"))
     name = safe_str(user.get("name"))
@@ -34,10 +34,13 @@ def render_student_goals(user: dict) -> None:
         st.caption("目標功能暫時未能載入。若剛更新，請教練於 Supabase 執行 schema_patch_v202.sql。")
         return
 
-    st.markdown(
-        '<div class="ka-goal-wrap"><p class="ka-goal-title">🎯 我的目標</p>',
-        unsafe_allow_html=True,
-    )
+    if show_title:
+        st.markdown(
+            '<div class="ka-goal-wrap"><p class="ka-goal-title">🎯 我的目標</p>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown('<div class="ka-goal-wrap">', unsafe_allow_html=True)
 
     if goals.empty:
         st.markdown(
@@ -61,7 +64,12 @@ def render_student_goals(user: dict) -> None:
                 f"</div>",
                 unsafe_allow_html=True,
             )
-            if st.button("移除目標", key=f"stu_goal_rm_{goal_id}", use_container_width=True):
+            if st.button(
+                "移除目標",
+                key=f"stu_goal_rm_{goal_id}",
+                use_container_width=True,
+                type="secondary",
+            ):
                 ok, msg = deactivate_student_goal(goal_id, username)
                 if ok:
                     st.success(msg)

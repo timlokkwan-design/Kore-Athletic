@@ -371,20 +371,17 @@ def _render_student_schedule_list(
             title, detail, _tp, bg, _btn = _student_day_cell(
                 ds, prog_map, student_specialty, att_map, today
             )
-            c = get_ui_colors()
-            left, btn_col = st.columns([5.2, 1])
-            with left:
-                st.markdown(
-                    f"<div style='background:{bg};border:1px solid {c['border']};"
-                    f"border-radius:8px;padding:8px 10px;margin-bottom:6px;'>"
-                    f"<div style='font-weight:700;color:{c['text']};'>{day} · {title}</div>"
-                    f"<div style='font-size:12px;color:{c['muted']};'>{detail}</div></div>",
-                    unsafe_allow_html=True,
-                )
-            with btn_col:
-                if st.button("選", key=f"{key_prefix}_list_{ds}", use_container_width=True):
-                    st.session_state[select_key] = ds
-                    st.rerun()
+            label = f"{day} · {title}"
+            if detail:
+                label = f"{label} · {detail}"
+            if st.button(
+                label,
+                key=f"{key_prefix}_list_{ds}",
+                use_container_width=True,
+                type="secondary",
+            ):
+                st.session_state[select_key] = ds
+                st.rerun()
 
 
 def render_student_schedule_calendar(
@@ -448,7 +445,7 @@ def render_student_schedule_calendar(
 
     prog_map = build_student_prog_map(programs, student_specialty)
 
-    view_mode = render_student_schedule_view_toggle(key_prefix, default_mode="fullcalendar")
+    view_mode = render_student_schedule_view_toggle(key_prefix, default_mode="list")
     if view_mode == "list":
         _render_student_schedule_list(
             year, month, prog_map, student_specialty, att_map, today, key_prefix=key_prefix
