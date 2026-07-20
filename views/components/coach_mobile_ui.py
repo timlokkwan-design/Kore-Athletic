@@ -10,6 +10,7 @@ import streamlit as st
 from views.components.stylable_shim import stylable_container
 
 from views.components.calendar_theme import get_calendar_palette, inject_calendar_theme
+from views.components.theme import get_ui_theme
 
 
 def inject_coach_mobile_css() -> None:
@@ -103,6 +104,15 @@ def force_button_row(
         """
         col_spec = n_cols
 
+    is_dark = get_ui_theme() == "dark"
+    btn_surface = (
+        "background-color: #000000 !important; color: #ffffff !important;"
+        " border: 1px solid #ffffff !important; box-shadow: none !important;"
+        if is_dark
+        else ""
+    )
+    btn_label = "color: #ffffff !important;" if is_dark else ""
+
     if variant == "bare":
         host_css = """
         {
@@ -113,8 +123,8 @@ def force_button_row(
             margin: 0;
         }
         """
-        btn_css = """
-        button {
+        btn_css = f"""
+        button {{
             min-height: 3.05rem !important;
             font-weight: 700 !important;
             border-radius: 12px !important;
@@ -122,7 +132,11 @@ def force_button_row(
             padding: 0.28rem 0.12rem !important;
             white-space: pre-line !important;
             line-height: 1.15 !important;
-        }
+            {btn_surface}
+        }}
+        button p {{
+            {btn_label}
+        }}
         """
     else:
         host_css = f"""
@@ -134,8 +148,8 @@ def force_button_row(
             margin: 0.08rem 0 0.28rem;
         }}
         """
-        btn_css = """
-        button {
+        btn_css = f"""
+        button {{
             min-height: 2.45rem !important;
             font-weight: 700 !important;
             border-radius: 9px !important;
@@ -143,7 +157,11 @@ def force_button_row(
             padding-left: 0.15rem !important;
             padding-right: 0.15rem !important;
             white-space: nowrap !important;
-        }
+            {btn_surface}
+        }}
+        button p {{
+            {btn_label}
+        }}
         """
 
     with stylable_container(

@@ -417,29 +417,38 @@ def _pin_innermost_dock_host() -> None:
 
 def render_sidebar_menu_button() -> None:
     """Always-visible control to open the left sidebar (coach + student + visitor)."""
+    from views.components.theme import get_ui_colors, get_ui_theme
+
+    c = get_ui_colors()
+    is_dark = get_ui_theme() == "dark"
+    btn_shadow = (
+        "0 4px 14px rgba(255, 255, 255, 0.12)"
+        if is_dark
+        else "0 4px 14px rgba(15, 23, 42, 0.14)"
+    )
     st.markdown(
-        """
+        f"""
         <style>
         /* Keep Streamlit sidebar expand controls visible & tappable */
         [data-testid="stSidebarCollapsedControl"],
         [data-testid="collapsedControl"],
         [data-testid="stSidebarCollapseButton"],
-        [data-testid="stExpandSidebarButton"] {
+        [data-testid="stExpandSidebarButton"] {{
           display: flex !important;
           visibility: visible !important;
           opacity: 1 !important;
           pointer-events: auto !important;
           z-index: 2147483646 !important;
-        }
+        }}
         [data-testid="stSidebarCollapsedControl"] button,
         [data-testid="collapsedControl"] button,
         [data-testid="stSidebarCollapseButton"] button,
-        [data-testid="stExpandSidebarButton"] button {
+        [data-testid="stExpandSidebarButton"] button {{
           min-width: 2.75rem !important;
           min-height: 2.75rem !important;
           pointer-events: auto !important;
-        }
-        .ka-sidebar-open-btn {
+        }}
+        .ka-sidebar-open-btn {{
           position: fixed !important;
           top: 0.55rem !important;
           left: 0.45rem !important;
@@ -447,15 +456,15 @@ def render_sidebar_menu_button() -> None:
           min-height: 2.6rem !important;
           padding: 0.35rem 0.75rem !important;
           border-radius: 10px !important;
-          border: 1px solid #cbd5e1 !important;
-          background: #ffffff !important;
-          color: #0f172a !important;
+          border: 1px solid {c["border"]} !important;
+          background: {c["main_bg"]} !important;
+          color: {c["text"]} !important;
           font-size: 0.85rem !important;
           font-weight: 700 !important;
-          box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14) !important;
+          box-shadow: {btn_shadow} !important;
           cursor: pointer !important;
           pointer-events: auto !important;
-        }
+        }}
         </style>
         """,
         unsafe_allow_html=True,

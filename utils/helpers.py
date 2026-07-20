@@ -540,20 +540,26 @@ def calendar_cell_tone(prog: dict | None = None, *, progs: list[dict] | None = N
 
 def calendar_cell_bg(prog: dict | None = None, *, progs: list[dict] | None = None) -> str:
     """Blue = training (time or content), red = competition, gray = rest / empty."""
-    from utils.config import (
-        CALENDAR_BG_COMPETITION,
-        CALENDAR_BG_EMPTY,
-        CALENDAR_BG_REST,
-        CALENDAR_BG_TRAINING,
-    )
-
     tone = calendar_cell_tone(prog, progs=progs)
-    return {
-        "competition": CALENDAR_BG_COMPETITION,
-        "training": CALENDAR_BG_TRAINING,
-        "rest": CALENDAR_BG_REST,
-        "empty": CALENDAR_BG_EMPTY,
-    }.get(tone, CALENDAR_BG_EMPTY)
+    try:
+        from views.components.calendar_theme import get_calendar_tones
+
+        tones = get_calendar_tones()
+        return tones.get(tone, tones["empty"])["bg"]
+    except Exception:
+        from utils.config import (
+            CALENDAR_BG_COMPETITION,
+            CALENDAR_BG_EMPTY,
+            CALENDAR_BG_REST,
+            CALENDAR_BG_TRAINING,
+        )
+
+        return {
+            "competition": CALENDAR_BG_COMPETITION,
+            "training": CALENDAR_BG_TRAINING,
+            "rest": CALENDAR_BG_REST,
+            "empty": CALENDAR_BG_EMPTY,
+        }.get(tone, CALENDAR_BG_EMPTY)
 
 
 def calendar_day_has_training(prog: dict | None = None, *, progs: list[dict] | None = None) -> bool:
