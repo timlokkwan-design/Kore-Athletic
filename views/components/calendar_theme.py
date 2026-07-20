@@ -449,6 +449,10 @@ div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) button {{
     color: {p['text_primary']} !important;
     font-weight: 800 !important;
     min-height: 2.75rem !important;
+    {"background: #000000 !important; border: 1px solid #ffffff !important;" if is_dark else ""}
+}}
+div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) button[kind="primary"] {{
+    {"border-width: 2px !important;" if is_dark else ""}
 }}
 
 /* ── Pick-mode list rows (inline HTML) ── */

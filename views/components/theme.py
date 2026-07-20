@@ -317,10 +317,46 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         section.main button[data-testid="baseButton-primary"] {{
             border-width: 2px !important;
         }}
-        section.main .ka-sidebar-open-btn {{
+        section.main .ka-sidebar-open-btn,
+        .ka-sidebar-open-btn {{
             background: #000000 !important;
             color: #ffffff !important;
             border: 1px solid #ffffff !important;
+            box-shadow: 0 4px 14px rgba(255, 255, 255, 0.12) !important;
+        }}
+        /* 夜光：底部／頂部導航、快速切換列 — 覆蓋 Streamlit secondary 白底 */
+        body:has(.ka-theme-dark) .ka-bottom-dock-host [data-testid="stButton"] > button[kind="secondary"],
+        body:has(.ka-theme-dark) .ka-bottom-dock-host button[kind="secondary"],
+        body:has(.ka-theme-dark) .ka-top-subtab-host [data-testid="stButton"] > button[kind="secondary"],
+        body:has(.ka-theme-dark) .ka-top-subtab-host button[kind="secondary"],
+        body:has(.ka-theme-dark) .ka-force-row-host [data-testid="stButton"] > button[kind="secondary"],
+        body:has(.ka-theme-dark) .ka-force-row-host button[kind="secondary"],
+        body:has(.ka-theme-dark) .ka-bottom-dock-host [data-testid="stButton"] > button[data-testid="baseButton-secondary"],
+        body:has(.ka-theme-dark) .ka-top-subtab-host [data-testid="stButton"] > button[data-testid="baseButton-secondary"],
+        body:has(.ka-theme-dark) .ka-force-row-host [data-testid="stButton"] > button[data-testid="baseButton-secondary"] {{
+            background-color: #000000 !important;
+            color: #ffffff !important;
+            border: 1px solid #ffffff !important;
+            box-shadow: none !important;
+        }}
+        body:has(.ka-theme-dark) .ka-bottom-dock-host button[kind="secondary"] p,
+        body:has(.ka-theme-dark) .ka-top-subtab-host button[kind="secondary"] p,
+        body:has(.ka-theme-dark) .ka-force-row-host button[kind="secondary"] p {{
+            color: #ffffff !important;
+        }}
+        /* 夜光：主區一般 secondary 按鈕（日間／夜光、舒適間距等） */
+        body:has(.ka-theme-dark) section.main [data-testid="stButton"] > button[kind="secondary"],
+        body:has(.ka-theme-dark) section.main button[kind="secondary"],
+        body:has(.ka-theme-dark) section.main [data-testid="stButton"] > button[data-testid="baseButton-secondary"],
+        body:has(.ka-theme-dark) section.main button[data-testid="baseButton-secondary"] {{
+            background-color: #000000 !important;
+            color: #ffffff !important;
+            border: 1px solid #ffffff !important;
+            box-shadow: none !important;
+        }}
+        body:has(.ka-theme-dark) section.main button[kind="secondary"] p,
+        body:has(.ka-theme-dark) section.main button[data-testid="baseButton-secondary"] p {{
+            color: #ffffff !important;
         }}
         section.main div[data-testid="stVerticalBlock"]:has(.ka-checkin-bar-marker) {{
             background: #000000 !important;
