@@ -11,6 +11,7 @@ import streamlit as st
 
 from views.components.calendar_grid import calendar_week_row, render_weekday_header_row
 from views.components.calendar_theme import compact_tone_styles, get_calendar_palette, inject_calendar_theme
+from views.components.theme import get_ui_theme
 
 
 @dataclass(frozen=True)
@@ -117,19 +118,19 @@ def inject_compact_calendar_css() -> None:
             box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
         }}
         div[data-testid="column"]:has(.ka-ccell-marker[data-selected="1"]) [data-testid="stButton"] button {{
-            box-shadow: inset 0 0 0 2px #1d4ed8 !important;
+            box-shadow: inset 0 0 0 2px {sel_ring} !important;
         }}
         div[data-testid="column"]:has(.ka-ccell-marker[data-sync="workout"]) [data-testid="stButton"] button {{
-            box-shadow: inset 0 0 0 2px #f59e0b !important;
+            box-shadow: inset 0 0 0 2px {sync_a} !important;
         }}
         div[data-testid="column"]:has(.ka-ccell-marker[data-sync="schedule"]) [data-testid="stButton"] button {{
-            box-shadow: inset 0 0 0 2px #ea580c !important;
+            box-shadow: inset 0 0 0 2px {sync_b} !important;
         }}
         div[data-testid="column"]:has(.ka-ccell-marker[data-sync="both"]) [data-testid="stButton"] button {{
-            box-shadow: inset 0 0 0 2px #f59e0b, inset 0 0 0 3px #ea580c !important;
+            box-shadow: inset 0 0 0 2px {sync_a}, inset 0 0 0 3px {sync_b} !important;
         }}
         div[data-testid="column"]:has(.ka-ccell-marker[data-sync="copy-source"]) [data-testid="stButton"] button {{
-            box-shadow: inset 0 0 0 3px #f59e0b !important;
+            box-shadow: inset 0 0 0 3px {sync_a} !important;
         }}
         {tone_css}
         div[data-testid="column"]:has(.ka-ccell-empty) {{

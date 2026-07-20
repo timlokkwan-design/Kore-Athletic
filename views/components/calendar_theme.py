@@ -23,22 +23,22 @@ _LIGHT = {
     "list_shadow": "rgba(17,24,39,0.07)",
 }
 
-# ── Dark surfaces (main content dark mode) ────────────────────────────────
+# ── Dark surfaces — AMOLED 夜光：全黑、白字、白邊 ───────────────────────
 _DARK = {
-    "grid_gutter": "#2a3140",
-    "cell_bg": "#1a1d24",
-    "cell_empty_bg": "#141820",
-    "cell_disabled_bg": "#12151c",
-    "list_card_bg": "#1a1d24",
-    "list_card_border": "#334155",
-    "text_primary": "#e2e8f0",
-    "text_secondary": "#cbd5e1",
-    "text_muted": "#94a3b8",
-    "cell_border": "#334155",
-    "rest_border": "#475569",
-    "inset_highlight": "rgba(255,255,255,0.06)",
-    "cell_shadow": "rgba(0,0,0,0.25)",
-    "list_shadow": "rgba(0,0,0,0.3)",
+    "grid_gutter": "#000000",
+    "cell_bg": "#000000",
+    "cell_empty_bg": "#000000",
+    "cell_disabled_bg": "#000000",
+    "list_card_bg": "#000000",
+    "list_card_border": "#ffffff",
+    "text_primary": "#ffffff",
+    "text_secondary": "#ffffff",
+    "text_muted": "#cccccc",
+    "cell_border": "#ffffff",
+    "rest_border": "#ffffff",
+    "inset_highlight": "rgba(255,255,255,0.08)",
+    "cell_shadow": "rgba(255,255,255,0.06)",
+    "list_shadow": "rgba(255,255,255,0.08)",
 }
 
 TEXT_ON_ACCENT = "#FFFFFF"
@@ -100,42 +100,20 @@ CALENDAR_TONES: dict[str, dict[str, str]] = {
 }
 
 CALENDAR_TONES_DARK: dict[str, dict[str, str]] = {
-    "training": {
-        "bg": "#1e3a5f",
-        "fg": "#bfdbfe",
-        "accent": "#3b82f6",
-        "border": "#2563eb",
-    },
-    "competition": {
-        "bg": "#450a0a",
-        "fg": "#fecaca",
-        "accent": "#ef4444",
-        "border": "#b91c1c",
-    },
-    "rest": {
-        "bg": "#1e293b",
-        "fg": "#cbd5e1",
-        "accent": "#64748b",
-        "border": "#475569",
-    },
-    "empty": {
-        "bg": "#141820",
-        "fg": "#94a3b8",
-        "accent": "#64748b",
-        "border": "#334155",
-    },
-    "picked": {
-        "bg": "#064e3b",
-        "fg": "#a7f3d0",
-        "accent": "#10b981",
-        "border": "#059669",
-    },
-    "disabled": {
-        "bg": "#12151c",
-        "fg": "#64748b",
-        "accent": "#334155",
-        "border": "#1e293b",
-    },
+    tone: {
+        "bg": "#000000",
+        "fg": "#ffffff",
+        "accent": "#ffffff",
+        "border": "#ffffff",
+    }
+    for tone in (
+        "training",
+        "competition",
+        "rest",
+        "empty",
+        "picked",
+        "disabled",
+    )
 }
 
 CALENDAR_BG_TRAINING = CALENDAR_TONES["training"]["bg"]
@@ -196,7 +174,12 @@ def _chip_rules(parent: str, tones: dict[str, dict[str, str]], *, compact: bool 
 def build_calendar_theme_css(theme: str | None = None) -> str:
     p = get_calendar_palette(theme)
     tones = get_calendar_tones(theme)
-    selected_tint = ACCENT_SELECTED_TINT_DARK if (theme or get_ui_theme()) == "dark" else ACCENT_SELECTED_TINT_LIGHT
+    is_dark = (theme or get_ui_theme()) == "dark"
+    accent_today = "#ffffff" if is_dark else ACCENT_TODAY
+    accent_selected_ring = "#ffffff" if is_dark else ACCENT_SELECTED_RING
+    selected_tint = "#000000" if is_dark else ACCENT_SELECTED_TINT_LIGHT
+    today_num_bg = "#000000" if is_dark else ACCENT_TODAY
+    today_num_fg = "#ffffff" if is_dark else TEXT_ON_ACCENT
     t_train = tones["training"]
     t_comp = tones["competition"]
     t_rest = tones["rest"]
@@ -215,8 +198,8 @@ def build_calendar_theme_css(theme: str | None = None) -> str:
     --ka-cal-cell: {p['cell_bg']};
     --ka-cal-text: {p['text_primary']};
     --ka-cal-muted: {p['text_muted']};
-    --ka-cal-today: {ACCENT_TODAY};
-    --ka-cal-selected: {ACCENT_SELECTED_RING};
+    --ka-cal-today: {accent_today};
+    --ka-cal-selected: {accent_selected_ring};
 }}
 
 .ka-cal-month-title {{
@@ -257,11 +240,10 @@ div[data-testid="stVerticalBlock"]:has(.ka-cal-legend-marker) .ka-cal-legend spa
     border-color: #f59e0b !important;
     border-style: dashed !important;
 }}
-[data-ka-theme="dark"] .ka-leg-sync,
 .ka-theme-dark ~ * .ka-leg-sync,
 body:has(.ka-theme-dark) .ka-leg-sync {{
-    background: #422006 !important; color: #fde68a !important;
-    border-color: #f59e0b !important;
+    background: #000000 !important; color: #ffffff !important;
+    border: 1px dashed #ffffff !important;
 }}
 
 /* ── Calendar shell (streamlit-extras stylable_container) ── */
@@ -344,13 +326,14 @@ div[data-testid="column"]:has(.ka-tt-marker) .ka-tt-cell {{
 }}
 div[data-testid="column"]:has(.ka-tt-marker) .ka-tt-cell.ka-tt-selected {{
     background: {selected_tint};
-    box-shadow: inset 0 0 0 2px {ACCENT_SELECTED_RING}, 0 1px 3px rgba(21,101,192,0.15);
+    box-shadow: inset 0 0 0 2px {accent_selected_ring}, 0 1px 3px rgba(255,255,255,0.08);
 }}
 div[data-testid="column"]:has(.ka-tt-marker) .ka-tt-cell.ka-tt-today {{
-    border-color: {ACCENT_TODAY};
+    border-color: {accent_today};
 }}
 div[data-testid="column"]:has(.ka-tt-marker) .ka-tt-cell.ka-tt-today .ka-tt-daynum {{
-    background: {ACCENT_TODAY}; color: {TEXT_ON_ACCENT};
+    background: {today_num_bg}; color: {today_num_fg};
+    border: 1px solid #ffffff;
     border-radius: 999px; width: 1.45rem; height: 1.45rem;
     display: inline-flex; align-items: center; justify-content: center; font-weight: 800;
 }}
@@ -413,9 +396,9 @@ div[data-testid="column"]:has(.ka-tt-empty) {{
     box-shadow: 0 1px 3px {p['list_shadow']};
 }}
 {_lh} .ka-tt-list-card.ka-tt-list-active {{
-    border-color: {ACCENT_SELECTED_RING};
+    border-color: {accent_selected_ring};
     background: {selected_tint};
-    box-shadow: inset 0 0 0 1px {ACCENT_SELECTED_RING}, 0 2px 6px rgba(21,101,192,0.12);
+    box-shadow: inset 0 0 0 1px {accent_selected_ring}, 0 2px 6px rgba(255,255,255,0.08);
 }}
 {_lh} .ka-tt-list-head {{
     display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
@@ -427,7 +410,8 @@ div[data-testid="column"]:has(.ka-tt-empty) {{
     font-size: 0.85rem; color: {p['text_secondary']}; font-weight: 700;
 }}
 {_lh} .ka-tt-list-today-tag {{
-    font-size: 0.7rem; background: {ACCENT_TODAY}; color: {TEXT_ON_ACCENT};
+    font-size: 0.7rem; background: {today_num_bg}; color: {today_num_fg};
+    border: 1px solid #ffffff;
     padding: 3px 9px; border-radius: 999px; font-weight: 800;
 }}
 {_lh} .ka-tt-list-chips {{
