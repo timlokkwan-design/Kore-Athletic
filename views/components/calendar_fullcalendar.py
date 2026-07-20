@@ -210,10 +210,50 @@ def render_fullcalendar(
     """
     if dark:
         custom_css += """
-        .fc { --fc-border-color: #334155; --fc-page-bg-color: #1a1d24;
-              --fc-neutral-bg-color: #141820; --fc-list-event-hover-bg-color: #1e293b; }
-        .fc .fc-daygrid-day-number { color: #e2e8f0; }
-        .fc-theme-standard td, .fc-theme-standard th { border-color: #334155; }
+        .fc {
+            --fc-border-color: #666666;
+            --fc-page-bg-color: #000000;
+            --fc-neutral-bg-color: #1a1a1a;
+            --fc-list-event-hover-bg-color: #1a1a1a;
+            --fc-today-bg-color: #2a2a2a;
+        }
+        .fc .fc-scrollgrid,
+        .fc .fc-scrollgrid-section > td,
+        .fc .fc-col-header-cell,
+        .fc .fc-daygrid-day,
+        .fc .fc-daygrid-day-frame,
+        .fc .fc-daygrid-day-bg,
+        .fc .fc-daygrid-day-top,
+        .fc-theme-standard td,
+        .fc-theme-standard th {
+            background: #1a1a1a !important;
+            background-color: #1a1a1a !important;
+            border-color: #666666 !important;
+        }
+        .fc .fc-daygrid-day-number {
+            color: #ffffff !important;
+        }
+        .fc .fc-col-header-cell-cushion {
+            color: #cccccc !important;
+        }
+        .fc .fc-day-today,
+        .fc .fc-day-today .fc-daygrid-day-frame,
+        .fc .fc-day-today .fc-daygrid-day-bg {
+            background: #2a2a2a !important;
+            background-color: #2a2a2a !important;
+        }
+        .fc .fc-daygrid-day:active,
+        .fc .fc-daygrid-day.fc-day-selected,
+        .fc .fc-highlight,
+        .fc .fc-daygrid-day:hover {
+            background: #1a1a1a !important;
+            background-color: #1a1a1a !important;
+        }
+        .fc .fc-event:hover,
+        .fc .fc-event:active {
+            filter: none !important;
+            opacity: 1 !important;
+        }
         """
 
     state = fc_calendar(

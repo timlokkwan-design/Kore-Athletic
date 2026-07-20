@@ -106,12 +106,35 @@ def force_button_row(
 
     is_dark = get_ui_theme() == "dark"
     btn_surface = (
-        "background-color: #000000 !important; color: #ffffff !important;"
-        " border: 1px solid #ffffff !important; box-shadow: none !important;"
+        "background: #1a1a1a !important; background-color: #1a1a1a !important;"
+        " color: #ffffff !important; border: 1px solid #666666 !important;"
+        " box-shadow: none !important;"
         if is_dark
         else ""
     )
     btn_label = "color: #ffffff !important;" if is_dark else ""
+    btn_interact = (
+        """
+        button:hover, button:active, button:focus, button:focus-visible {
+            background: #1a1a1a !important;
+            background-color: #1a1a1a !important;
+            color: #ffffff !important;
+            border-color: #666666 !important;
+            filter: none !important;
+            transform: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+        button[kind="primary"]:hover, button[kind="primary"]:active,
+        button[kind="primary"]:focus, button[kind="primary"]:focus-visible {
+            background: #ff4b4b !important;
+            background-color: #ff4b4b !important;
+            border-color: #ff4b4b !important;
+        }
+        """
+        if is_dark
+        else ""
+    )
 
     if variant == "bare":
         host_css = """
@@ -137,6 +160,7 @@ def force_button_row(
         button p {{
             {btn_label}
         }}
+        {btn_interact}
         """
     else:
         host_css = f"""
@@ -162,6 +186,7 @@ def force_button_row(
         button p {{
             {btn_label}
         }}
+        {btn_interact}
         """
 
     with stylable_container(

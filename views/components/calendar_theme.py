@@ -449,10 +449,19 @@ div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) button {{
     color: {p['text_primary']} !important;
     font-weight: 800 !important;
     min-height: 2.75rem !important;
-    {"background: #000000 !important; border: 1px solid #ffffff !important;" if is_dark else ""}
+    {"background: #1a1a1a !important; background-color: #1a1a1a !important; border: 1px solid #666666 !important;" if is_dark else ""}
 }}
 div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) button[kind="primary"] {{
-    {"border-width: 2px !important;" if is_dark else ""}
+    {"background: #ff4b4b !important; background-color: #ff4b4b !important; border-color: #ff4b4b !important;" if is_dark else ""}
+}}
+div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) button:hover,
+div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) button:active,
+div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) button:focus {{
+    {"background: #1a1a1a !important; filter: none !important; transform: none !important; outline: none !important;" if is_dark else ""}
+}}
+div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) button[kind="primary"]:hover,
+div[data-testid="stVerticalBlock"]:has(.ka-cal-view-marker) button[kind="primary"]:active {{
+    {"background: #ff4b4b !important; filter: none !important; transform: none !important;" if is_dark else ""}
 }}
 
 /* ── Pick-mode list rows (inline HTML) ── */

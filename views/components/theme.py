@@ -154,6 +154,79 @@ def _sync_density_from_toggle() -> None:
     )
 
 
+def inject_late_dark_overrides() -> None:
+    """Inject dark-surface CSS last so it wins over Streamlit widget defaults."""
+    if get_ui_theme() != "dark":
+        return
+    st.markdown(
+        """
+        <style id="ka-late-dark-overrides">
+        /* ── Buttons: grey/black surfaces, no click colour flash ── */
+        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] > button,
+        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] button,
+        body:has(.ka-theme-dark) .st-key-ka_theme_quick_btn [data-testid="stButton"] button,
+        body:has(.ka-theme-dark) .st-key-ka_density_quick_btn [data-testid="stButton"] button,
+        body:has(.ka-theme-dark) .ka-force-row-host [data-testid="stButton"] > button,
+        body:has(.ka-theme-dark) .ka-bottom-dock-host [data-testid="stButton"] > button,
+        body:has(.ka-theme-dark) .ka-top-subtab-host [data-testid="stButton"] > button {
+            background: #1a1a1a !important;
+            background-color: #1a1a1a !important;
+            color: #ffffff !important;
+            border: 1px solid #666666 !important;
+            box-shadow: none !important;
+        }
+        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] button p,
+        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] button span,
+        body:has(.ka-theme-dark) .ka-force-row-host button p,
+        body:has(.ka-theme-dark) .ka-bottom-dock-host button p,
+        body:has(.ka-theme-dark) .ka-top-subtab-host button p {
+            color: #ffffff !important;
+        }
+        /* Active tab: keep red highlight */
+        body:has(.ka-theme-dark) .ka-bottom-dock-host button[kind="primary"],
+        body:has(.ka-theme-dark) .ka-top-subtab-host button[kind="primary"],
+        body:has(.ka-theme-dark) .ka-force-row-host button[kind="primary"] {
+            background: #ff4b4b !important;
+            background-color: #ff4b4b !important;
+            border-color: #ff4b4b !important;
+            color: #ffffff !important;
+        }
+        /* No hover / active / focus colour change */
+        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] > button:hover,
+        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] > button:active,
+        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] > button:focus,
+        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] > button:focus-visible,
+        body:has(.ka-theme-dark) .ka-bottom-dock-host button:hover,
+        body:has(.ka-theme-dark) .ka-bottom-dock-host button:active,
+        body:has(.ka-theme-dark) .ka-top-subtab-host button:hover,
+        body:has(.ka-theme-dark) .ka-top-subtab-host button:active,
+        body:has(.ka-theme-dark) .ka-force-row-host button:hover,
+        body:has(.ka-theme-dark) .ka-force-row-host button:active {
+            background: #1a1a1a !important;
+            background-color: #1a1a1a !important;
+            color: #ffffff !important;
+            border-color: #666666 !important;
+            filter: none !important;
+            transform: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+        body:has(.ka-theme-dark) .ka-bottom-dock-host button[kind="primary"]:hover,
+        body:has(.ka-theme-dark) .ka-bottom-dock-host button[kind="primary"]:active,
+        body:has(.ka-theme-dark) .ka-top-subtab-host button[kind="primary"]:hover,
+        body:has(.ka-theme-dark) .ka-top-subtab-host button[kind="primary"]:active,
+        body:has(.ka-theme-dark) .ka-force-row-host button[kind="primary"]:hover,
+        body:has(.ka-theme-dark) .ka-force-row-host button[kind="primary"]:active {
+            background: #ff4b4b !important;
+            background-color: #ff4b4b !important;
+            border-color: #ff4b4b !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs) -> None:
     """Inject global CSS. role_class is optional (legacy callers may omit it)."""
     t = theme or sync_ui_theme()
@@ -917,6 +990,11 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 transform: scale(0.88) !important;
                 filter: brightness(0.9) !important;
             }}
+            body:has(.ka-theme-dark) .ka-bottom-dock-host button:active,
+            body:has(.ka-theme-dark) .ka-top-subtab-host button:active {{
+                transform: none !important;
+                filter: none !important;
+            }}
             .ka-bottom-dock-host button:focus-visible {{
                 outline: 2px solid {c["text"]}55 !important;
                 outline-offset: 2px !important;
@@ -1013,6 +1091,10 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         .ka-top-subtab-host button:active {{
             transform: scale(0.88) !important;
             filter: brightness(0.9) !important;
+        }}
+        body:has(.ka-theme-dark) .ka-top-subtab-host button:active {{
+            transform: none !important;
+            filter: none !important;
         }}
         /* Markers stay in DOM; visually hidden */
         .ka-bottom-tabbar-marker,
