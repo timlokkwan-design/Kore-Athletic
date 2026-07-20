@@ -12,14 +12,14 @@ LIGHT = {
     "main_bg": "#ffffff",
     "primary": "#64748b",
 }
-# Dark main-content tokens (sidebar stays dark via config.toml)
+# Dark main-content tokens — AMOLED-style 夜光：全黑底、白字、白邊
 DARK = {
-    "text": "#e2e8f0",
-    "muted": "#94a3b8",
-    "border": "#334155",
-    "card_bg": "#1a1d24",
-    "main_bg": "#0f1117",
-    "primary": "#94a3b8",
+    "text": "#ffffff",
+    "muted": "#cccccc",
+    "border": "#ffffff",
+    "card_bg": "#000000",
+    "main_bg": "#000000",
+    "primary": "#ffffff",
 }
 
 COLOR_SUCCESS_BG = "#dcfce7"
@@ -165,11 +165,11 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
     density_gap = "0.55rem" if density == "comfortable" else "0.28rem"
 
     if t == "dark":
-        bar_success_style = "background:#14532d;border:1px solid #22c55e;color:#bbf7d0;"
-        bar_warn_style = "background:#422006;border:1px solid #f59e0b;color:#fde68a;"
-        pwa_hint_style = "background:#1e3a5f;border:1px solid #3b82f6;color:#bfdbfe;"
-        pwa_detail_style = "color:#94a3b8;"
-        sidebar_pending_style = "background:#422006;border:1px solid #f59e0b;color:#fde68a;"
+        bar_success_style = "background:#000000;border:1px solid #ffffff;color:#ffffff;"
+        bar_warn_style = "background:#000000;border:1px solid #ffffff;color:#ffffff;"
+        pwa_hint_style = "background:#000000;border:1px solid #ffffff;color:#ffffff;"
+        pwa_detail_style = "color:#cccccc;"
+        sidebar_pending_style = "background:#000000;border:1px solid #ffffff;color:#ffffff;"
     else:
         bar_success_style = f"background:{COLOR_SUCCESS_BG};border:1px solid {COLOR_SUCCESS_BORDER};color:#166534;"
         bar_warn_style = f"background:{COLOR_WARN_BG};border:1px solid {COLOR_WARN_BORDER};color:#92400e;"
@@ -180,33 +180,40 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
     dark_stat_override = ""
     if t == "dark":
         dark_stat_override = """
-        .ka-stat-card { background: #1a1d24 !important; border-color: #334155 !important; }
-        .ka-stat-value { color: #e2e8f0 !important; }
-        .ka-stat-label { color: #94a3b8 !important; }
-        .ka-lb-card { background: #1a1d24 !important; border-color: #334155 !important; color: #e2e8f0 !important; }
-        .ka-empty { background: #1a1d24 !important; border-color: #334155 !important; }
-        .ka-lb-meta { color: #94a3b8 !important; }
-        /* Toned success/warn/danger cards keep dark text for contrast on pale fills */
+        .ka-stat-card { background: #000000 !important; border: 1px solid #ffffff !important; }
+        .ka-stat-value { color: #ffffff !important; }
+        .ka-stat-label { color: #cccccc !important; }
+        .ka-lb-card { background: #000000 !important; border: 1px solid #ffffff !important; color: #ffffff !important; }
+        .ka-empty { background: #000000 !important; border: 1px dashed #ffffff !important; }
+        .ka-empty-title, .ka-empty-hint { color: #ffffff !important; }
+        .ka-lb-meta { color: #cccccc !important; }
         .ka-stat-card.ka-tone-success,
         .ka-stat-card.ka-tone-warn,
         .ka-stat-card.ka-tone-danger {
-          background: #1a1d24 !important;
+          background: #000000 !important;
+          border: 1px solid #ffffff !important;
         }
-        .ka-stat-card.ka-tone-success { border-color: #22c55e !important; }
-        .ka-stat-card.ka-tone-warn { border-color: #f59e0b !important; }
-        .ka-stat-card.ka-tone-danger { border-color: #ef4444 !important; }
-        .ka-stat-card.ka-tone-success .ka-stat-value { color: #86efac !important; }
-        .ka-stat-card.ka-tone-warn .ka-stat-value { color: #fde68a !important; }
-        .ka-stat-card.ka-tone-danger .ka-stat-value { color: #fca5a5 !important; }
+        .ka-stat-card.ka-tone-success .ka-stat-value,
+        .ka-stat-card.ka-tone-warn .ka-stat-value,
+        .ka-stat-card.ka-tone-danger .ka-stat-value {
+          color: #ffffff !important;
+        }
+        .ka-goal-wrap, .ka-goal-card {
+          background: #000000 !important;
+          border: 1px solid #ffffff !important;
+        }
+        .ka-goal-title, .ka-goal-event, .ka-goal-meta, .ka-goal-empty {
+          color: #ffffff !important;
+        }
         """
 
     # Theme-aware Streamlit chrome (alerts / inputs / metrics often stay light and become unreadable)
     if t == "dark":
         widget_contrast = f"""
         section.main [data-testid="stAlert"] {{
-            background-color: #1e293b !important;
-            border: 1px solid #475569 !important;
-            color: #e2e8f0 !important;
+            background-color: #000000 !important;
+            border: 1px solid #ffffff !important;
+            color: #ffffff !important;
         }}
         section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"],
         section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p,
@@ -215,7 +222,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] li,
         section.main [data-testid="stAlert"] p,
         section.main [data-testid="stAlert"] span {{
-            color: #e2e8f0 !important;
+            color: #ffffff !important;
         }}
         section.main [data-testid="stMetricValue"],
         section.main [data-testid="stMetricDelta"] {{
@@ -230,22 +237,22 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         section.main div[data-testid="stDateInput"] input,
         section.main div[data-testid="stTimeInput"] input,
         section.main div[data-testid="stTextArea"] textarea {{
-            background-color: {c["card_bg"]} !important;
-            color: {c["text"]} !important;
-            -webkit-text-fill-color: {c["text"]} !important;
-            border-color: {c["border"]} !important;
-            caret-color: {c["text"]} !important;
+            background-color: #000000 !important;
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+            border: 1px solid #ffffff !important;
+            caret-color: #ffffff !important;
         }}
         section.main div[data-baseweb="select"] > div,
         section.main div[data-baseweb="input"] {{
-            background-color: {c["card_bg"]} !important;
-            color: {c["text"]} !important;
-            border-color: {c["border"]} !important;
+            background-color: #000000 !important;
+            color: #ffffff !important;
+            border: 1px solid #ffffff !important;
         }}
         section.main div[data-baseweb="select"] span,
         section.main div[data-baseweb="select"] input {{
-            color: {c["text"]} !important;
-            -webkit-text-fill-color: {c["text"]} !important;
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
         }}
         section.main [data-testid="stRadio"] label p,
         section.main [data-testid="stCheckbox"] label p,
@@ -253,46 +260,75 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             color: {c["text"]} !important;
         }}
         section.main [data-testid="stExpander"] {{
-            background-color: {c["card_bg"]} !important;
-            border-color: {c["border"]} !important;
+            background-color: #000000 !important;
+            border: 1px solid #ffffff !important;
         }}
         section.main [data-testid="stExpander"] summary,
         section.main [data-testid="stExpander"] summary p,
         section.main [data-testid="stExpander"] summary span {{
-            color: {c["text"]} !important;
+            color: #ffffff !important;
         }}
         section.main [data-testid="stDataFrame"],
         section.main [data-testid="stTable"] {{
-            color: {c["text"]} !important;
+            color: #ffffff !important;
         }}
         section.main .stMarkdown strong,
         section.main .stMarkdown b,
         section.main [data-testid="stMarkdownContainer"] strong,
         section.main [data-testid="stMarkdownContainer"] b {{
-            color: {c["text"]} !important;
+            color: #ffffff !important;
         }}
         section.main code {{
-            background: #1e293b !important;
-            color: #e2e8f0 !important;
+            background: #000000 !important;
+            color: #ffffff !important;
+            border: 1px solid #ffffff !important;
         }}
-        section.main [data-testid="stTabs"] button,
+        section.main [data-testid="stTabs"] button {{
+            background-color: #000000 !important;
+            color: #ffffff !important;
+            border: 1px solid #ffffff !important;
+        }}
         section.main [data-testid="stTabs"] button p {{
-            color: {c["muted"]} !important;
+            color: #ffffff !important;
         }}
-        section.main [data-testid="stTabs"] button[aria-selected="true"],
-        section.main [data-testid="stTabs"] button[aria-selected="true"] p {{
-            color: {c["text"]} !important;
+        section.main [data-testid="stTabs"] button[aria-selected="true"] {{
+            border-width: 2px !important;
         }}
-        /* Secondary buttons / date picker chrome */
+        /* 夜光：所有主區按鈕 — 黑底、白字、白邊框 */
+        section.main button,
+        section.main [data-testid="stButton"] button,
+        section.main button[kind="primary"],
         section.main button[kind="secondary"],
+        section.main button[data-testid="baseButton-primary"],
         section.main button[data-testid="baseButton-secondary"] {{
-            background-color: {c["card_bg"]} !important;
-            color: {c["text"]} !important;
-            border-color: {c["border"]} !important;
+            background-color: #000000 !important;
+            color: #ffffff !important;
+            border: 1px solid #ffffff !important;
+            box-shadow: none !important;
+        }}
+        section.main button p,
+        section.main button span,
+        section.main [data-testid="stButton"] button p,
+        section.main [data-testid="stButton"] button span,
+        section.main button div[data-testid="stMarkdownContainer"] p {{
+            color: #ffffff !important;
+        }}
+        section.main button[kind="primary"],
+        section.main button[data-testid="baseButton-primary"] {{
+            border-width: 2px !important;
+        }}
+        section.main .ka-sidebar-open-btn {{
+            background: #000000 !important;
+            color: #ffffff !important;
+            border: 1px solid #ffffff !important;
+        }}
+        section.main div[data-testid="stVerticalBlock"]:has(.ka-checkin-bar-marker) {{
+            background: #000000 !important;
+            border: 1px solid #ffffff !important;
         }}
         section.main [data-testid="stHeader"],
         header[data-testid="stHeader"] {{
-            background: {c["main_bg"]} !important;
+            background: #000000 !important;
         }}
         """
     else:
