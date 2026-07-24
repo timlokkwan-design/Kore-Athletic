@@ -282,8 +282,9 @@ def _render_group_slot(
     flash_key = f"pcopy_flash_{sk}_{group}"
     flash = st.session_state.pop(flash_key, None)
     if flash:
-        kind, msg = flash
-        (st.success if kind == "success" else st.warning)(msg)
+        from views.components.toast import show_flash
+
+        show_flash(flash)
 
     apply_key = f"pcopy_apply_{sk}_{group}"
     pending = st.session_state.pop(apply_key, None)

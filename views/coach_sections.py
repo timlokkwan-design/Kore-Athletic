@@ -141,8 +141,9 @@ def _coach_calendar_pick_ui(copy_mode: bool, delete_mode: bool) -> None:
     """Fast multi-select: only reruns this block, not the program edit form."""
     flash = st.session_state.pop("copy_flash", None) or st.session_state.pop("sched_flash", None)
     if flash:
-        kind, msg = flash
-        (st.success if kind == "success" else st.error)(msg)
+        from views.components.toast import show_flash
+
+        show_flash(flash)
 
     from views.components.calendar import _render_calendar_impl
 
@@ -251,10 +252,13 @@ def render_coach_program() -> None:
     flash = st.session_state.pop("copy_flash", None) or st.session_state.pop("sched_flash", None)
     prog_flash = st.session_state.pop("prog_save_flash", None)
     if flash:
-        kind, msg = flash
-        (st.success if kind == "success" else st.error)(msg)
+        from views.components.toast import show_flash
+
+        show_flash(flash)
     if prog_flash:
-        st.success(prog_flash)
+        from views.components.toast import toast_success
+
+        toast_success(str(prog_flash))
 
     if not copy_mode and not delete_mode:
         st.caption(
