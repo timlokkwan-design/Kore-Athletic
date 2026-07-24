@@ -196,6 +196,47 @@ def inject_late_dark_overrides() -> None:
         box-shadow: none !important;
         caret-color: #ffffff !important;
     }}
+    /* Link buttons (訪客「聯絡本會」等) — not covered by stButton rules */
+    {main} [data-testid="stLinkButton"] a,
+    {main} [data-testid="stLinkButton"] button,
+    {main} a[data-testid^="stBaseLinkButton"],
+    {main} .stLinkButton a,
+    {main} .stLinkButton button,
+    [data-testid="stAppViewContainer"] [data-testid="stLinkButton"] a,
+    [data-testid="stAppViewContainer"] [data-testid="stLinkButton"] button,
+    [data-testid="stAppViewContainer"] a[data-testid^="stBaseLinkButton"],
+    [data-testid="stAppViewContainer"] .stLinkButton a,
+    [data-testid="stAppViewContainer"] .stLinkButton button {{
+        background: {s} !important;
+        background-color: {s} !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        border: 1px solid {b} !important;
+        box-shadow: none !important;
+    }}
+    {main} [data-testid="stLinkButton"] a p,
+    {main} [data-testid="stLinkButton"] a span,
+    {main} a[data-testid^="stBaseLinkButton"] p,
+    {main} a[data-testid^="stBaseLinkButton"] span,
+    [data-testid="stAppViewContainer"] [data-testid="stLinkButton"] a p,
+    [data-testid="stAppViewContainer"] [data-testid="stLinkButton"] a span,
+    [data-testid="stAppViewContainer"] a[data-testid^="stBaseLinkButton"] p,
+    [data-testid="stAppViewContainer"] a[data-testid^="stBaseLinkButton"] span {{
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }}
+    {main} [data-testid="stLinkButton"] a:hover,
+    {main} [data-testid="stLinkButton"] a:active,
+    {main} a[data-testid^="stBaseLinkButton"]:hover,
+    {main} a[data-testid^="stBaseLinkButton"]:active,
+    [data-testid="stAppViewContainer"] [data-testid="stLinkButton"] a:hover,
+    [data-testid="stAppViewContainer"] a[data-testid^="stBaseLinkButton"]:hover {{
+        background: {s} !important;
+        background-color: {s} !important;
+        color: #ffffff !important;
+        border-color: {b} !important;
+        filter: none !important;
+    }}
     {main} div[data-testid="stTextInput"] input::placeholder,
     {main} div[data-testid="stTextArea"] textarea::placeholder,
     [data-testid="stAppViewContainer"] div[data-testid="stTextInput"] input::placeholder,
@@ -589,7 +630,10 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         :is(section.main, section.stMain, [data-testid="stMain"]) button[kind="primary"],
         :is(section.main, section.stMain, [data-testid="stMain"]) button[kind="secondary"],
         :is(section.main, section.stMain, [data-testid="stMain"]) button[data-testid="baseButton-primary"],
-        :is(section.main, section.stMain, [data-testid="stMain"]) button[data-testid="baseButton-secondary"] {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) button[data-testid="baseButton-secondary"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stLinkButton"] a,
+        :is(section.main, section.stMain, [data-testid="stMain"]) a[data-testid^="stBaseLinkButton"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stLinkButton a {{
             background-color: {DARK_SURFACE} !important;
             color: #ffffff !important;
             border: 1px solid {DARK_BORDER} !important;
@@ -599,7 +643,11 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         :is(section.main, section.stMain, [data-testid="stMain"]) button span,
         :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stButton"] button p,
         :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stButton"] button span,
-        :is(section.main, section.stMain, [data-testid="stMain"]) button div[data-testid="stMarkdownContainer"] p {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) button div[data-testid="stMarkdownContainer"] p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stLinkButton"] a p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stLinkButton"] a span,
+        :is(section.main, section.stMain, [data-testid="stMain"]) a[data-testid^="stBaseLinkButton"] p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) a[data-testid^="stBaseLinkButton"] span {{
             color: #ffffff !important;
         }}
         :is(section.main, section.stMain, [data-testid="stMain"]) button[kind="primary"],
