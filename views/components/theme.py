@@ -196,6 +196,47 @@ def inject_late_dark_overrides() -> None:
         box-shadow: none !important;
         caret-color: #ffffff !important;
     }}
+    /* Link buttons (訪客「聯絡本會」等) — not covered by stButton rules */
+    {main} [data-testid="stLinkButton"] a,
+    {main} [data-testid="stLinkButton"] button,
+    {main} a[data-testid^="stBaseLinkButton"],
+    {main} .stLinkButton a,
+    {main} .stLinkButton button,
+    [data-testid="stAppViewContainer"] [data-testid="stLinkButton"] a,
+    [data-testid="stAppViewContainer"] [data-testid="stLinkButton"] button,
+    [data-testid="stAppViewContainer"] a[data-testid^="stBaseLinkButton"],
+    [data-testid="stAppViewContainer"] .stLinkButton a,
+    [data-testid="stAppViewContainer"] .stLinkButton button {{
+        background: {s} !important;
+        background-color: {s} !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        border: 1px solid {b} !important;
+        box-shadow: none !important;
+    }}
+    {main} [data-testid="stLinkButton"] a p,
+    {main} [data-testid="stLinkButton"] a span,
+    {main} a[data-testid^="stBaseLinkButton"] p,
+    {main} a[data-testid^="stBaseLinkButton"] span,
+    [data-testid="stAppViewContainer"] [data-testid="stLinkButton"] a p,
+    [data-testid="stAppViewContainer"] [data-testid="stLinkButton"] a span,
+    [data-testid="stAppViewContainer"] a[data-testid^="stBaseLinkButton"] p,
+    [data-testid="stAppViewContainer"] a[data-testid^="stBaseLinkButton"] span {{
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }}
+    {main} [data-testid="stLinkButton"] a:hover,
+    {main} [data-testid="stLinkButton"] a:active,
+    {main} a[data-testid^="stBaseLinkButton"]:hover,
+    {main} a[data-testid^="stBaseLinkButton"]:active,
+    [data-testid="stAppViewContainer"] [data-testid="stLinkButton"] a:hover,
+    [data-testid="stAppViewContainer"] a[data-testid^="stBaseLinkButton"]:hover {{
+        background: {s} !important;
+        background-color: {s} !important;
+        color: #ffffff !important;
+        border-color: {b} !important;
+        filter: none !important;
+    }}
     {main} div[data-testid="stTextInput"] input::placeholder,
     {main} div[data-testid="stTextArea"] textarea::placeholder,
     [data-testid="stAppViewContainer"] div[data-testid="stTextInput"] input::placeholder,
@@ -207,6 +248,65 @@ def inject_late_dark_overrides() -> None:
     {main} [data-testid="stProgress"] > div {{
         background-color: {s} !important;
         border: 1px solid {b} !important;
+    }}
+    /* Select / date controls: BaseWeb inner layers stay white unless forced */
+    {main} [data-testid="stSelectbox"] [data-baseweb="select"],
+    {main} [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+    {main} [data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
+    {main} [data-testid="stSelectbox"] [data-baseweb="select"] div,
+    {main} [data-testid="stMultiSelect"] [data-baseweb="select"],
+    {main} [data-testid="stMultiSelect"] [data-baseweb="select"] div,
+    {main} [data-testid="stDateInput"] [data-baseweb="select"],
+    {main} [data-testid="stDateInput"] [data-baseweb="select"] div,
+    {main} [data-testid="stDateInput"] [data-baseweb="input"],
+    {main} [data-testid="stDateInput"] [data-baseweb="input"] > div,
+    {main} [data-testid="stTimeInput"] [data-baseweb="select"],
+    {main} [data-testid="stTimeInput"] [data-baseweb="select"] div,
+    [data-testid="stAppViewContainer"] [data-testid="stSelectbox"] [data-baseweb="select"],
+    [data-testid="stAppViewContainer"] [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+    [data-testid="stAppViewContainer"] [data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
+    [data-testid="stAppViewContainer"] [data-testid="stSelectbox"] [data-baseweb="select"] div,
+    [data-testid="stAppViewContainer"] [data-testid="stMultiSelect"] [data-baseweb="select"] div,
+    [data-testid="stAppViewContainer"] [data-testid="stDateInput"] [data-baseweb="select"] div,
+    [data-testid="stAppViewContainer"] [data-testid="stDateInput"] [data-baseweb="input"],
+    [data-testid="stAppViewContainer"] [data-testid="stDateInput"] [data-baseweb="input"] > div {{
+        background: {s} !important;
+        background-color: {s} !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        border-color: {b} !important;
+        box-shadow: none !important;
+    }}
+    {main} [data-testid="stSelectbox"] [data-baseweb="select"] span,
+    {main} [data-testid="stSelectbox"] [data-baseweb="select"] input,
+    {main} [data-testid="stSelectbox"] svg,
+    [data-testid="stAppViewContainer"] [data-testid="stSelectbox"] [data-baseweb="select"] span,
+    [data-testid="stAppViewContainer"] [data-testid="stSelectbox"] [data-baseweb="select"] input,
+    [data-testid="stAppViewContainer"] [data-testid="stSelectbox"] svg {{
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        fill: #ffffff !important;
+    }}
+    /* Dropdown popover portals render under body, outside stMain */
+    body div[data-baseweb="popover"],
+    body div[data-baseweb="popover"] > div,
+    body div[data-baseweb="menu"],
+    body ul[role="listbox"],
+    body li[role="option"],
+    body [data-baseweb="menu"] li,
+    body [data-baseweb="calendar"],
+    body [data-baseweb="calendar"] div {{
+        background: {s} !important;
+        background-color: {s} !important;
+        color: #ffffff !important;
+        border-color: {b} !important;
+    }}
+    body li[role="option"]:hover,
+    body li[aria-selected="true"],
+    body [data-baseweb="menu"] li:hover {{
+        background: #2a2a2a !important;
+        background-color: #2a2a2a !important;
+        color: #ffffff !important;
     }}
     /* All main text white — widget labels like「中文名 *」 */
     {main},
@@ -435,10 +535,44 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             color: #ffffff !important;
             border: 1px solid {DARK_BORDER} !important;
         }}
-        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-baseweb="select"] span,
-        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-baseweb="select"] input {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stSelectbox"] [data-baseweb="select"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stSelectbox"] [data-baseweb="select"] div,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMultiSelect"] [data-baseweb="select"] div,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stDateInput"] [data-baseweb="select"] div,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stDateInput"] [data-baseweb="input"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stDateInput"] [data-baseweb="input"] > div {{
+            background: {DARK_SURFACE} !important;
+            background-color: {DARK_SURFACE} !important;
             color: #ffffff !important;
             -webkit-text-fill-color: #ffffff !important;
+            border-color: {DARK_BORDER} !important;
+            box-shadow: none !important;
+        }}
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-baseweb="select"] span,
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-baseweb="select"] input,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stSelectbox"] svg {{
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+            fill: #ffffff !important;
+        }}
+        body:has(.ka-theme-dark) div[data-baseweb="popover"],
+        body:has(.ka-theme-dark) div[data-baseweb="popover"] > div,
+        body:has(.ka-theme-dark) div[data-baseweb="menu"],
+        body:has(.ka-theme-dark) ul[role="listbox"],
+        body:has(.ka-theme-dark) li[role="option"],
+        body:has(.ka-theme-dark) [data-baseweb="calendar"],
+        body:has(.ka-theme-dark) [data-baseweb="calendar"] div {{
+            background: {DARK_SURFACE} !important;
+            background-color: {DARK_SURFACE} !important;
+            color: #ffffff !important;
+            border-color: {DARK_BORDER} !important;
+        }}
+        body:has(.ka-theme-dark) li[role="option"]:hover,
+        body:has(.ka-theme-dark) li[aria-selected="true"] {{
+            background: #2a2a2a !important;
+            color: #ffffff !important;
         }}
         :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stRadio"] label p,
         :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stCheckbox"] label p,
@@ -496,7 +630,10 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         :is(section.main, section.stMain, [data-testid="stMain"]) button[kind="primary"],
         :is(section.main, section.stMain, [data-testid="stMain"]) button[kind="secondary"],
         :is(section.main, section.stMain, [data-testid="stMain"]) button[data-testid="baseButton-primary"],
-        :is(section.main, section.stMain, [data-testid="stMain"]) button[data-testid="baseButton-secondary"] {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) button[data-testid="baseButton-secondary"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stLinkButton"] a,
+        :is(section.main, section.stMain, [data-testid="stMain"]) a[data-testid^="stBaseLinkButton"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stLinkButton a {{
             background-color: {DARK_SURFACE} !important;
             color: #ffffff !important;
             border: 1px solid {DARK_BORDER} !important;
@@ -506,7 +643,11 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         :is(section.main, section.stMain, [data-testid="stMain"]) button span,
         :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stButton"] button p,
         :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stButton"] button span,
-        :is(section.main, section.stMain, [data-testid="stMain"]) button div[data-testid="stMarkdownContainer"] p {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) button div[data-testid="stMarkdownContainer"] p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stLinkButton"] a p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stLinkButton"] a span,
+        :is(section.main, section.stMain, [data-testid="stMain"]) a[data-testid^="stBaseLinkButton"] p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) a[data-testid^="stBaseLinkButton"] span {{
             color: #ffffff !important;
         }}
         :is(section.main, section.stMain, [data-testid="stMain"]) button[kind="primary"],
