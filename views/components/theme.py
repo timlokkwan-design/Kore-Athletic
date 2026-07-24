@@ -158,169 +158,179 @@ def _sync_density_from_toggle() -> None:
 
 
 def inject_late_dark_overrides() -> None:
-    """Inject dark-surface CSS last so it wins over Streamlit widget defaults."""
+    """Inject dark-surface CSS last so it wins over Streamlit widget defaults.
+
+    Only runs when ``ui_theme == dark`` (no ``body:has`` needed). Targets both
+    legacy ``section.main`` and Streamlit 1.39+ ``stMain`` / ``[data-testid=stMain]``.
+    """
     if get_ui_theme() != "dark":
         return
     s, b = DARK_SURFACE, DARK_BORDER
-    st.markdown(
-        f"""
-        <style id="ka-late-dark-overrides">
-        /* ── Form boxes (註冊／登入等): grey on black page ── */
-        body:has(.ka-theme-dark) section.main div[data-testid="stTextInput"] input,
-        body:has(.ka-theme-dark) section.main div[data-testid="stNumberInput"] input,
-        body:has(.ka-theme-dark) section.main div[data-testid="stDateInput"] input,
-        body:has(.ka-theme-dark) section.main div[data-testid="stTimeInput"] input,
-        body:has(.ka-theme-dark) section.main div[data-testid="stTextArea"] textarea,
-        body:has(.ka-theme-dark) section.main div[data-baseweb="select"] > div,
-        body:has(.ka-theme-dark) section.main div[data-baseweb="input"],
-        body:has(.ka-theme-dark) section.main [data-testid="stExpander"],
-        body:has(.ka-theme-dark) section.main [data-testid="stAlert"],
-        body:has(.ka-theme-dark) section.main [data-testid="stTabs"] button,
-        body:has(.ka-theme-dark) section.main code {{
-            background: {s} !important;
-            background-color: {s} !important;
-            color: #ffffff !important;
-            border: 1px solid {b} !important;
-            box-shadow: none !important;
-        }}
-        body:has(.ka-theme-dark) section.main div[data-testid="stTextInput"] input::placeholder,
-        body:has(.ka-theme-dark) section.main div[data-testid="stTextArea"] textarea::placeholder {{
-            color: #999999 !important;
-            -webkit-text-fill-color: #999999 !important;
-            opacity: 1 !important;
-        }}
-        body:has(.ka-theme-dark) section.main [data-testid="stProgress"] > div {{
-            background-color: {s} !important;
-            border: 1px solid {b} !important;
-        }}
-        /* ── 夜光：主區所有文字白色（含「中文名 *」等標籤） ── */
-        body:has(.ka-theme-dark) section.main,
-        body:has(.ka-theme-dark) section.main p,
-        body:has(.ka-theme-dark) section.main span,
-        body:has(.ka-theme-dark) section.main label,
-        body:has(.ka-theme-dark) section.main label *,
-        body:has(.ka-theme-dark) section.main [data-testid="stWidgetLabel"],
-        body:has(.ka-theme-dark) section.main [data-testid="stWidgetLabel"] p,
-        body:has(.ka-theme-dark) section.main [data-testid="stWidgetLabel"] span,
-        body:has(.ka-theme-dark) section.main [data-testid="stWidgetLabel"] strong,
-        body:has(.ka-theme-dark) section.main [data-testid="stWidgetLabel"] em,
-        body:has(.ka-theme-dark) section.main .stTextInput label,
-        body:has(.ka-theme-dark) section.main .stTextInput label p,
-        body:has(.ka-theme-dark) section.main .stTextInput label span,
-        body:has(.ka-theme-dark) section.main .stSelectbox label,
-        body:has(.ka-theme-dark) section.main .stSelectbox label p,
-        body:has(.ka-theme-dark) section.main .stSelectbox label span,
-        body:has(.ka-theme-dark) section.main .stTextArea label,
-        body:has(.ka-theme-dark) section.main .stDateInput label,
-        body:has(.ka-theme-dark) section.main .stDateInput label p,
-        body:has(.ka-theme-dark) section.main .stDateInput label span,
-        body:has(.ka-theme-dark) section.main .stNumberInput label,
-        body:has(.ka-theme-dark) section.main .stTimeInput label,
-        body:has(.ka-theme-dark) section.main [data-testid="stRadio"] label,
-        body:has(.ka-theme-dark) section.main [data-testid="stRadio"] label p,
-        body:has(.ka-theme-dark) section.main [data-testid="stCheckbox"] label,
-        body:has(.ka-theme-dark) section.main [data-testid="stCheckbox"] label p,
-        body:has(.ka-theme-dark) section.main [data-testid="stCaptionContainer"],
-        body:has(.ka-theme-dark) section.main [data-testid="stCaptionContainer"] p,
-        body:has(.ka-theme-dark) section.main [data-testid="stCaptionContainer"] small,
-        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"],
-        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"] p,
-        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"] span,
-        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"] li,
-        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"] strong,
-        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"] h1,
-        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"] h2,
-        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"] h3,
-        body:has(.ka-theme-dark) section.main .ka-breadcrumb,
-        body:has(.ka-theme-dark) section.main .ka-breadcrumb span,
-        body:has(.ka-theme-dark) section.main .ka-breadcrumb b,
-        body:has(.ka-theme-dark) section.main .ka-page-title,
-        body:has(.ka-theme-dark) section.main .ka-page-sub,
-        body:has(.ka-theme-dark) section.main [data-testid="stMetricLabel"],
-        body:has(.ka-theme-dark) section.main [data-testid="stMetricLabel"] p,
-        body:has(.ka-theme-dark) section.main [data-testid="stMetricValue"] {{
-            color: #ffffff !important;
-            -webkit-text-fill-color: #ffffff !important;
-        }}
-        /* Required * and BaseWeb label bits must stay white (not Streamlit red/grey) */
-        body:has(.ka-theme-dark) section.main label [data-testid="stMarkdownContainer"] p,
-        body:has(.ka-theme-dark) section.main label [data-testid="stMarkdownContainer"] span,
-        body:has(.ka-theme-dark) section.main [data-baseweb="form-control-label"],
-        body:has(.ka-theme-dark) section.main [data-baseweb="form-control-label"] * {{
-            color: #ffffff !important;
-            -webkit-text-fill-color: #ffffff !important;
-        }}
-        /* Placeholders stay slightly muted so they differ from typed text */
-        body:has(.ka-theme-dark) section.main div[data-testid="stTextInput"] input::placeholder,
-        body:has(.ka-theme-dark) section.main div[data-testid="stTextArea"] textarea::placeholder {{
-            color: #999999 !important;
-            -webkit-text-fill-color: #999999 !important;
-            opacity: 1 !important;
-        }}
-        /* ── Buttons: grey surfaces, no click colour flash ── */
-        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] > button,
-        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] button,
-        body:has(.ka-theme-dark) .st-key-ka_theme_quick_btn [data-testid="stButton"] button,
-        body:has(.ka-theme-dark) .st-key-ka_density_quick_btn [data-testid="stButton"] button,
-        body:has(.ka-theme-dark) .ka-force-row-host [data-testid="stButton"] > button,
-        body:has(.ka-theme-dark) .ka-bottom-dock-host [data-testid="stButton"] > button,
-        body:has(.ka-theme-dark) .ka-top-subtab-host [data-testid="stButton"] > button {{
-            background: {s} !important;
-            background-color: {s} !important;
-            color: #ffffff !important;
-            border: 1px solid {b} !important;
-            box-shadow: none !important;
-        }}
-        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] button p,
-        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] button span,
-        body:has(.ka-theme-dark) .ka-force-row-host button p,
-        body:has(.ka-theme-dark) .ka-bottom-dock-host button p,
-        body:has(.ka-theme-dark) .ka-top-subtab-host button p {{
-            color: #ffffff !important;
-        }}
-        /* Active tab: keep red highlight */
-        body:has(.ka-theme-dark) .ka-bottom-dock-host button[kind="primary"],
-        body:has(.ka-theme-dark) .ka-top-subtab-host button[kind="primary"],
-        body:has(.ka-theme-dark) .ka-force-row-host button[kind="primary"] {{
-            background: #ff4b4b !important;
-            background-color: #ff4b4b !important;
-            border-color: #ff4b4b !important;
-            color: #ffffff !important;
-        }}
-        /* No hover / active / focus colour change */
-        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] > button:hover,
-        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] > button:active,
-        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] > button:focus,
-        body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] > button:focus-visible,
-        body:has(.ka-theme-dark) .ka-bottom-dock-host button:hover,
-        body:has(.ka-theme-dark) .ka-bottom-dock-host button:active,
-        body:has(.ka-theme-dark) .ka-top-subtab-host button:hover,
-        body:has(.ka-theme-dark) .ka-top-subtab-host button:active,
-        body:has(.ka-theme-dark) .ka-force-row-host button:hover,
-        body:has(.ka-theme-dark) .ka-force-row-host button:active {{
-            background: {s} !important;
-            background-color: {s} !important;
-            color: #ffffff !important;
-            border-color: {b} !important;
-            filter: none !important;
-            transform: none !important;
-            outline: none !important;
-            box-shadow: none !important;
-        }}
-        body:has(.ka-theme-dark) .ka-bottom-dock-host button[kind="primary"]:hover,
-        body:has(.ka-theme-dark) .ka-bottom-dock-host button[kind="primary"]:active,
-        body:has(.ka-theme-dark) .ka-top-subtab-host button[kind="primary"]:hover,
-        body:has(.ka-theme-dark) .ka-top-subtab-host button[kind="primary"]:active,
-        body:has(.ka-theme-dark) .ka-force-row-host button[kind="primary"]:hover,
-        body:has(.ka-theme-dark) .ka-force-row-host button[kind="primary"]:active {{
-            background: #ff4b4b !important;
-            background-color: #ff4b4b !important;
-            border-color: #ff4b4b !important;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    main = ':is(section.main, section.stMain, [data-testid="stMain"])'
+    css = f"""
+    <style id="ka-late-dark-overrides">
+    /* Form boxes: grey on black */
+    {main} div[data-testid="stTextInput"] input,
+    {main} div[data-testid="stNumberInput"] input,
+    {main} div[data-testid="stDateInput"] input,
+    {main} div[data-testid="stTimeInput"] input,
+    {main} div[data-testid="stTextArea"] textarea,
+    {main} div[data-baseweb="select"] > div,
+    {main} div[data-baseweb="input"],
+    {main} [data-testid="stExpander"],
+    {main} [data-testid="stAlert"],
+    {main} [data-testid="stTabs"] button,
+    {main} code,
+    [data-testid="stAppViewContainer"] div[data-testid="stTextInput"] input,
+    [data-testid="stAppViewContainer"] div[data-testid="stNumberInput"] input,
+    [data-testid="stAppViewContainer"] div[data-testid="stDateInput"] input,
+    [data-testid="stAppViewContainer"] div[data-testid="stTextArea"] textarea,
+    [data-testid="stAppViewContainer"] div[data-baseweb="select"] > div,
+    [data-testid="stAppViewContainer"] div[data-baseweb="input"],
+    [data-testid="stAppViewContainer"] [data-testid="stExpander"] {{
+        background: {s} !important;
+        background-color: {s} !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        border: 1px solid {b} !important;
+        box-shadow: none !important;
+        caret-color: #ffffff !important;
+    }}
+    {main} div[data-testid="stTextInput"] input::placeholder,
+    {main} div[data-testid="stTextArea"] textarea::placeholder,
+    [data-testid="stAppViewContainer"] div[data-testid="stTextInput"] input::placeholder,
+    [data-testid="stAppViewContainer"] div[data-testid="stTextArea"] textarea::placeholder {{
+        color: #999999 !important;
+        -webkit-text-fill-color: #999999 !important;
+        opacity: 1 !important;
+    }}
+    {main} [data-testid="stProgress"] > div {{
+        background-color: {s} !important;
+        border: 1px solid {b} !important;
+    }}
+    /* All main text white — widget labels like「中文名 *」 */
+    {main},
+    {main} p,
+    {main} span,
+    {main} label,
+    {main} label *,
+    {main} [data-testid="stWidgetLabel"],
+    {main} [data-testid="stWidgetLabel"] *,
+    {main} [data-testid="stWidgetLabel"] [data-testid="stMarkdownContainer"] p,
+    {main} [data-testid="stWidgetLabel"] [data-testid="stMarkdownContainer"] span,
+    {main} .stTextInput label,
+    {main} .stTextInput label *,
+    {main} .stSelectbox label,
+    {main} .stSelectbox label *,
+    {main} .stTextArea label,
+    {main} .stTextArea label *,
+    {main} .stDateInput label,
+    {main} .stDateInput label *,
+    {main} .stNumberInput label,
+    {main} .stNumberInput label *,
+    {main} .stTimeInput label,
+    {main} .stTimeInput label *,
+    {main} [data-testid="stRadio"] label,
+    {main} [data-testid="stRadio"] label *,
+    {main} [data-testid="stCheckbox"] label,
+    {main} [data-testid="stCheckbox"] label *,
+    {main} [data-testid="stCaptionContainer"],
+    {main} [data-testid="stCaptionContainer"] *,
+    {main} [data-testid="stMarkdownContainer"],
+    {main} [data-testid="stMarkdownContainer"] p,
+    {main} [data-testid="stMarkdownContainer"] span,
+    {main} [data-testid="stMarkdownContainer"] li,
+    {main} [data-testid="stMarkdownContainer"] strong,
+    {main} [data-testid="stMarkdownContainer"] h1,
+    {main} [data-testid="stMarkdownContainer"] h2,
+    {main} [data-testid="stMarkdownContainer"] h3,
+    {main} .ka-breadcrumb,
+    {main} .ka-breadcrumb *,
+    {main} .ka-page-title,
+    {main} .ka-page-sub,
+    {main} [data-testid="stMetricLabel"],
+    {main} [data-testid="stMetricLabel"] *,
+    {main} [data-testid="stMetricValue"],
+    [data-testid="stAppViewContainer"] [data-testid="stWidgetLabel"],
+    [data-testid="stAppViewContainer"] [data-testid="stWidgetLabel"] *,
+    [data-testid="stAppViewContainer"] label[data-testid="stWidgetLabel"],
+    [data-testid="stAppViewContainer"] label[data-testid="stWidgetLabel"] *,
+    [data-testid="stAppViewContainer"] .stTextInput label,
+    [data-testid="stAppViewContainer"] .stTextInput label *,
+    [data-testid="stAppViewContainer"] .stSelectbox label,
+    [data-testid="stAppViewContainer"] .stSelectbox label *,
+    [data-testid="stAppViewContainer"] .stDateInput label,
+    [data-testid="stAppViewContainer"] .stDateInput label *,
+    [data-testid="stAppViewContainer"] [data-testid="stCaptionContainer"],
+    [data-testid="stAppViewContainer"] [data-testid="stCaptionContainer"] * {{
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }}
+    /* Buttons */
+    [data-testid="stAppViewContainer"] [data-testid="stButton"] > button,
+    [data-testid="stAppViewContainer"] [data-testid="stButton"] button,
+    .st-key-ka_theme_quick_btn [data-testid="stButton"] button,
+    .st-key-ka_density_quick_btn [data-testid="stButton"] button,
+    .ka-force-row-host [data-testid="stButton"] > button,
+    .ka-bottom-dock-host [data-testid="stButton"] > button,
+    .ka-top-subtab-host [data-testid="stButton"] > button {{
+        background: {s} !important;
+        background-color: {s} !important;
+        color: #ffffff !important;
+        border: 1px solid {b} !important;
+        box-shadow: none !important;
+    }}
+    [data-testid="stAppViewContainer"] [data-testid="stButton"] button p,
+    [data-testid="stAppViewContainer"] [data-testid="stButton"] button span,
+    .ka-force-row-host button p,
+    .ka-bottom-dock-host button p,
+    .ka-top-subtab-host button p {{
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }}
+    .ka-bottom-dock-host button[kind="primary"],
+    .ka-top-subtab-host button[kind="primary"],
+    .ka-force-row-host button[kind="primary"] {{
+        background: #ff4b4b !important;
+        background-color: #ff4b4b !important;
+        border-color: #ff4b4b !important;
+        color: #ffffff !important;
+    }}
+    [data-testid="stAppViewContainer"] [data-testid="stButton"] > button:hover,
+    [data-testid="stAppViewContainer"] [data-testid="stButton"] > button:active,
+    [data-testid="stAppViewContainer"] [data-testid="stButton"] > button:focus,
+    [data-testid="stAppViewContainer"] [data-testid="stButton"] > button:focus-visible,
+    .ka-bottom-dock-host button:hover,
+    .ka-bottom-dock-host button:active,
+    .ka-top-subtab-host button:hover,
+    .ka-top-subtab-host button:active,
+    .ka-force-row-host button:hover,
+    .ka-force-row-host button:active {{
+        background: {s} !important;
+        background-color: {s} !important;
+        color: #ffffff !important;
+        border-color: {b} !important;
+        filter: none !important;
+        transform: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+    }}
+    .ka-bottom-dock-host button[kind="primary"]:hover,
+    .ka-bottom-dock-host button[kind="primary"]:active,
+    .ka-top-subtab-host button[kind="primary"]:hover,
+    .ka-top-subtab-host button[kind="primary"]:active,
+    .ka-force-row-host button[kind="primary"]:hover,
+    .ka-force-row-host button[kind="primary"]:active {{
+        background: #ff4b4b !important;
+        background-color: #ff4b4b !important;
+        border-color: #ff4b4b !important;
+    }}
+    </style>
+    """
+    try:
+        st.html(css)
+    except Exception:
+        st.markdown(css, unsafe_allow_html=True)
 
 
 def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs) -> None:
@@ -379,131 +389,131 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
     # Theme-aware Streamlit chrome (alerts / inputs / metrics often stay light and become unreadable)
     if t == "dark":
         widget_contrast = f"""
-        section.main [data-testid="stAlert"] {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stAlert"] {{
             background-color: {DARK_SURFACE} !important;
             border: 1px solid {DARK_BORDER} !important;
             color: #ffffff !important;
         }}
-        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"],
-        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p,
-        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] span,
-        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] strong,
-        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] li,
-        section.main [data-testid="stAlert"] p,
-        section.main [data-testid="stAlert"] span {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stAlert"] [data-testid="stMarkdownContainer"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stAlert"] [data-testid="stMarkdownContainer"] span,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stAlert"] [data-testid="stMarkdownContainer"] strong,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stAlert"] [data-testid="stMarkdownContainer"] li,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stAlert"] p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stAlert"] span {{
             color: #ffffff !important;
         }}
-        section.main [data-testid="stMetricValue"],
-        section.main [data-testid="stMetricDelta"] {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMetricValue"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMetricDelta"] {{
             color: {c["text"]} !important;
         }}
-        section.main [data-testid="stMetricLabel"],
-        section.main [data-testid="stMetricLabel"] p {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMetricLabel"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMetricLabel"] p {{
             color: {c["muted"]} !important;
         }}
         /* 夜光表單方格：灰底，與全黑頁面分離 */
-        section.main div[data-testid="stTextInput"] input,
-        section.main div[data-testid="stNumberInput"] input,
-        section.main div[data-testid="stDateInput"] input,
-        section.main div[data-testid="stTimeInput"] input,
-        section.main div[data-testid="stTextArea"] textarea {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-testid="stTextInput"] input,
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-testid="stNumberInput"] input,
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-testid="stDateInput"] input,
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-testid="stTimeInput"] input,
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-testid="stTextArea"] textarea {{
             background-color: {DARK_SURFACE} !important;
             color: #ffffff !important;
             -webkit-text-fill-color: #ffffff !important;
             border: 1px solid {DARK_BORDER} !important;
             caret-color: #ffffff !important;
         }}
-        section.main div[data-testid="stTextInput"] input::placeholder,
-        section.main div[data-testid="stTextArea"] textarea::placeholder {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-testid="stTextInput"] input::placeholder,
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-testid="stTextArea"] textarea::placeholder {{
             color: #999999 !important;
             -webkit-text-fill-color: #999999 !important;
             opacity: 1 !important;
         }}
-        section.main div[data-baseweb="select"] > div,
-        section.main div[data-baseweb="input"] {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-baseweb="select"] > div,
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-baseweb="input"] {{
             background-color: {DARK_SURFACE} !important;
             color: #ffffff !important;
             border: 1px solid {DARK_BORDER} !important;
         }}
-        section.main div[data-baseweb="select"] span,
-        section.main div[data-baseweb="select"] input {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-baseweb="select"] span,
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-baseweb="select"] input {{
             color: #ffffff !important;
             -webkit-text-fill-color: #ffffff !important;
         }}
-        section.main [data-testid="stRadio"] label p,
-        section.main [data-testid="stCheckbox"] label p,
-        section.main [data-testid="stWidgetLabel"],
-        section.main [data-testid="stWidgetLabel"] p,
-        section.main [data-testid="stWidgetLabel"] span,
-        section.main [data-testid="stWidgetLabel"] strong,
-        section.main label[data-testid="stWidgetLabel"],
-        section.main label[data-testid="stWidgetLabel"] * {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stRadio"] label p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stCheckbox"] label p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stWidgetLabel"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stWidgetLabel"] p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stWidgetLabel"] span,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stWidgetLabel"] strong,
+        :is(section.main, section.stMain, [data-testid="stMain"]) label[data-testid="stWidgetLabel"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) label[data-testid="stWidgetLabel"] * {{
             color: #ffffff !important;
             -webkit-text-fill-color: #ffffff !important;
         }}
-        section.main [data-testid="stExpander"] {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stExpander"] {{
             background-color: {DARK_SURFACE} !important;
             border: 1px solid {DARK_BORDER} !important;
         }}
-        section.main [data-testid="stExpander"] summary,
-        section.main [data-testid="stExpander"] summary p,
-        section.main [data-testid="stExpander"] summary span {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stExpander"] summary,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stExpander"] summary p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stExpander"] summary span {{
             color: #ffffff !important;
         }}
-        section.main [data-testid="stDataFrame"],
-        section.main [data-testid="stTable"] {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stDataFrame"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stTable"] {{
             color: #ffffff !important;
         }}
-        section.main .stMarkdown strong,
-        section.main .stMarkdown b,
-        section.main [data-testid="stMarkdownContainer"] strong,
-        section.main [data-testid="stMarkdownContainer"] b {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stMarkdown strong,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stMarkdown b,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] strong,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] b {{
             color: #ffffff !important;
         }}
-        section.main code {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) code {{
             background: {DARK_SURFACE} !important;
             color: #ffffff !important;
             border: 1px solid {DARK_BORDER} !important;
         }}
-        section.main [data-testid="stTabs"] button {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stTabs"] button {{
             background-color: {DARK_SURFACE} !important;
             color: #ffffff !important;
             border: 1px solid {DARK_BORDER} !important;
         }}
-        section.main [data-testid="stTabs"] button p {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stTabs"] button p {{
             color: #ffffff !important;
         }}
-        section.main [data-testid="stTabs"] button[aria-selected="true"] {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stTabs"] button[aria-selected="true"] {{
             border-width: 2px !important;
         }}
-        section.main [data-testid="stProgress"] > div {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stProgress"] > div {{
             background-color: {DARK_SURFACE} !important;
             border: 1px solid {DARK_BORDER} !important;
         }}
         /* 夜光：主區按鈕 — 灰底、白字、灰邊 */
-        section.main button,
-        section.main [data-testid="stButton"] button,
-        section.main button[kind="primary"],
-        section.main button[kind="secondary"],
-        section.main button[data-testid="baseButton-primary"],
-        section.main button[data-testid="baseButton-secondary"] {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) button,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stButton"] button,
+        :is(section.main, section.stMain, [data-testid="stMain"]) button[kind="primary"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) button[kind="secondary"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) button[data-testid="baseButton-primary"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) button[data-testid="baseButton-secondary"] {{
             background-color: {DARK_SURFACE} !important;
             color: #ffffff !important;
             border: 1px solid {DARK_BORDER} !important;
             box-shadow: none !important;
         }}
-        section.main button p,
-        section.main button span,
-        section.main [data-testid="stButton"] button p,
-        section.main [data-testid="stButton"] button span,
-        section.main button div[data-testid="stMarkdownContainer"] p {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) button p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) button span,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stButton"] button p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stButton"] button span,
+        :is(section.main, section.stMain, [data-testid="stMain"]) button div[data-testid="stMarkdownContainer"] p {{
             color: #ffffff !important;
         }}
-        section.main button[kind="primary"],
-        section.main button[data-testid="baseButton-primary"] {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) button[kind="primary"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) button[data-testid="baseButton-primary"] {{
             border-width: 2px !important;
         }}
-        section.main .ka-sidebar-open-btn,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .ka-sidebar-open-btn,
         .ka-sidebar-open-btn {{
             background: {DARK_SURFACE} !important;
             color: #ffffff !important;
@@ -531,24 +541,24 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             color: #ffffff !important;
         }}
         /* 夜光：主區一般 secondary 按鈕（日間／夜光、舒適間距等） */
-        body:has(.ka-theme-dark) section.main [data-testid="stButton"] > button[kind="secondary"],
-        body:has(.ka-theme-dark) section.main button[kind="secondary"],
-        body:has(.ka-theme-dark) section.main [data-testid="stButton"] > button[data-testid="baseButton-secondary"],
-        body:has(.ka-theme-dark) section.main button[data-testid="baseButton-secondary"] {{
+        body:has(.ka-theme-dark) :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stButton"] > button[kind="secondary"],
+        body:has(.ka-theme-dark) :is(section.main, section.stMain, [data-testid="stMain"]) button[kind="secondary"],
+        body:has(.ka-theme-dark) :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stButton"] > button[data-testid="baseButton-secondary"],
+        body:has(.ka-theme-dark) :is(section.main, section.stMain, [data-testid="stMain"]) button[data-testid="baseButton-secondary"] {{
             background-color: {DARK_SURFACE} !important;
             color: #ffffff !important;
             border: 1px solid {DARK_BORDER} !important;
             box-shadow: none !important;
         }}
-        body:has(.ka-theme-dark) section.main button[kind="secondary"] p,
-        body:has(.ka-theme-dark) section.main button[data-testid="baseButton-secondary"] p {{
+        body:has(.ka-theme-dark) :is(section.main, section.stMain, [data-testid="stMain"]) button[kind="secondary"] p,
+        body:has(.ka-theme-dark) :is(section.main, section.stMain, [data-testid="stMain"]) button[data-testid="baseButton-secondary"] p {{
             color: #ffffff !important;
         }}
-        section.main div[data-testid="stVerticalBlock"]:has(.ka-checkin-bar-marker) {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-testid="stVerticalBlock"]:has(.ka-checkin-bar-marker) {{
             background: {DARK_SURFACE} !important;
             border: 1px solid {DARK_BORDER} !important;
         }}
-        section.main [data-testid="stHeader"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stHeader"],
         header[data-testid="stHeader"] {{
             background: #000000 !important;
         }}
@@ -556,16 +566,16 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
     else:
         widget_contrast = f"""
         /* Light mode: keep alert semantic colors — do NOT force theme text onto pale alert fills */
-        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p,
-        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] span,
-        section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"] strong {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stAlert"] [data-testid="stMarkdownContainer"] span,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stAlert"] [data-testid="stMarkdownContainer"] strong {{
             color: #0f172a !important;
         }}
-        section.main [data-testid="stMetricValue"] {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMetricValue"] {{
             color: {c["text"]} !important;
         }}
-        section.main [data-testid="stMetricLabel"],
-        section.main [data-testid="stMetricLabel"] p {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMetricLabel"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMetricLabel"] p {{
             color: {c["muted"]} !important;
         }}
         .ka-lb-meta {{ color: {c["muted"]} !important; }}
@@ -579,12 +589,12 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         .stApp,
         [data-testid="stAppViewContainer"],
         [data-testid="stAppViewBlockContainer"],
-        section.main,
-        section.main .block-container {{
+        :is(section.main, section.stMain, [data-testid="stMain"]),
+        :is(section.main, section.stMain, [data-testid="stMain"]) .block-container {{
             background-color: {c["main_bg"]} !important;
             color: {c["text"]} !important;
         }}
-        section.main .block-container {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) .block-container {{
             padding-top: 0.65rem;
         }}
         /* Hide deploy/status chrome only — keep header sidebar expand controls */
@@ -617,53 +627,53 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             min-height: 2.75rem !important;
         }}
         hr {{ margin: 0.45rem 0; border-color: {c["border"]}; }}
-        section.main [data-testid="stMarkdownContainer"] h1,
-        section.main [data-testid="stMarkdownContainer"] h2,
-        section.main [data-testid="stMarkdownContainer"] h3,
-        section.main [data-testid="stMarkdownContainer"] h4,
-        section.main [data-testid="stMarkdownContainer"] h5,
-        section.main [data-testid="stMarkdownContainer"] h6 {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] h1,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] h2,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] h3,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] h4,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] h5,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] h6 {{
             color: {c["text"]} !important;
         }}
-        section.main [data-testid="stMarkdownContainer"] p,
-        section.main [data-testid="stMarkdownContainer"] li,
-        section.main [data-testid="stMarkdownContainer"] span {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] li,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] span {{
             color: {c["text"]} !important;
         }}
-        section.main [data-testid="stCaptionContainer"],
-        section.main [data-testid="stCaptionContainer"] p,
-        section.main [data-testid="stCaptionContainer"] small {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stCaptionContainer"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stCaptionContainer"] p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stCaptionContainer"] small {{
             color: {c["text"]} !important;
         }}
-        section.main label[data-testid="stWidgetLabel"],
-        section.main label[data-testid="stWidgetLabel"] p,
-        section.main label[data-testid="stWidgetLabel"] span,
-        section.main label[data-testid="stWidgetLabel"] strong,
-        section.main label[data-testid="stWidgetLabel"] *,
-        section.main .stSelectbox label,
-        section.main .stSelectbox label p,
-        section.main .stSelectbox label span,
-        section.main .stTextInput label,
-        section.main .stTextInput label p,
-        section.main .stTextInput label span,
-        section.main .stTextArea label,
-        section.main .stTextArea label p,
-        section.main .stTextArea label span,
-        section.main .stDateInput label,
-        section.main .stDateInput label p,
-        section.main .stDateInput label span,
-        section.main .stNumberInput label,
-        section.main .stNumberInput label p,
-        section.main .stTimeInput label,
-        section.main .stTimeInput label p {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) label[data-testid="stWidgetLabel"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) label[data-testid="stWidgetLabel"] p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) label[data-testid="stWidgetLabel"] span,
+        :is(section.main, section.stMain, [data-testid="stMain"]) label[data-testid="stWidgetLabel"] strong,
+        :is(section.main, section.stMain, [data-testid="stMain"]) label[data-testid="stWidgetLabel"] *,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stSelectbox label,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stSelectbox label p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stSelectbox label span,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stTextInput label,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stTextInput label p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stTextInput label span,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stTextArea label,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stTextArea label p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stTextArea label span,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stDateInput label,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stDateInput label p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stDateInput label span,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stNumberInput label,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stNumberInput label p,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stTimeInput label,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .stTimeInput label p {{
             color: {c["text"]} !important;
             -webkit-text-fill-color: {c["text"]} !important;
         }}
-        section.main [data-testid="stExpander"] summary,
-        section.main [data-testid="stExpander"] summary p {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stExpander"] summary,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stExpander"] summary p {{
             color: {c["text"]} !important;
         }}
-        section.main [data-testid="stExpander"] div[data-testid="stMarkdownContainer"] p {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stExpander"] div[data-testid="stMarkdownContainer"] p {{
             color: {c["text"]};
         }}
         {widget_contrast}
@@ -957,70 +967,70 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
              * Dense mobile layout — cut Streamlit's default vertical air
              * across all pages (檢視／時間／設定／總覽…).
              */
-            section.main [data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
                 gap: {density_gap} !important;
             }}
-            section.main.ka-density-comfortable [data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
+            :is(section.main, section.stMain, [data-testid="stMain"]).ka-density-comfortable [data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
                 gap: {density_gap} !important;
             }}
-            section.main [data-testid="stElementContainer"] {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stElementContainer"] {{
                 margin-top: 0 !important;
                 margin-bottom: 0 !important;
             }}
-            section.main [data-testid="stMarkdownContainer"] {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] {{
                 margin-bottom: 0 !important;
             }}
-            section.main [data-testid="stMarkdownContainer"] > * {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] > * {{
                 margin-top: 0 !important;
             }}
-            section.main [data-testid="stMarkdownContainer"] p {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] p {{
                 margin: 0 0 0.2rem 0 !important;
                 line-height: 1.35 !important;
             }}
-            section.main [data-testid="stMarkdownContainer"] h1,
-            section.main [data-testid="stMarkdownContainer"] h2,
-            section.main [data-testid="stMarkdownContainer"] h3,
-            section.main [data-testid="stMarkdownContainer"] h4 {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] h1,
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] h2,
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] h3,
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMarkdownContainer"] h4 {{
                 margin: 0.2rem 0 0.15rem 0 !important;
                 line-height: 1.25 !important;
             }}
-            section.main [data-testid="stCaptionContainer"],
-            section.main [data-testid="stCaption"] {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stCaptionContainer"],
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stCaption"] {{
                 margin: 0 0 0.1rem 0 !important;
                 line-height: 1.3 !important;
             }}
-            section.main [data-testid="stHeadingWithActionElements"],
-            section.main [data-testid="stHeader"] {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stHeadingWithActionElements"],
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stHeader"] {{
                 margin: 0 0 0.15rem 0 !important;
                 padding: 0 !important;
             }}
-            section.main [data-testid="stButton"] {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stButton"] {{
                 margin: 0 !important;
             }}
-            section.main [data-testid="stMetric"] {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMetric"] {{
                 margin: 0 !important;
                 padding: 0.15rem 0 !important;
             }}
-            section.main [data-testid="stAlert"] {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stAlert"] {{
                 margin: 0.15rem 0 !important;
                 padding: 0.4rem 0.55rem !important;
             }}
-            section.main [data-testid="stWidgetLabel"] {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stWidgetLabel"] {{
                 margin-bottom: 0.05rem !important;
                 min-height: 0 !important;
             }}
-            section.main [data-testid="stExpander"] {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stExpander"] {{
                 margin: 0.2rem 0 !important;
             }}
-            section.main hr {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) hr {{
                 margin: 0.4rem 0 !important;
             }}
-            section.main div[data-testid="stDivider"] {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) div[data-testid="stDivider"] {{
                 margin: 0.35rem 0 !important;
                 padding: 0 !important;
             }}
             /* Chip / action strips — less outer chrome */
-            section.main [class*="st-key-"] {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) [class*="st-key-"] {{
                 margin-top: 0.1rem !important;
                 margin-bottom: 0.25rem !important;
             }}
@@ -1028,7 +1038,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             /* Instagram-style fixed bottom tab bar — ONE horizontal row.
                IMPORTANT: do NOT use :has(marker) on stVerticalBlock for position:fixed —
                that matches the whole page root and clips expander content. */
-            section.main .block-container {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) .block-container {{
                 padding-left: 0.5rem !important;
                 padding-right: 0.5rem !important;
                 padding-bottom: 6.4rem !important;
@@ -1040,7 +1050,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 max-width: 100% !important;
                 position: relative !important;
             }}
-            section.main {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) {{
                 height: auto !important;
                 max-height: none !important;
                 overflow-x: hidden !important;
@@ -1048,7 +1058,7 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
                 max-width: 100% !important;
             }}
             /* Content blocks must never be fixed (that freezes scroll) */
-            section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
+            :is(section.main, section.stMain, [data-testid="stMain"]) div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
                 position: static !important;
                 height: auto !important;
                 max-height: none !important;
@@ -1160,14 +1170,14 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             }}
         }}
         /* Fixed top sub-tabs — same tile style as bottom dock (all widths) */
-        section.main div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-testid="stVerticalBlock"]:not(.ka-bottom-dock-host):not(.ka-top-subtab-host) {{
             position: static !important;
             height: auto !important;
             max-height: none !important;
             overflow: visible !important;
         }}
-        section.main .block-container.ka-has-top-subtabs,
-        section.main .block-container {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) .block-container.ka-has-top-subtabs,
+        :is(section.main, section.stMain, [data-testid="stMain"]) .block-container {{
             padding-top: var(--ka-top-pad, 0.65rem) !important;
         }}
         .ka-top-subtab-host {{
