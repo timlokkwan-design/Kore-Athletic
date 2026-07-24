@@ -208,6 +208,65 @@ def inject_late_dark_overrides() -> None:
         background-color: {s} !important;
         border: 1px solid {b} !important;
     }}
+    /* Select / date controls: BaseWeb inner layers stay white unless forced */
+    {main} [data-testid="stSelectbox"] [data-baseweb="select"],
+    {main} [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+    {main} [data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
+    {main} [data-testid="stSelectbox"] [data-baseweb="select"] div,
+    {main} [data-testid="stMultiSelect"] [data-baseweb="select"],
+    {main} [data-testid="stMultiSelect"] [data-baseweb="select"] div,
+    {main} [data-testid="stDateInput"] [data-baseweb="select"],
+    {main} [data-testid="stDateInput"] [data-baseweb="select"] div,
+    {main} [data-testid="stDateInput"] [data-baseweb="input"],
+    {main} [data-testid="stDateInput"] [data-baseweb="input"] > div,
+    {main} [data-testid="stTimeInput"] [data-baseweb="select"],
+    {main} [data-testid="stTimeInput"] [data-baseweb="select"] div,
+    [data-testid="stAppViewContainer"] [data-testid="stSelectbox"] [data-baseweb="select"],
+    [data-testid="stAppViewContainer"] [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+    [data-testid="stAppViewContainer"] [data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
+    [data-testid="stAppViewContainer"] [data-testid="stSelectbox"] [data-baseweb="select"] div,
+    [data-testid="stAppViewContainer"] [data-testid="stMultiSelect"] [data-baseweb="select"] div,
+    [data-testid="stAppViewContainer"] [data-testid="stDateInput"] [data-baseweb="select"] div,
+    [data-testid="stAppViewContainer"] [data-testid="stDateInput"] [data-baseweb="input"],
+    [data-testid="stAppViewContainer"] [data-testid="stDateInput"] [data-baseweb="input"] > div {{
+        background: {s} !important;
+        background-color: {s} !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        border-color: {b} !important;
+        box-shadow: none !important;
+    }}
+    {main} [data-testid="stSelectbox"] [data-baseweb="select"] span,
+    {main} [data-testid="stSelectbox"] [data-baseweb="select"] input,
+    {main} [data-testid="stSelectbox"] svg,
+    [data-testid="stAppViewContainer"] [data-testid="stSelectbox"] [data-baseweb="select"] span,
+    [data-testid="stAppViewContainer"] [data-testid="stSelectbox"] [data-baseweb="select"] input,
+    [data-testid="stAppViewContainer"] [data-testid="stSelectbox"] svg {{
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        fill: #ffffff !important;
+    }}
+    /* Dropdown popover portals render under body, outside stMain */
+    body div[data-baseweb="popover"],
+    body div[data-baseweb="popover"] > div,
+    body div[data-baseweb="menu"],
+    body ul[role="listbox"],
+    body li[role="option"],
+    body [data-baseweb="menu"] li,
+    body [data-baseweb="calendar"],
+    body [data-baseweb="calendar"] div {{
+        background: {s} !important;
+        background-color: {s} !important;
+        color: #ffffff !important;
+        border-color: {b} !important;
+    }}
+    body li[role="option"]:hover,
+    body li[aria-selected="true"],
+    body [data-baseweb="menu"] li:hover {{
+        background: #2a2a2a !important;
+        background-color: #2a2a2a !important;
+        color: #ffffff !important;
+    }}
     /* All main text white — widget labels like「中文名 *」 */
     {main},
     {main} p,
@@ -435,10 +494,44 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             color: #ffffff !important;
             border: 1px solid {DARK_BORDER} !important;
         }}
-        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-baseweb="select"] span,
-        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-baseweb="select"] input {{
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stSelectbox"] [data-baseweb="select"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stSelectbox"] [data-baseweb="select"] div,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stMultiSelect"] [data-baseweb="select"] div,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stDateInput"] [data-baseweb="select"] div,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stDateInput"] [data-baseweb="input"],
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stDateInput"] [data-baseweb="input"] > div {{
+            background: {DARK_SURFACE} !important;
+            background-color: {DARK_SURFACE} !important;
             color: #ffffff !important;
             -webkit-text-fill-color: #ffffff !important;
+            border-color: {DARK_BORDER} !important;
+            box-shadow: none !important;
+        }}
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-baseweb="select"] span,
+        :is(section.main, section.stMain, [data-testid="stMain"]) div[data-baseweb="select"] input,
+        :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stSelectbox"] svg {{
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+            fill: #ffffff !important;
+        }}
+        body:has(.ka-theme-dark) div[data-baseweb="popover"],
+        body:has(.ka-theme-dark) div[data-baseweb="popover"] > div,
+        body:has(.ka-theme-dark) div[data-baseweb="menu"],
+        body:has(.ka-theme-dark) ul[role="listbox"],
+        body:has(.ka-theme-dark) li[role="option"],
+        body:has(.ka-theme-dark) [data-baseweb="calendar"],
+        body:has(.ka-theme-dark) [data-baseweb="calendar"] div {{
+            background: {DARK_SURFACE} !important;
+            background-color: {DARK_SURFACE} !important;
+            color: #ffffff !important;
+            border-color: {DARK_BORDER} !important;
+        }}
+        body:has(.ka-theme-dark) li[role="option"]:hover,
+        body:has(.ka-theme-dark) li[aria-selected="true"] {{
+            background: #2a2a2a !important;
+            color: #ffffff !important;
         }}
         :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stRadio"] label p,
         :is(section.main, section.stMain, [data-testid="stMain"]) [data-testid="stCheckbox"] label p,
