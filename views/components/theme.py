@@ -12,15 +12,18 @@ LIGHT = {
     "main_bg": "#ffffff",
     "primary": "#64748b",
 }
-# Dark main-content tokens — AMOLED-style 夜光：全黑底、白字、白邊
+# Dark main-content tokens — AMOLED page bg, grey surfaces so 方格 stand out
 DARK = {
     "text": "#ffffff",
     "muted": "#cccccc",
-    "border": "#ffffff",
-    "card_bg": "#000000",
+    "border": "#666666",
+    "card_bg": "#1a1a1a",
     "main_bg": "#000000",
     "primary": "#ffffff",
 }
+# Shared grey surface for form boxes / chips / buttons in 夜光
+DARK_SURFACE = "#1a1a1a"
+DARK_BORDER = "#666666"
 
 COLOR_SUCCESS_BG = "#dcfce7"
 COLOR_SUCCESS_BORDER = "#86efac"
@@ -158,39 +161,68 @@ def inject_late_dark_overrides() -> None:
     """Inject dark-surface CSS last so it wins over Streamlit widget defaults."""
     if get_ui_theme() != "dark":
         return
+    s, b = DARK_SURFACE, DARK_BORDER
     st.markdown(
-        """
+        f"""
         <style id="ka-late-dark-overrides">
-        /* ── Buttons: grey/black surfaces, no click colour flash ── */
+        /* ── Form boxes (註冊／登入等): grey on black page ── */
+        body:has(.ka-theme-dark) section.main div[data-testid="stTextInput"] input,
+        body:has(.ka-theme-dark) section.main div[data-testid="stNumberInput"] input,
+        body:has(.ka-theme-dark) section.main div[data-testid="stDateInput"] input,
+        body:has(.ka-theme-dark) section.main div[data-testid="stTimeInput"] input,
+        body:has(.ka-theme-dark) section.main div[data-testid="stTextArea"] textarea,
+        body:has(.ka-theme-dark) section.main div[data-baseweb="select"] > div,
+        body:has(.ka-theme-dark) section.main div[data-baseweb="input"],
+        body:has(.ka-theme-dark) section.main [data-testid="stExpander"],
+        body:has(.ka-theme-dark) section.main [data-testid="stAlert"],
+        body:has(.ka-theme-dark) section.main [data-testid="stTabs"] button,
+        body:has(.ka-theme-dark) section.main code {{
+            background: {s} !important;
+            background-color: {s} !important;
+            color: #ffffff !important;
+            border: 1px solid {b} !important;
+            box-shadow: none !important;
+        }}
+        body:has(.ka-theme-dark) section.main div[data-testid="stTextInput"] input::placeholder,
+        body:has(.ka-theme-dark) section.main div[data-testid="stTextArea"] textarea::placeholder {{
+            color: #999999 !important;
+            -webkit-text-fill-color: #999999 !important;
+            opacity: 1 !important;
+        }}
+        body:has(.ka-theme-dark) section.main [data-testid="stProgress"] > div {{
+            background-color: {s} !important;
+            border: 1px solid {b} !important;
+        }}
+        /* ── Buttons: grey surfaces, no click colour flash ── */
         body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] > button,
         body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] button,
         body:has(.ka-theme-dark) .st-key-ka_theme_quick_btn [data-testid="stButton"] button,
         body:has(.ka-theme-dark) .st-key-ka_density_quick_btn [data-testid="stButton"] button,
         body:has(.ka-theme-dark) .ka-force-row-host [data-testid="stButton"] > button,
         body:has(.ka-theme-dark) .ka-bottom-dock-host [data-testid="stButton"] > button,
-        body:has(.ka-theme-dark) .ka-top-subtab-host [data-testid="stButton"] > button {
-            background: #1a1a1a !important;
-            background-color: #1a1a1a !important;
+        body:has(.ka-theme-dark) .ka-top-subtab-host [data-testid="stButton"] > button {{
+            background: {s} !important;
+            background-color: {s} !important;
             color: #ffffff !important;
-            border: 1px solid #666666 !important;
+            border: 1px solid {b} !important;
             box-shadow: none !important;
-        }
+        }}
         body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] button p,
         body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] button span,
         body:has(.ka-theme-dark) .ka-force-row-host button p,
         body:has(.ka-theme-dark) .ka-bottom-dock-host button p,
-        body:has(.ka-theme-dark) .ka-top-subtab-host button p {
+        body:has(.ka-theme-dark) .ka-top-subtab-host button p {{
             color: #ffffff !important;
-        }
+        }}
         /* Active tab: keep red highlight */
         body:has(.ka-theme-dark) .ka-bottom-dock-host button[kind="primary"],
         body:has(.ka-theme-dark) .ka-top-subtab-host button[kind="primary"],
-        body:has(.ka-theme-dark) .ka-force-row-host button[kind="primary"] {
+        body:has(.ka-theme-dark) .ka-force-row-host button[kind="primary"] {{
             background: #ff4b4b !important;
             background-color: #ff4b4b !important;
             border-color: #ff4b4b !important;
             color: #ffffff !important;
-        }
+        }}
         /* No hover / active / focus colour change */
         body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] > button:hover,
         body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] > button:active,
@@ -201,26 +233,26 @@ def inject_late_dark_overrides() -> None:
         body:has(.ka-theme-dark) .ka-top-subtab-host button:hover,
         body:has(.ka-theme-dark) .ka-top-subtab-host button:active,
         body:has(.ka-theme-dark) .ka-force-row-host button:hover,
-        body:has(.ka-theme-dark) .ka-force-row-host button:active {
-            background: #1a1a1a !important;
-            background-color: #1a1a1a !important;
+        body:has(.ka-theme-dark) .ka-force-row-host button:active {{
+            background: {s} !important;
+            background-color: {s} !important;
             color: #ffffff !important;
-            border-color: #666666 !important;
+            border-color: {b} !important;
             filter: none !important;
             transform: none !important;
             outline: none !important;
             box-shadow: none !important;
-        }
+        }}
         body:has(.ka-theme-dark) .ka-bottom-dock-host button[kind="primary"]:hover,
         body:has(.ka-theme-dark) .ka-bottom-dock-host button[kind="primary"]:active,
         body:has(.ka-theme-dark) .ka-top-subtab-host button[kind="primary"]:hover,
         body:has(.ka-theme-dark) .ka-top-subtab-host button[kind="primary"]:active,
         body:has(.ka-theme-dark) .ka-force-row-host button[kind="primary"]:hover,
-        body:has(.ka-theme-dark) .ka-force-row-host button[kind="primary"]:active {
+        body:has(.ka-theme-dark) .ka-force-row-host button[kind="primary"]:active {{
             background: #ff4b4b !important;
             background-color: #ff4b4b !important;
             border-color: #ff4b4b !important;
-        }
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -238,11 +270,11 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
     density_gap = "0.55rem" if density == "comfortable" else "0.28rem"
 
     if t == "dark":
-        bar_success_style = "background:#000000;border:1px solid #ffffff;color:#ffffff;"
-        bar_warn_style = "background:#000000;border:1px solid #ffffff;color:#ffffff;"
-        pwa_hint_style = "background:#000000;border:1px solid #ffffff;color:#ffffff;"
+        bar_success_style = f"background:{DARK_SURFACE};border:1px solid {DARK_BORDER};color:#ffffff;"
+        bar_warn_style = f"background:{DARK_SURFACE};border:1px solid {DARK_BORDER};color:#ffffff;"
+        pwa_hint_style = f"background:{DARK_SURFACE};border:1px solid {DARK_BORDER};color:#ffffff;"
         pwa_detail_style = "color:#cccccc;"
-        sidebar_pending_style = "background:#000000;border:1px solid #ffffff;color:#ffffff;"
+        sidebar_pending_style = f"background:{DARK_SURFACE};border:1px solid {DARK_BORDER};color:#ffffff;"
     else:
         bar_success_style = f"background:{COLOR_SUCCESS_BG};border:1px solid {COLOR_SUCCESS_BORDER};color:#166534;"
         bar_warn_style = f"background:{COLOR_WARN_BG};border:1px solid {COLOR_WARN_BORDER};color:#92400e;"
@@ -252,40 +284,40 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
 
     dark_stat_override = ""
     if t == "dark":
-        dark_stat_override = """
-        .ka-stat-card { background: #000000 !important; border: 1px solid #ffffff !important; }
-        .ka-stat-value { color: #ffffff !important; }
-        .ka-stat-label { color: #cccccc !important; }
-        .ka-lb-card { background: #000000 !important; border: 1px solid #ffffff !important; color: #ffffff !important; }
-        .ka-empty { background: #000000 !important; border: 1px dashed #ffffff !important; }
-        .ka-empty-title, .ka-empty-hint { color: #ffffff !important; }
-        .ka-lb-meta { color: #cccccc !important; }
+        dark_stat_override = f"""
+        .ka-stat-card {{ background: {DARK_SURFACE} !important; border: 1px solid {DARK_BORDER} !important; }}
+        .ka-stat-value {{ color: #ffffff !important; }}
+        .ka-stat-label {{ color: #cccccc !important; }}
+        .ka-lb-card {{ background: {DARK_SURFACE} !important; border: 1px solid {DARK_BORDER} !important; color: #ffffff !important; }}
+        .ka-empty {{ background: {DARK_SURFACE} !important; border: 1px dashed {DARK_BORDER} !important; }}
+        .ka-empty-title, .ka-empty-hint {{ color: #ffffff !important; }}
+        .ka-lb-meta {{ color: #cccccc !important; }}
         .ka-stat-card.ka-tone-success,
         .ka-stat-card.ka-tone-warn,
-        .ka-stat-card.ka-tone-danger {
-          background: #000000 !important;
-          border: 1px solid #ffffff !important;
-        }
+        .ka-stat-card.ka-tone-danger {{
+          background: {DARK_SURFACE} !important;
+          border: 1px solid {DARK_BORDER} !important;
+        }}
         .ka-stat-card.ka-tone-success .ka-stat-value,
         .ka-stat-card.ka-tone-warn .ka-stat-value,
-        .ka-stat-card.ka-tone-danger .ka-stat-value {
+        .ka-stat-card.ka-tone-danger .ka-stat-value {{
           color: #ffffff !important;
-        }
-        .ka-goal-wrap, .ka-goal-card {
-          background: #000000 !important;
-          border: 1px solid #ffffff !important;
-        }
-        .ka-goal-title, .ka-goal-event, .ka-goal-meta, .ka-goal-empty {
+        }}
+        .ka-goal-wrap, .ka-goal-card {{
+          background: {DARK_SURFACE} !important;
+          border: 1px solid {DARK_BORDER} !important;
+        }}
+        .ka-goal-title, .ka-goal-event, .ka-goal-meta, .ka-goal-empty {{
           color: #ffffff !important;
-        }
+        }}
         """
 
     # Theme-aware Streamlit chrome (alerts / inputs / metrics often stay light and become unreadable)
     if t == "dark":
         widget_contrast = f"""
         section.main [data-testid="stAlert"] {{
-            background-color: #000000 !important;
-            border: 1px solid #ffffff !important;
+            background-color: {DARK_SURFACE} !important;
+            border: 1px solid {DARK_BORDER} !important;
             color: #ffffff !important;
         }}
         section.main [data-testid="stAlert"] [data-testid="stMarkdownContainer"],
@@ -305,22 +337,29 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         section.main [data-testid="stMetricLabel"] p {{
             color: {c["muted"]} !important;
         }}
+        /* 夜光表單方格：灰底，與全黑頁面分離 */
         section.main div[data-testid="stTextInput"] input,
         section.main div[data-testid="stNumberInput"] input,
         section.main div[data-testid="stDateInput"] input,
         section.main div[data-testid="stTimeInput"] input,
         section.main div[data-testid="stTextArea"] textarea {{
-            background-color: #000000 !important;
+            background-color: {DARK_SURFACE} !important;
             color: #ffffff !important;
             -webkit-text-fill-color: #ffffff !important;
-            border: 1px solid #ffffff !important;
+            border: 1px solid {DARK_BORDER} !important;
             caret-color: #ffffff !important;
+        }}
+        section.main div[data-testid="stTextInput"] input::placeholder,
+        section.main div[data-testid="stTextArea"] textarea::placeholder {{
+            color: #999999 !important;
+            -webkit-text-fill-color: #999999 !important;
+            opacity: 1 !important;
         }}
         section.main div[data-baseweb="select"] > div,
         section.main div[data-baseweb="input"] {{
-            background-color: #000000 !important;
+            background-color: {DARK_SURFACE} !important;
             color: #ffffff !important;
-            border: 1px solid #ffffff !important;
+            border: 1px solid {DARK_BORDER} !important;
         }}
         section.main div[data-baseweb="select"] span,
         section.main div[data-baseweb="select"] input {{
@@ -333,8 +372,8 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             color: {c["text"]} !important;
         }}
         section.main [data-testid="stExpander"] {{
-            background-color: #000000 !important;
-            border: 1px solid #ffffff !important;
+            background-color: {DARK_SURFACE} !important;
+            border: 1px solid {DARK_BORDER} !important;
         }}
         section.main [data-testid="stExpander"] summary,
         section.main [data-testid="stExpander"] summary p,
@@ -352,14 +391,14 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             color: #ffffff !important;
         }}
         section.main code {{
-            background: #000000 !important;
+            background: {DARK_SURFACE} !important;
             color: #ffffff !important;
-            border: 1px solid #ffffff !important;
+            border: 1px solid {DARK_BORDER} !important;
         }}
         section.main [data-testid="stTabs"] button {{
-            background-color: #000000 !important;
+            background-color: {DARK_SURFACE} !important;
             color: #ffffff !important;
-            border: 1px solid #ffffff !important;
+            border: 1px solid {DARK_BORDER} !important;
         }}
         section.main [data-testid="stTabs"] button p {{
             color: #ffffff !important;
@@ -367,16 +406,20 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         section.main [data-testid="stTabs"] button[aria-selected="true"] {{
             border-width: 2px !important;
         }}
-        /* 夜光：所有主區按鈕 — 黑底、白字、白邊框 */
+        section.main [data-testid="stProgress"] > div {{
+            background-color: {DARK_SURFACE} !important;
+            border: 1px solid {DARK_BORDER} !important;
+        }}
+        /* 夜光：主區按鈕 — 灰底、白字、灰邊 */
         section.main button,
         section.main [data-testid="stButton"] button,
         section.main button[kind="primary"],
         section.main button[kind="secondary"],
         section.main button[data-testid="baseButton-primary"],
         section.main button[data-testid="baseButton-secondary"] {{
-            background-color: #000000 !important;
+            background-color: {DARK_SURFACE} !important;
             color: #ffffff !important;
-            border: 1px solid #ffffff !important;
+            border: 1px solid {DARK_BORDER} !important;
             box-shadow: none !important;
         }}
         section.main button p,
@@ -392,9 +435,9 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         }}
         section.main .ka-sidebar-open-btn,
         .ka-sidebar-open-btn {{
-            background: #000000 !important;
+            background: {DARK_SURFACE} !important;
             color: #ffffff !important;
-            border: 1px solid #ffffff !important;
+            border: 1px solid {DARK_BORDER} !important;
             box-shadow: 0 4px 14px rgba(255, 255, 255, 0.12) !important;
         }}
         /* 夜光：底部／頂部導航、快速切換列 — 覆蓋 Streamlit secondary 白底 */
@@ -407,9 +450,9 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         body:has(.ka-theme-dark) .ka-bottom-dock-host [data-testid="stButton"] > button[data-testid="baseButton-secondary"],
         body:has(.ka-theme-dark) .ka-top-subtab-host [data-testid="stButton"] > button[data-testid="baseButton-secondary"],
         body:has(.ka-theme-dark) .ka-force-row-host [data-testid="stButton"] > button[data-testid="baseButton-secondary"] {{
-            background-color: #000000 !important;
+            background-color: {DARK_SURFACE} !important;
             color: #ffffff !important;
-            border: 1px solid #ffffff !important;
+            border: 1px solid {DARK_BORDER} !important;
             box-shadow: none !important;
         }}
         body:has(.ka-theme-dark) .ka-bottom-dock-host button[kind="secondary"] p,
@@ -422,9 +465,9 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         body:has(.ka-theme-dark) section.main button[kind="secondary"],
         body:has(.ka-theme-dark) section.main [data-testid="stButton"] > button[data-testid="baseButton-secondary"],
         body:has(.ka-theme-dark) section.main button[data-testid="baseButton-secondary"] {{
-            background-color: #000000 !important;
+            background-color: {DARK_SURFACE} !important;
             color: #ffffff !important;
-            border: 1px solid #ffffff !important;
+            border: 1px solid {DARK_BORDER} !important;
             box-shadow: none !important;
         }}
         body:has(.ka-theme-dark) section.main button[kind="secondary"] p,
@@ -432,8 +475,8 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
             color: #ffffff !important;
         }}
         section.main div[data-testid="stVerticalBlock"]:has(.ka-checkin-bar-marker) {{
-            background: #000000 !important;
-            border: 1px solid #ffffff !important;
+            background: {DARK_SURFACE} !important;
+            border: 1px solid {DARK_BORDER} !important;
         }}
         section.main [data-testid="stHeader"],
         header[data-testid="stHeader"] {{
