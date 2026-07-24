@@ -15,7 +15,7 @@ LIGHT = {
 # Dark main-content tokens — AMOLED page bg, grey surfaces so 方格 stand out
 DARK = {
     "text": "#ffffff",
-    "muted": "#cccccc",
+    "muted": "#ffffff",  # 夜光：次要文字也用白，避免與背景混在一起
     "border": "#666666",
     "card_bg": "#1a1a1a",
     "main_bg": "#000000",
@@ -193,6 +193,70 @@ def inject_late_dark_overrides() -> None:
             background-color: {s} !important;
             border: 1px solid {b} !important;
         }}
+        /* ── 夜光：主區所有文字白色（含「中文名 *」等標籤） ── */
+        body:has(.ka-theme-dark) section.main,
+        body:has(.ka-theme-dark) section.main p,
+        body:has(.ka-theme-dark) section.main span,
+        body:has(.ka-theme-dark) section.main label,
+        body:has(.ka-theme-dark) section.main label *,
+        body:has(.ka-theme-dark) section.main [data-testid="stWidgetLabel"],
+        body:has(.ka-theme-dark) section.main [data-testid="stWidgetLabel"] p,
+        body:has(.ka-theme-dark) section.main [data-testid="stWidgetLabel"] span,
+        body:has(.ka-theme-dark) section.main [data-testid="stWidgetLabel"] strong,
+        body:has(.ka-theme-dark) section.main [data-testid="stWidgetLabel"] em,
+        body:has(.ka-theme-dark) section.main .stTextInput label,
+        body:has(.ka-theme-dark) section.main .stTextInput label p,
+        body:has(.ka-theme-dark) section.main .stTextInput label span,
+        body:has(.ka-theme-dark) section.main .stSelectbox label,
+        body:has(.ka-theme-dark) section.main .stSelectbox label p,
+        body:has(.ka-theme-dark) section.main .stSelectbox label span,
+        body:has(.ka-theme-dark) section.main .stTextArea label,
+        body:has(.ka-theme-dark) section.main .stDateInput label,
+        body:has(.ka-theme-dark) section.main .stDateInput label p,
+        body:has(.ka-theme-dark) section.main .stDateInput label span,
+        body:has(.ka-theme-dark) section.main .stNumberInput label,
+        body:has(.ka-theme-dark) section.main .stTimeInput label,
+        body:has(.ka-theme-dark) section.main [data-testid="stRadio"] label,
+        body:has(.ka-theme-dark) section.main [data-testid="stRadio"] label p,
+        body:has(.ka-theme-dark) section.main [data-testid="stCheckbox"] label,
+        body:has(.ka-theme-dark) section.main [data-testid="stCheckbox"] label p,
+        body:has(.ka-theme-dark) section.main [data-testid="stCaptionContainer"],
+        body:has(.ka-theme-dark) section.main [data-testid="stCaptionContainer"] p,
+        body:has(.ka-theme-dark) section.main [data-testid="stCaptionContainer"] small,
+        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"],
+        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"] p,
+        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"] span,
+        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"] li,
+        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"] strong,
+        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"] h1,
+        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"] h2,
+        body:has(.ka-theme-dark) section.main [data-testid="stMarkdownContainer"] h3,
+        body:has(.ka-theme-dark) section.main .ka-breadcrumb,
+        body:has(.ka-theme-dark) section.main .ka-breadcrumb span,
+        body:has(.ka-theme-dark) section.main .ka-breadcrumb b,
+        body:has(.ka-theme-dark) section.main .ka-page-title,
+        body:has(.ka-theme-dark) section.main .ka-page-sub,
+        body:has(.ka-theme-dark) section.main [data-testid="stMetricLabel"],
+        body:has(.ka-theme-dark) section.main [data-testid="stMetricLabel"] p,
+        body:has(.ka-theme-dark) section.main [data-testid="stMetricValue"] {{
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+        }}
+        /* Required * and BaseWeb label bits must stay white (not Streamlit red/grey) */
+        body:has(.ka-theme-dark) section.main label [data-testid="stMarkdownContainer"] p,
+        body:has(.ka-theme-dark) section.main label [data-testid="stMarkdownContainer"] span,
+        body:has(.ka-theme-dark) section.main [data-baseweb="form-control-label"],
+        body:has(.ka-theme-dark) section.main [data-baseweb="form-control-label"] * {{
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+        }}
+        /* Placeholders stay slightly muted so they differ from typed text */
+        body:has(.ka-theme-dark) section.main div[data-testid="stTextInput"] input::placeholder,
+        body:has(.ka-theme-dark) section.main div[data-testid="stTextArea"] textarea::placeholder {{
+            color: #999999 !important;
+            -webkit-text-fill-color: #999999 !important;
+            opacity: 1 !important;
+        }}
         /* ── Buttons: grey surfaces, no click colour flash ── */
         body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] > button,
         body:has(.ka-theme-dark) [data-testid="stAppViewContainer"] [data-testid="stButton"] button,
@@ -287,11 +351,11 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         dark_stat_override = f"""
         .ka-stat-card {{ background: {DARK_SURFACE} !important; border: 1px solid {DARK_BORDER} !important; }}
         .ka-stat-value {{ color: #ffffff !important; }}
-        .ka-stat-label {{ color: #cccccc !important; }}
+        .ka-stat-label {{ color: #ffffff !important; }}
         .ka-lb-card {{ background: {DARK_SURFACE} !important; border: 1px solid {DARK_BORDER} !important; color: #ffffff !important; }}
         .ka-empty {{ background: {DARK_SURFACE} !important; border: 1px dashed {DARK_BORDER} !important; }}
         .ka-empty-title, .ka-empty-hint {{ color: #ffffff !important; }}
-        .ka-lb-meta {{ color: #cccccc !important; }}
+        .ka-lb-meta {{ color: #ffffff !important; }}
         .ka-stat-card.ka-tone-success,
         .ka-stat-card.ka-tone-warn,
         .ka-stat-card.ka-tone-danger {{
@@ -368,8 +432,14 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         }}
         section.main [data-testid="stRadio"] label p,
         section.main [data-testid="stCheckbox"] label p,
-        section.main [data-testid="stWidgetLabel"] p {{
-            color: {c["text"]} !important;
+        section.main [data-testid="stWidgetLabel"],
+        section.main [data-testid="stWidgetLabel"] p,
+        section.main [data-testid="stWidgetLabel"] span,
+        section.main [data-testid="stWidgetLabel"] strong,
+        section.main label[data-testid="stWidgetLabel"],
+        section.main label[data-testid="stWidgetLabel"] * {{
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
         }}
         section.main [data-testid="stExpander"] {{
             background-color: {DARK_SURFACE} !important;
@@ -563,14 +633,31 @@ def inject_global_css(theme: str | None = None, role_class: str = "", **_kwargs)
         section.main [data-testid="stCaptionContainer"],
         section.main [data-testid="stCaptionContainer"] p,
         section.main [data-testid="stCaptionContainer"] small {{
-            color: {c["muted"]} !important;
+            color: {c["text"]} !important;
         }}
+        section.main label[data-testid="stWidgetLabel"],
         section.main label[data-testid="stWidgetLabel"] p,
         section.main label[data-testid="stWidgetLabel"] span,
+        section.main label[data-testid="stWidgetLabel"] strong,
+        section.main label[data-testid="stWidgetLabel"] *,
+        section.main .stSelectbox label,
         section.main .stSelectbox label p,
+        section.main .stSelectbox label span,
+        section.main .stTextInput label,
         section.main .stTextInput label p,
-        section.main .stTextArea label p {{
+        section.main .stTextInput label span,
+        section.main .stTextArea label,
+        section.main .stTextArea label p,
+        section.main .stTextArea label span,
+        section.main .stDateInput label,
+        section.main .stDateInput label p,
+        section.main .stDateInput label span,
+        section.main .stNumberInput label,
+        section.main .stNumberInput label p,
+        section.main .stTimeInput label,
+        section.main .stTimeInput label p {{
             color: {c["text"]} !important;
+            -webkit-text-fill-color: {c["text"]} !important;
         }}
         section.main [data-testid="stExpander"] summary,
         section.main [data-testid="stExpander"] summary p {{
