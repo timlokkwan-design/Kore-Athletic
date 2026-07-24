@@ -41,6 +41,7 @@ from views.components.theme import (
     sync_ui_density,
     sync_ui_theme,
 )
+from views.components.toast import drain_toasts, inject_toast_css, install_feedback_toasts
 from views.leaderboard_view import render_leaderboard
 from views.parent_view import render_parent_view
 from views.register_view import render_register_view
@@ -129,6 +130,7 @@ def _render_page(
 def main() -> None:
     init_auth_persistence()
     try_restore_session()
+    install_feedback_toasts()
     user = get_current_user()
     role = user["role"] if user else "visitor"
     try_restore_nav_state(role)
@@ -137,6 +139,7 @@ def main() -> None:
     sync_ui_density()
 
     inject_global_css()
+    inject_toast_css()
     render_sidebar_menu_button()
     inject_pwa_head()
 
@@ -261,6 +264,7 @@ def main() -> None:
     st.session_state.pop("_fresh_login", None)
 
     inject_late_dark_overrides()
+    drain_toasts()
 
 
 if __name__ == "__main__":

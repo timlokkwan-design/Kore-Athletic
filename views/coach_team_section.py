@@ -74,7 +74,11 @@ def _render_pending_registrations() -> None:
     st.markdown("##### 待審批學員註冊")
     flash = st.session_state.pop("wa_notify_flash", None)
     if flash:
-        st.success(f"✅ 已核准 **{flash.get('name', '')}**（{flash.get('username', '')}）")
+        from views.components.toast import toast_success
+
+        name = flash.get("name", "")
+        username = flash.get("username", "")
+        toast_success(f"已核准 {name}（{username}）")
         if flash.get("url"):
             st.link_button(
                 "📱 WhatsApp 通知學員（一鍵發送）",

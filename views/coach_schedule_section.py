@@ -325,8 +325,9 @@ def render_coach_schedule() -> None:
     pick_mode = st.session_state.get("sched_pick_mode")
     flash = st.session_state.pop("sched_flash", None)
     if flash:
-        kind, msg = flash
-        (st.success if kind == "success" else st.error)(msg)
+        from views.components.toast import show_flash
+
+        show_flash(flash)
 
     countdown = days_until_competition()
     st.metric("校際賽倒數", f"{countdown} 天" if countdown is not None else "—")
